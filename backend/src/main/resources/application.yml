@@ -1,0 +1,16 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: groupware
+  profiles:
+    active: dev
+
+app:
+  api-prefix: /api/v1
+  jwt:
+    secret: ${JWT_SECRET:change-this-secret-to-a-long-random-value-for-local-development}
+    access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:3600}
+  file:
+    storage-path: ${FILE_STORAGE_PATH:uploads}
