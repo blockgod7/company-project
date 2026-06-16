@@ -4,6 +4,7 @@
 tmp/
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
 frontend/*.tsbuildinfo
 frontend/vite-dev.log
 frontend/vite-dev.err.log
