@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.notification;
 import com.kjh.groupware.domain.notification.dto.NotificationRequest;
 import com.kjh.groupware.domain.notification.dto.NotificationResponse;
 import com.kjh.groupware.global.response.ApiResponse;
+import com.kjh.groupware.global.response.PageResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,10 +25,14 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping
-    public ApiResponse<List<NotificationResponse>> findMine(
-        @RequestParam(required = false, defaultValue = "false") Boolean unreadOnly
+    public ApiResponse<PageResponse<NotificationResponse>> findMine(
+        @RequestParam(required = false) String readYn,
+        @RequestParam(required = false, defaultValue = "false") Boolean unreadOnly,
+        @RequestParam(required = false, defaultValue = "0") int page,
+        @RequestParam(required = false, defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(notificationService.findMine(unreadOnly));
+        String effectiveReadYn = readYn == null && Boolean.TRUE.equals(unreadOnly) ? "N" : readYn;
+        return ApiResponse.ok(notificationService.findMine(effectiveReadYn, page, size));
     }
 
     @PostMapping
@@ -36,6 +42,11 @@ public class NotificationController {
 
     @PatchMapping("/{notificationId}/read")
     public ApiResponse<NotificationResponse> markRead(@PathVariable Long notificationId) {
+        return ApiResponse.ok(notificationService.markRead(notificationId));
+    }
+
+    @PutMapping("/{notificationId}/read")
+    public ApiResponse<NotificationResponse> putMarkRead(@PathVariable Long notificationId) {
         return ApiResponse.ok(notificationService.markRead(notificationId));
     }
 }

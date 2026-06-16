@@ -5,11 +5,15 @@ import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.notification.dto.NotificationRequest;
 import com.kjh.groupware.domain.notification.dto.NotificationResponse;
 import com.kjh.groupware.global.exception.BusinessException;
+import com.kjh.groupware.global.response.PageResponse;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +30,18 @@ public class NotificationService {
             ? notificationRepository.findByEmpAndReadYnOrderByNotificationIdDesc(currentEmp, "N")
             : notificationRepository.findByEmpOrderByNotificationIdDesc(currentEmp);
         return notifications.stream().map(NotificationResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<NotificationResponse> findMine(String readYn, int page, int size) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+            Sort.by(Sort.Order.desc("notificationId")));
+        if (StringUtils.hasText(readYn)) {
+            return PageResponse.from(notificationRepository.findByEmpAndReadYn(currentEmp, readYn, pageRequest)
+                .map(NotificationResponse::from));
+        }
+        return PageResponse.from(notificationRepository.findByEmp(currentEmp, pageRequest).map(NotificationResponse::from));
     }
 
     @Transactional

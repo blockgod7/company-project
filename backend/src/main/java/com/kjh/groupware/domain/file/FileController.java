@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.file;
 import com.kjh.groupware.domain.file.dto.AttachFileResponse;
 import com.kjh.groupware.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -35,6 +36,20 @@ public class FileController {
         HttpServletRequest httpRequest
     ) {
         return ApiResponse.ok(fileService.upload(targetType, targetId, file, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
+    @PostMapping("/batch")
+    public ApiResponse<List<AttachFileResponse>> uploadBatch(
+        @RequestParam String targetType,
+        @RequestParam Long targetId,
+        @RequestParam("files") List<MultipartFile> files,
+        HttpServletRequest httpRequest
+    ) {
+        List<AttachFileResponse> responses = new ArrayList<>();
+        for (MultipartFile file : files) {
+            responses.add(fileService.upload(targetType, targetId, file, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        }
+        return ApiResponse.ok(responses);
     }
 
     @GetMapping

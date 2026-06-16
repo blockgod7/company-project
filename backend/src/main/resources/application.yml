@@ -6,11 +6,16 @@ spring:
     name: groupware
   profiles:
     active: dev
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
 
 app:
   api-prefix: /api/v1
   jwt:
     secret: ${JWT_SECRET:change-this-secret-to-a-long-random-value-for-local-development}
-    access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:3600}
+    access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:1800}
+    refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:1209600}
   file:
     storage-path: ${FILE_STORAGE_PATH:uploads}

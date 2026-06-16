@@ -1,13 +1,17 @@
 package com.kjh.groupware.domain.auth;
 
+import com.kjh.groupware.domain.auth.dto.CurrentUserResponse;
 import com.kjh.groupware.domain.auth.dto.LoginRequest;
 import com.kjh.groupware.domain.auth.dto.LoginResponse;
+import com.kjh.groupware.domain.auth.dto.RefreshTokenRequest;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
+import com.kjh.groupware.global.security.CurrentEmpProvider;
 import com.kjh.groupware.global.security.JwtTokenProvider;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +25,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuditLogService auditLogService;
+    private final CurrentEmpProvider currentEmpProvider;
 
     @Transactional
     public LoginResponse login(LoginRequest request, String ipAddress, String userAgent) {
@@ -43,8 +48,25 @@ public class AuthService {
 
         emp.recordLoginSuccess();
         String accessToken = jwtTokenProvider.createAccessToken(emp.getEmpId(), emp.getLoginId(), emp.getRoleCode());
+        String refreshToken = jwtTokenProvider.createRefreshToken(emp.getEmpId(), emp.getLoginId(), emp.getRoleCode());
         auditLogService.record(emp.getEmpId(), AuditActionType.LOGIN, "emp", emp.getEmpId(), ipAddress, userAgent);
 
-        return new LoginResponse(accessToken, "Bearer", emp.getEmpId(), emp.getLoginId(), emp.getEmpName(), emp.getRoleCode());
+        return new LoginResponse(accessToken, refreshToken, "Bearer", emp.getEmpId(), emp.getLoginId(), emp.getEmpName(), emp.getRoleCode());
+    }
+
+    @Transactional(readOnly = true)
+    public CurrentUserResponse me() {
+        return CurrentUserResponse.from(currentEmpProvider.getCurrentEmp());
+    }
+
+    @Transactional(readOnly = true)
+    public LoginResponse refresh(RefreshTokenRequest request) {
+        Claims claims = jwtTokenProvider.validateRefreshToken(request.refreshToken())
+            .orElseThrow(() -> BusinessException.unauthorized("INVALID_REFRESH_TOKEN", "Refresh token is invalid"));
+        Emp emp = empRepository.findActiveByLoginId(claims.getSubject())
+            .orElseThrow(() -> BusinessException.unauthorized("UNAUTHORIZED", "Authenticated employee was not found"));
+        String accessToken = jwtTokenProvider.createAccessToken(emp.getEmpId(), emp.getLoginId(), emp.getRoleCode());
+        String refreshToken = jwtTokenProvider.createRefreshToken(emp.getEmpId(), emp.getLoginId(), emp.getRoleCode());
+        return new LoginResponse(accessToken, refreshToken, "Bearer", emp.getEmpId(), emp.getLoginId(), emp.getEmpName(), emp.getRoleCode());
     }
 }

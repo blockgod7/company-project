@@ -1,0 +1,13 @@
+.m2repo/
+.npm-cache/
+.tools/
+tmp/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite-dev.log
+frontend/vite-dev.err.log
+backend/java-direct.out.log
+backend/java-direct.err.log
+backend/java-run*.log
+uploads/

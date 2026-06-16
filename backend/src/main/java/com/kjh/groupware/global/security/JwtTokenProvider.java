@@ -21,26 +21,40 @@ import org.springframework.util.StringUtils;
 public class JwtTokenProvider {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String TOKEN_TYPE_ACCESS = "access";
+    private static final String TOKEN_TYPE_REFRESH = "refresh";
 
     private final SecretKey secretKey;
     private final long accessTokenValiditySeconds;
+    private final long refreshTokenValiditySeconds;
 
     public JwtTokenProvider(
         @Value("${app.jwt.secret}") String secret,
-        @Value("${app.jwt.access-token-validity-seconds}") long accessTokenValiditySeconds
+        @Value("${app.jwt.access-token-validity-seconds}") long accessTokenValiditySeconds,
+        @Value("${app.jwt.refresh-token-validity-seconds}") long refreshTokenValiditySeconds
     ) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenValiditySeconds = accessTokenValiditySeconds;
+        this.refreshTokenValiditySeconds = refreshTokenValiditySeconds;
     }
 
     public String createAccessToken(Long empId, String loginId, String roleCode) {
+        return createToken(empId, loginId, roleCode, TOKEN_TYPE_ACCESS, accessTokenValiditySeconds);
+    }
+
+    public String createRefreshToken(Long empId, String loginId, String roleCode) {
+        return createToken(empId, loginId, roleCode, TOKEN_TYPE_REFRESH, refreshTokenValiditySeconds);
+    }
+
+    private String createToken(Long empId, String loginId, String roleCode, String tokenType, long validitySeconds) {
         Instant now = Instant.now();
         return Jwts.builder()
             .subject(loginId)
             .claim("emp_id", empId)
             .claim("role_code", roleCode)
+            .claim("token_type", tokenType)
             .issuedAt(Date.from(now))
-            .expiration(Date.from(now.plusSeconds(accessTokenValiditySeconds)))
+            .expiration(Date.from(now.plusSeconds(validitySeconds)))
             .signWith(secretKey)
             .compact();
     }
@@ -55,10 +69,25 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String token) {
         try {
-            parseClaims(token);
+            Claims claims = parseClaims(token);
+            if (!TOKEN_TYPE_ACCESS.equals(claims.get("token_type", String.class))) {
+                return false;
+            }
             return true;
         } catch (RuntimeException ex) {
             return false;
+        }
+    }
+
+    public Optional<Claims> validateRefreshToken(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            if (!TOKEN_TYPE_REFRESH.equals(claims.get("token_type", String.class))) {
+                return Optional.empty();
+            }
+            return Optional.of(claims);
+        } catch (RuntimeException ex) {
+            return Optional.empty();
         }
     }
 

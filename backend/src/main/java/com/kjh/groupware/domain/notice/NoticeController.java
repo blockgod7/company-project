@@ -5,6 +5,7 @@ import com.kjh.groupware.domain.notice.dto.NoticeCommentResponse;
 import com.kjh.groupware.domain.notice.dto.NoticeRequest;
 import com.kjh.groupware.domain.notice.dto.NoticeResponse;
 import com.kjh.groupware.global.response.ApiResponse;
+import com.kjh.groupware.global.response.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -26,8 +28,11 @@ public class NoticeController {
     private final NoticeService noticeService;
 
     @GetMapping
-    public ApiResponse<List<NoticeResponse>> findAll() {
-        return ApiResponse.ok(noticeService.findAll());
+    public ApiResponse<PageResponse<NoticeResponse>> findAll(
+        @RequestParam(required = false, defaultValue = "0") int page,
+        @RequestParam(required = false, defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(noticeService.findPage(page, size));
     }
 
     @GetMapping("/{noticeId}")
@@ -65,6 +70,12 @@ public class NoticeController {
         HttpServletRequest httpRequest
     ) {
         return ApiResponse.ok(noticeService.createComment(noticeId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
+    @DeleteMapping("/comments/{commentId}")
+    public ApiResponse<Void> deleteComment(@PathVariable Long commentId, HttpServletRequest httpRequest) {
+        noticeService.deleteComment(commentId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent"));
+        return ApiResponse.ok(null, "Deleted");
     }
 
     @PostMapping("/{noticeId}/read")

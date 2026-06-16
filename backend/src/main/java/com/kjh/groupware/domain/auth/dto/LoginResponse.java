@@ -2,6 +2,7 @@ package com.kjh.groupware.domain.auth.dto;
 
 public record LoginResponse(
     String accessToken,
+    String refreshToken,
     String tokenType,
     Long empId,
     String loginId,

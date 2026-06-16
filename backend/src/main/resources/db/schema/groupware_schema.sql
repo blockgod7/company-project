@@ -1,4 +1,4 @@
--- =========================================================
+﻿-- =========================================================
 -- Company Integrated Groupware - Phase 1 Schema
 -- Target DB: PostgreSQL
 -- Version: 1.0
@@ -41,7 +41,7 @@ CREATE TABLE dept (
     dept_name VARCHAR(100) NOT NULL,
     parent_dept_id BIGINT NULL,
     sort_order INT DEFAULT 0,
-    use_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
@@ -86,10 +86,10 @@ CREATE TABLE emp (
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     last_login_at TIMESTAMP NULL,
     login_fail_count INT NOT NULL DEFAULT 0,
-    account_locked_yn CHAR(1) NOT NULL DEFAULT 'N',
+    account_locked_yn VARCHAR(1) NOT NULL DEFAULT 'N',
     password_changed_at TIMESTAMP NULL,
 
-    use_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
@@ -134,7 +134,7 @@ CREATE TABLE common_code (
     code_name VARCHAR(100) NOT NULL,
     description VARCHAR(255) NULL,
     sort_order INT DEFAULT 0,
-    use_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
@@ -164,7 +164,7 @@ CREATE TABLE role (
     role_code VARCHAR(30) NOT NULL UNIQUE,
     role_name VARCHAR(100) NOT NULL,
     description VARCHAR(255) NULL,
-    use_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
@@ -187,7 +187,7 @@ CREATE TABLE emp_role (
     role_id BIGINT NOT NULL,
     start_date DATE NULL,
     end_date DATE NULL,
-    use_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
@@ -219,7 +219,7 @@ CREATE TABLE menu (
     menu_path VARCHAR(255) NULL,
     parent_menu_id BIGINT NULL,
     sort_order INT DEFAULT 0,
-    use_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
@@ -244,11 +244,11 @@ CREATE TABLE menu_role (
     menu_role_id BIGSERIAL PRIMARY KEY,
     menu_id BIGINT NOT NULL,
     role_id BIGINT NOT NULL,
-    can_read CHAR(1) NOT NULL DEFAULT 'N',
-    can_write CHAR(1) NOT NULL DEFAULT 'N',
-    can_update CHAR(1) NOT NULL DEFAULT 'N',
-    can_delete CHAR(1) NOT NULL DEFAULT 'N',
-    can_approve CHAR(1) NOT NULL DEFAULT 'N',
+    can_read VARCHAR(1) NOT NULL DEFAULT 'N',
+    can_write VARCHAR(1) NOT NULL DEFAULT 'N',
+    can_update VARCHAR(1) NOT NULL DEFAULT 'N',
+    can_delete VARCHAR(1) NOT NULL DEFAULT 'N',
+    can_approve VARCHAR(1) NOT NULL DEFAULT 'N',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
@@ -285,8 +285,8 @@ CREATE TABLE notice (
     content TEXT NOT NULL,
     writer_emp_id BIGINT NOT NULL,
     view_count INT NOT NULL DEFAULT 0,
-    pinned_yn CHAR(1) NOT NULL DEFAULT 'N',
-    deleted_yn CHAR(1) NOT NULL DEFAULT 'N',
+    pinned_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
     deleted_at TIMESTAMP NULL,
     deleted_by BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -317,7 +317,7 @@ CREATE TABLE notice_comment (
     notice_id BIGINT NOT NULL,
     writer_emp_id BIGINT NOT NULL,
     content TEXT NOT NULL,
-    deleted_yn CHAR(1) NOT NULL DEFAULT 'N',
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
     deleted_at TIMESTAMP NULL,
     deleted_by BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -364,7 +364,7 @@ CREATE TABLE board (
     board_code VARCHAR(50) NOT NULL UNIQUE,
     board_name VARCHAR(100) NOT NULL,
     dept_id BIGINT NULL,
-    use_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
@@ -392,8 +392,8 @@ CREATE TABLE board_post (
     content TEXT NOT NULL,
     writer_emp_id BIGINT NOT NULL,
     view_count INT NOT NULL DEFAULT 0,
-    draft_yn CHAR(1) NOT NULL DEFAULT 'N',
-    deleted_yn CHAR(1) NOT NULL DEFAULT 'N',
+    draft_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
     deleted_at TIMESTAMP NULL,
     deleted_by BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -426,7 +426,7 @@ CREATE TABLE board_comment (
     post_id BIGINT NOT NULL,
     writer_emp_id BIGINT NOT NULL,
     content TEXT NOT NULL,
-    deleted_yn CHAR(1) NOT NULL DEFAULT 'N',
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
     deleted_at TIMESTAMP NULL,
     deleted_by BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -479,7 +479,7 @@ CREATE TABLE attach_file (
     file_ext VARCHAR(30) NULL,
     file_hash VARCHAR(128) NULL,
     mime_type VARCHAR(100) NULL,
-    deleted_yn CHAR(1) NOT NULL DEFAULT 'N',
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
     deleted_at TIMESTAMP NULL,
     deleted_by BIGINT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -506,7 +506,7 @@ CREATE TABLE notification (
     message TEXT NULL,
     target_type VARCHAR(50) NULL,
     target_id BIGINT NULL,
-    read_yn CHAR(1) NOT NULL DEFAULT 'N',
+    read_yn VARCHAR(1) NOT NULL DEFAULT 'N',
     read_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
@@ -624,22 +624,76 @@ VALUES
     ('POSITION', 'GENERAL_MANAGER', '부장', 6)
 ON CONFLICT (code_group, code) DO NOTHING;
 
-INSERT INTO dept (dept_code, dept_name, sort_order)
+INSERT INTO dept (dept_code, dept_name, parent_dept_id, sort_order)
 VALUES
-    ('ADMIN', '관리부', 1),
-    ('PROD', '생산팀', 2),
-    ('ENG', '생산기술팀', 3),
-    ('QUALITY', '품질팀', 4),
-    ('PURCHASE', '구매팀', 5),
-    ('SALES', '영업팀', 6)
+    ('SALES', '영업', NULL, 1),
+    ('PROD', '생산', NULL, 2),
+    ('RND', 'R&D', NULL, 3),
+    ('HR_ADMIN', '인사총무', NULL, 4),
+    ('ACCOUNTING', '회계', NULL, 5),
+    ('QA', 'QA', NULL, 6),
+    ('PURCHASE', '구매', NULL, 7),
+    ('PROD_TECH', '생산기술', NULL, 8)
 ON CONFLICT (dept_code) DO NOTHING;
+
+INSERT INTO dept (dept_code, dept_name, parent_dept_id, sort_order)
+VALUES
+    ('IND_TRANSIT', '인더스트리/트랜짓', (SELECT dept_id FROM dept WHERE dept_code = 'SALES'), 1),
+    ('MOBILITY_SALES', '모빌리티', (SELECT dept_id FROM dept WHERE dept_code = 'SALES'), 2),
+    ('IND_BU127', '인더스트리(BU1,2,7)', (SELECT dept_id FROM dept WHERE dept_code = 'PROD'), 1),
+    ('MOBILITY_BU520', '모빌리티(BU5,20)', (SELECT dept_id FROM dept WHERE dept_code = 'PROD'), 2),
+    ('EC_TRANSIT_BU349', 'EC/트랜짓(BU3,4,9)', (SELECT dept_id FROM dept WHERE dept_code = 'PROD'), 3)
+ON CONFLICT (dept_code) DO NOTHING;
+
+INSERT INTO emp (
+    emp_no,
+    login_id,
+    password_hash,
+    emp_name,
+    email,
+    dept_id,
+    position_name,
+    job_title,
+    role_code,
+    status,
+    login_fail_count,
+    account_locked_yn,
+    use_yn,
+    password_changed_at
+)
+VALUES (
+    'ADMIN-001',
+    'admin',
+    '$2a$10$STCx2vSXUihXSvJV5soudOLiyOR5FjIB4d7JkQlG6819nLIKK45vW',
+    '시스템 관리자',
+    'admin@schunk.local',
+    (SELECT dept_id FROM dept WHERE dept_code = 'HR_ADMIN'),
+    'ADMIN',
+    'System Administrator',
+    'ADMIN',
+    'ACTIVE',
+    0,
+    'N',
+    'Y',
+    NOW()
+)
+ON CONFLICT (login_id) DO NOTHING;
 
 INSERT INTO menu (menu_name, menu_path, parent_menu_id, sort_order)
 VALUES
-    ('메인', '/', NULL, 1),
-    ('공지사항', '/notice', NULL, 2),
-    ('게시판', '/board', NULL, 3),
-    ('관리자', '/admin', NULL, 99);
+    ('대시보드', '/', NULL, 1),
+    ('공지사항', '/notices', NULL, 2),
+    ('게시판', '/boards', NULL, 3),
+    ('조직도', '/organization', NULL, 4),
+    ('알림', '/notifications', NULL, 5),
+    ('감사 로그', '/admin/audit-logs', NULL, 99)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO board (board_code, board_name, dept_id, use_yn, created_by)
+VALUES
+    ('GENERAL', '전사 게시판', NULL, 'Y', (SELECT emp_id FROM emp WHERE login_id = 'admin')),
+    ('FREE', '자유 게시판', NULL, 'Y', (SELECT emp_id FROM emp WHERE login_id = 'admin'))
+ON CONFLICT (board_code) DO NOTHING;
 
 -- =========================================================
 -- End of Schema

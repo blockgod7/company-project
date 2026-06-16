@@ -30,6 +30,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class FileService {
 
+    private static final long MAX_FILE_SIZE = 100L * 1024L * 1024L;
+
     private final AttachFileRepository attachFileRepository;
     private final CurrentEmpProvider currentEmpProvider;
     private final AuditLogService auditLogService;
@@ -47,6 +49,9 @@ public class FileService {
     ) {
         if (multipartFile.isEmpty()) {
             throw BusinessException.badRequest("EMPTY_FILE", "Uploaded file is empty");
+        }
+        if (multipartFile.getSize() > MAX_FILE_SIZE) {
+            throw BusinessException.badRequest("FILE_TOO_LARGE", "File size must be 100MB or less");
         }
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         String originalFileName = StringUtils.cleanPath(multipartFile.getOriginalFilename() == null

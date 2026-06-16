@@ -3,9 +3,11 @@ package com.kjh.groupware.domain.log;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.log.dto.AuditLogResponse;
 import com.kjh.groupware.global.exception.BusinessException;
+import com.kjh.groupware.global.response.PageResponse;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,5 +27,16 @@ public class AuditLogQueryService {
         return auditLogRepository.findTop100ByOrderByAuditIdDesc().stream()
             .map(AuditLogResponse::from)
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AuditLogResponse> findPage(int page, int size) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        if (!"ADMIN".equals(currentEmp.getRoleCode())) {
+            throw BusinessException.forbidden("ADMIN_REQUIRED", "Admin role is required");
+        }
+        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+        return PageResponse.from(auditLogRepository.findAllByOrderByAuditIdDesc(pageRequest)
+            .map(AuditLogResponse::from));
     }
 }

@@ -13,9 +13,12 @@ import com.kjh.groupware.domain.notification.NotificationService;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
+import com.kjh.groupware.global.response.PageResponse;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,6 +68,15 @@ public class BoardService {
             .filter(post -> !"Y".equals(post.getDraftYn()) || isCurrentWriterOrAdmin(post.getWriter()))
             .map(BoardPostResponse::from)
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<BoardPostResponse> findPosts(Long boardId, int page, int size) {
+        Board board = getActiveBoard(boardId);
+        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+            Sort.by(Sort.Order.desc("postId")));
+        return PageResponse.from(boardPostRepository.findByBoardAndDeletedYn(board, "N", pageRequest)
+            .map(BoardPostResponse::from));
     }
 
     @Transactional
@@ -138,6 +150,19 @@ public class BoardService {
             );
         }
         return BoardCommentResponse.from(saved);
+    }
+
+    @Transactional
+    public void deleteComment(Long commentId, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        BoardComment comment = boardCommentRepository.findById(commentId)
+            .orElseThrow(() -> BusinessException.notFound("BOARD_COMMENT_NOT_FOUND", "Board comment was not found"));
+        if ("Y".equals(comment.getDeletedYn())) {
+            throw BusinessException.notFound("BOARD_COMMENT_NOT_FOUND", "Board comment was not found");
+        }
+        assertWritable(currentEmp, comment.getWriter());
+        comment.delete(currentEmp);
+        auditLogService.record(currentEmp.getEmpId(), AuditActionType.DELETE, "board_comment", comment.getCommentId(), ipAddress, userAgent);
     }
 
     @Transactional

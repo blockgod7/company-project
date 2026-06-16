@@ -1,5 +1,6 @@
 package com.kjh.groupware.global.exception;
 
+import com.kjh.groupware.global.response.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -11,29 +12,29 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusiness(BusinessException ex) {
-        return ResponseEntity.status(ex.getStatus()).body(ErrorResponse.of(ex.getCode(), ex.getMessage()));
+    public ResponseEntity<ApiResponse<Object>> handleBusiness(BusinessException ex) {
+        return ResponseEntity.status(ex.getStatus()).body(ApiResponse.fail(ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
             .findFirst()
             .map(error -> error.getField() + ": " + error.getDefaultMessage())
             .orElse("Validation failed");
 
-        return ResponseEntity.badRequest().body(ErrorResponse.of("VALIDATION_ERROR", message));
+        return ResponseEntity.badRequest().body(ApiResponse.fail(message));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-            .body(ErrorResponse.of("ACCESS_DENIED", "Access denied"));
+            .body(ApiResponse.fail("Access denied"));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(Exception ex) {
+    public ResponseEntity<ApiResponse<Object>> handleException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(ErrorResponse.of("INTERNAL_SERVER_ERROR", "Unexpected server error"));
+            .body(ApiResponse.fail("Unexpected server error"));
     }
 }

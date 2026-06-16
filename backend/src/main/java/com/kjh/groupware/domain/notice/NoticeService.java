@@ -9,9 +9,12 @@ import com.kjh.groupware.domain.notification.NotificationService;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
+import com.kjh.groupware.global.response.PageResponse;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +34,13 @@ public class NoticeService {
         return noticeRepository.findByDeletedYnOrderByPinnedYnDescNoticeIdDesc("N").stream()
             .map(NoticeResponse::from)
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<NoticeResponse> findPage(int page, int size) {
+        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+            Sort.by(Sort.Order.desc("pinnedYn"), Sort.Order.desc("noticeId")));
+        return PageResponse.from(noticeRepository.findByDeletedYn("N", pageRequest).map(NoticeResponse::from));
     }
 
     @Transactional
@@ -99,6 +109,19 @@ public class NoticeService {
             );
         }
         return NoticeCommentResponse.from(saved);
+    }
+
+    @Transactional
+    public void deleteComment(Long commentId, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        NoticeComment comment = noticeCommentRepository.findById(commentId)
+            .orElseThrow(() -> BusinessException.notFound("NOTICE_COMMENT_NOT_FOUND", "Notice comment was not found"));
+        if ("Y".equals(comment.getDeletedYn())) {
+            throw BusinessException.notFound("NOTICE_COMMENT_NOT_FOUND", "Notice comment was not found");
+        }
+        assertWritable(currentEmp, comment.getWriter());
+        comment.delete(currentEmp);
+        auditLogService.record(currentEmp.getEmpId(), AuditActionType.DELETE, "notice_comment", comment.getCommentId(), ipAddress, userAgent);
     }
 
     @Transactional
