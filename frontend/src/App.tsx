@@ -657,7 +657,7 @@ function ApprovalPage({ user }: { user: User }) {
   }
 
   async function loadEmployees() {
-    const page = await api<PageResponse<Employee>>("/emps?size=100&status=ACTIVE");
+    const page = await api<PageResponse<Employee>>("/emps?size=30&status=ACTIVE");
     setEmployees(page.content.filter((employee) => employee.empId !== user.empId));
   }
 
@@ -769,35 +769,137 @@ function ApprovalPage({ user }: { user: User }) {
 }
 
 function ApproverPicker({ employees, selectedIds, onChange }: { employees: Employee[]; selectedIds: number[]; onChange: (ids: number[]) => void }) {
-  function toggle(empId: number) {
-    if (selectedIds.includes(empId)) {
-      onChange(selectedIds.filter((id) => id !== empId));
-      return;
+  const [open, setOpen] = useState(false);
+  const [tree, setTree] = useState<DeptNode[]>([]);
+  const [activeDeptId, setActiveDeptId] = useState<number | null>(null);
+  const [keyword, setKeyword] = useState("");
+  const [candidates, setCandidates] = useState<Employee[]>(employees);
+  const [knownEmployees, setKnownEmployees] = useState<Employee[]>(employees);
+
+  useEffect(() => {
+    setCandidates(employees);
+    setKnownEmployees((prev) => mergeEmployees(prev, employees));
+  }, [employees]);
+
+  async function openPicker() {
+    setOpen(true);
+    if (!tree.length) {
+      const data = await api<DeptNode[]>("/depts/tree");
+      setTree(data);
     }
-    onChange([...selectedIds, empId]);
+    await search();
+  }
+
+  async function search(targetDeptId = activeDeptId) {
+    const params = new URLSearchParams({ page: "0", size: "50", status: "ACTIVE" });
+    if (keyword.trim()) params.set("keyword", keyword.trim());
+    if (targetDeptId) params.set("deptId", String(targetDeptId));
+    const page = await api<PageResponse<Employee>>(`/emps?${params.toString()}`);
+    const next = page.content;
+    setCandidates(next);
+    setKnownEmployees((prev) => mergeEmployees(prev, next));
+  }
+
+  async function selectDept(deptId: number) {
+    setActiveDeptId(deptId);
+    await search(deptId);
+  }
+
+  function add(employee: Employee) {
+    if (selectedIds.includes(employee.empId)) return;
+    setKnownEmployees((prev) => mergeEmployees(prev, [employee]));
+    onChange([...selectedIds, employee.empId]);
+  }
+
+  function remove(empId: number) {
+    onChange(selectedIds.filter((id) => id !== empId));
+  }
+
+  function move(empId: number, direction: -1 | 1) {
+    const index = selectedIds.indexOf(empId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= selectedIds.length) return;
+    const next = [...selectedIds];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    onChange(next);
   }
 
   return (
     <div className="approver-picker">
-      <h3>결재선</h3>
-      <div className="approver-list">
-        {employees.map((employee) => (
-          <button key={employee.empId} type="button" className={selectedIds.includes(employee.empId) ? "active" : ""} onClick={() => toggle(employee.empId)}>
-            <strong>{employee.empName}</strong>
-            <span>{employee.deptName ?? "-"} · {employee.positionName ?? employee.jobTitle ?? employee.roleCode}</span>
-          </button>
-        ))}
+      <div className="panel-head">
+        <h3>결재선</h3>
+        <button type="button" onClick={openPicker}><Building2 size={16} /> 결재라인 구성</button>
       </div>
       {selectedIds.length ? (
         <div className="approval-path">
           {selectedIds.map((id, index) => {
-            const employee = employees.find((item) => item.empId === id);
-            return <span key={id}>{index + 1}. {employee?.empName ?? id}</span>;
+            const employee = knownEmployees.find((item) => item.empId === id);
+            return (
+              <span key={id}>
+                {index + 1}. {employee?.empName ?? id}
+                <button type="button" onClick={() => move(id, -1)} disabled={index === 0}>↑</button>
+                <button type="button" onClick={() => move(id, 1)} disabled={index === selectedIds.length - 1}>↓</button>
+                <button type="button" onClick={() => remove(id)}>×</button>
+              </span>
+            );
           })}
         </div>
       ) : <Empty text="결재자를 순서대로 선택해 주세요." />}
+      {open && (
+        <div className="modal-backdrop" role="presentation">
+          <div className="org-picker-modal" role="dialog" aria-modal="true" aria-label="결재라인 구성">
+            <div className="modal-head">
+              <h3>결재라인 구성</h3>
+              <button type="button" className="icon-button" onClick={() => setOpen(false)} title="닫기"><X size={18} /></button>
+            </div>
+            <div className="org-picker-layout">
+              <div className="org-picker-tree">
+                {tree.map((node) => <DeptTree key={node.deptId} node={node} active={activeDeptId} onSelect={selectDept} />)}
+              </div>
+              <div className="org-picker-results">
+                <div className="searchbar">
+                  <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="직원명, 아이디, 사번 검색" />
+                  <button type="button" onClick={() => search()}><Search size={16} /> 검색</button>
+                </div>
+                <div className="employee-result-list">
+                  {candidates.map((employee) => (
+                    <button key={employee.empId} type="button" className={selectedIds.includes(employee.empId) ? "active" : ""} onClick={() => add(employee)}>
+                      <strong>{employee.empName}</strong>
+                      <span>{employee.deptName ?? "-"} · {employee.positionName ?? employee.jobTitle ?? employee.roleCode}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="org-picker-selected">
+                <h3>선택된 결재선</h3>
+                {selectedIds.length ? selectedIds.map((id, index) => {
+                  const employee = knownEmployees.find((item) => item.empId === id);
+                  return (
+                    <div className="selected-approver" key={id}>
+                      <strong>{index + 1}. {employee?.empName ?? id}</strong>
+                      <span>{employee?.deptName ?? "-"}</span>
+                      <div>
+                        <button type="button" onClick={() => move(id, -1)} disabled={index === 0}>↑</button>
+                        <button type="button" onClick={() => move(id, 1)} disabled={index === selectedIds.length - 1}>↓</button>
+                        <button type="button" onClick={() => remove(id)}>삭제</button>
+                      </div>
+                    </div>
+                  );
+                }) : <Empty text="선택된 결재자가 없습니다." />}
+                <button type="button" className="primary" onClick={() => setOpen(false)}>적용</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function mergeEmployees(current: Employee[], next: Employee[]) {
+  const byId = new Map(current.map((employee) => [employee.empId, employee]));
+  next.forEach((employee) => byId.set(employee.empId, employee));
+  return Array.from(byId.values());
 }
 
 function ApprovalLineView({ lines }: { lines: Approval["lines"] }) {
