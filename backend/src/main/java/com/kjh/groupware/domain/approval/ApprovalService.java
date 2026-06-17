@@ -40,31 +40,34 @@ public class ApprovalService {
     @Transactional(readOnly = true)
     public PageResponse<ApprovalSummaryResponse> findPage(String box, int page, int size) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        PageRequest pageRequest = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        PageRequest documentPageRequest = PageRequest.of(safePage, safeSize,
             Sort.by(Sort.Order.desc("approvalId")));
+        PageRequest linePageRequest = PageRequest.of(safePage, safeSize);
         String normalizedBox = box == null || box.isBlank() ? BOX_PENDING : box;
 
         if (BOX_PENDING.equals(normalizedBox)) {
-            return PageResponse.from(lineRepository.findByApproverAndStatusOrderByLineIdDesc(currentEmp, ApprovalLine.STATUS_PENDING, pageRequest)
+            return PageResponse.from(lineRepository.findByApproverAndStatusOrderByLineIdDesc(currentEmp, ApprovalLine.STATUS_PENDING, linePageRequest)
                 .map(line -> summary(line.getDocument())));
         }
         if (BOX_PROCESSED.equals(normalizedBox)) {
             return PageResponse.from(lineRepository.findByApproverAndStatusInOrderByLineIdDesc(
                     currentEmp,
                     List.of(ApprovalLine.STATUS_APPROVED, ApprovalLine.STATUS_REJECTED),
-                    pageRequest
+                    linePageRequest
                 )
                 .map(line -> summary(line.getDocument())));
         }
         if (BOX_REQUESTED.equals(normalizedBox)) {
-            return PageResponse.from(documentRepository.findByRequesterAndDeletedYnOrderByApprovalIdDesc(currentEmp, "N", pageRequest)
+            return PageResponse.from(documentRepository.findByRequesterAndDeletedYnOrderByApprovalIdDesc(currentEmp, "N", documentPageRequest)
                 .map(this::summary));
         }
         if (BOX_ALL.equals(normalizedBox) && "ADMIN".equals(currentEmp.getRoleCode())) {
-            return PageResponse.from(documentRepository.findByDeletedYnOrderByApprovalIdDesc("N", pageRequest).map(this::summary));
+            return PageResponse.from(documentRepository.findByDeletedYnOrderByApprovalIdDesc("N", documentPageRequest).map(this::summary));
         }
 
-        Page<ApprovalDocument> visible = documentRepository.findVisibleToApprover(currentEmp, pageRequest);
+        Page<ApprovalDocument> visible = documentRepository.findVisibleToApprover(currentEmp, documentPageRequest);
         return PageResponse.from(visible.map(this::summary));
     }
 

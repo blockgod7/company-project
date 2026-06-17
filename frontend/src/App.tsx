@@ -651,7 +651,7 @@ function ApprovalPage({ user }: { user: User }) {
   const [form, setForm] = useState<ApprovalForm>({ title: "", content: "", approverEmpIds: [] });
   const [employees, setEmployees] = useState<Employee[]>([]);
 
-  async function load(targetBox = box) {
+  async function load(targetBox: "pending" | "requested" | "processed" | "all") {
     const page = await api<PageResponse<ApprovalSummary>>(`/approvals?box=${targetBox}&size=30`);
     setItems(page.content);
   }
@@ -668,17 +668,20 @@ function ApprovalPage({ user }: { user: User }) {
   }
 
   useEffect(() => {
-    void load();
+    setItems([]);
+    void load(box);
   }, [box]);
 
   useEffect(() => {
     void loadEmployees();
   }, []);
 
-  function changeBox(nextBox: "pending" | "requested" | "processed" | "all") {
+  async function changeBox(nextBox: "pending" | "requested" | "processed" | "all") {
     setBox(nextBox);
     setSelected(null);
     setMode("list");
+    setItems([]);
+    await load(nextBox);
   }
 
   function startCreate() {
@@ -703,7 +706,7 @@ function ApprovalPage({ user }: { user: User }) {
       body: jsonBody({ comment })
     });
     setSelected(updated);
-    await load();
+    await load(box);
   }
 
   const canAct = selected?.status === "PENDING" && selected.lines.some((line) => line.status === "PENDING" && line.approverEmpId === user.empId);
@@ -711,12 +714,12 @@ function ApprovalPage({ user }: { user: User }) {
   return (
     <section className="panel board-screen">
       <div className="board-tabs">
-        <button className={box === "pending" ? "active" : ""} onClick={() => changeBox("pending")}>결재대기</button>
-        <button className={box === "requested" ? "active" : ""} onClick={() => changeBox("requested")}>기안문서</button>
-        <button className={box === "processed" ? "active" : ""} onClick={() => changeBox("processed")}>처리문서</button>
-        {user.roleCode === "ADMIN" && <button className={box === "all" ? "active" : ""} onClick={() => changeBox("all")}>전체</button>}
+        <button className={box === "pending" ? "active" : ""} onClick={() => void changeBox("pending")}>결재대기</button>
+        <button className={box === "requested" ? "active" : ""} onClick={() => void changeBox("requested")}>기안문서</button>
+        <button className={box === "processed" ? "active" : ""} onClick={() => void changeBox("processed")}>처리문서</button>
+        {user.roleCode === "ADMIN" && <button className={box === "all" ? "active" : ""} onClick={() => void changeBox("all")}>전체</button>}
       </div>
-      <Toolbar title="전자결재" onNew={startCreate} onRefresh={() => load()} />
+      <Toolbar title="전자결재" onNew={startCreate} onRefresh={() => load(box)} />
       {mode === "list" && (
         <>
           <ListSummary count={items.length} text="표시 중인 결재 문서" />
