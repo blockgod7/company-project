@@ -32,6 +32,8 @@ import schunkLogo from "./assets/schunk-carbon-logo.png";
 import type {
   AuditLog,
   AttachFile,
+  Approval,
+  ApprovalSummary,
   Board,
   BoardPost,
   DeptNode,
@@ -43,10 +45,11 @@ import type {
   User
 } from "./types";
 
-type Route = "dashboard" | "notices" | "boards" | "notifications" | "organization" | "audit";
+type Route = "dashboard" | "notices" | "boards" | "approvals" | "notifications" | "organization" | "audit";
 type ContentMode = "list" | "detail" | "create" | "edit";
 type NoticeForm = { title: string; content: string; pinned: boolean };
 type BoardForm = { title: string; content: string; draft: boolean };
+type ApprovalForm = { title: string; content: string; approverEmpIds: number[] };
 type AttachmentPresence = Record<number, boolean>;
 type DraftAttachment = { id: string; file: File };
 
@@ -54,6 +57,7 @@ const routeLabels: Record<Route, string> = {
   dashboard: "대시보드",
   notices: "공지사항",
   boards: "게시판",
+  approvals: "전자결재",
   notifications: "알림",
   organization: "조직도",
   audit: "감사 로그"
@@ -63,6 +67,7 @@ const menu: { route: Route; label: string; icon: LucideIcon }[] = [
   { route: "dashboard", label: "홈", icon: Home },
   { route: "notices", label: "공지사항", icon: BookOpen },
   { route: "boards", label: "통합게시판", icon: MessageSquare },
+  { route: "approvals", label: "전자결재", icon: ClipboardCheck },
   { route: "organization", label: "조직도", icon: Building2 },
   { route: "notifications", label: "알림", icon: Bell }
 ];
@@ -205,6 +210,7 @@ function App() {
           {route === "dashboard" && <Dashboard user={user} go={setRoute} />}
           {route === "notices" && <NoticePage user={user} />}
           {route === "boards" && <BoardPage user={user} />}
+          {route === "approvals" && <ApprovalPage user={user} />}
           {route === "notifications" && <NotificationPage />}
           {route === "organization" && <OrganizationPage />}
           {route === "audit" && (isAdmin ? <AuditLogPage /> : <AccessDenied />)}
@@ -312,7 +318,7 @@ function Dashboard({ user, go }: { user: User; go: (route: Route) => void }) {
       <MetricCard icon={Bell} label="미읽음 알림" value={notifications.length} caption="확인 필요" onClick={() => go("notifications")} />
 
       <div className="portal-card pending-card">
-        <CardHeader title="전자결재" action="예정 기능" icon={ClipboardCheck} />
+        <CardHeader title="전자결재" action="바로가기" icon={ClipboardCheck} onAction={() => go("approvals")} />
         <div className="approval-preview">
           <div><strong>0</strong><span>결재대기</span></div>
           <div><strong>0</strong><span>진행문서</span></div>
@@ -637,6 +643,178 @@ function BoardPage({ user }: { user: User }) {
   );
 }
 
+function ApprovalPage({ user }: { user: User }) {
+  const [box, setBox] = useState<"pending" | "requested" | "processed" | "all">("pending");
+  const [items, setItems] = useState<ApprovalSummary[]>([]);
+  const [selected, setSelected] = useState<Approval | null>(null);
+  const [mode, setMode] = useState<ContentMode>("list");
+  const [form, setForm] = useState<ApprovalForm>({ title: "", content: "", approverEmpIds: [] });
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  async function load(targetBox = box) {
+    const page = await api<PageResponse<ApprovalSummary>>(`/approvals?box=${targetBox}&size=30`);
+    setItems(page.content);
+  }
+
+  async function loadEmployees() {
+    const page = await api<PageResponse<Employee>>("/emps?size=100&status=ACTIVE");
+    setEmployees(page.content.filter((employee) => employee.empId !== user.empId));
+  }
+
+  async function loadDetail(id: number) {
+    const detail = await api<Approval>(`/approvals/${id}`);
+    setSelected(detail);
+    setMode("detail");
+  }
+
+  useEffect(() => {
+    void load();
+  }, [box]);
+
+  useEffect(() => {
+    void loadEmployees();
+  }, []);
+
+  function changeBox(nextBox: "pending" | "requested" | "processed" | "all") {
+    setBox(nextBox);
+    setSelected(null);
+    setMode("list");
+  }
+
+  function startCreate() {
+    setSelected(null);
+    setForm({ title: "", content: "", approverEmpIds: [] });
+    setMode("create");
+  }
+
+  async function save() {
+    const saved = await api<Approval>("/approvals", { method: "POST", body: jsonBody(form) });
+    setForm({ title: "", content: "", approverEmpIds: [] });
+    await load("requested");
+    setBox("requested");
+    await loadDetail(saved.approvalId);
+  }
+
+  async function action(type: "approve" | "reject") {
+    if (!selected) return;
+    const comment = window.prompt(type === "approve" ? "승인 의견" : "반려 사유") ?? "";
+    const updated = await api<Approval>(`/approvals/${selected.approvalId}/${type}`, {
+      method: "POST",
+      body: jsonBody({ comment })
+    });
+    setSelected(updated);
+    await load();
+  }
+
+  const canAct = selected?.status === "PENDING" && selected.lines.some((line) => line.status === "PENDING" && line.approverEmpId === user.empId);
+
+  return (
+    <section className="panel board-screen">
+      <div className="board-tabs">
+        <button className={box === "pending" ? "active" : ""} onClick={() => changeBox("pending")}>결재대기</button>
+        <button className={box === "requested" ? "active" : ""} onClick={() => changeBox("requested")}>기안문서</button>
+        <button className={box === "processed" ? "active" : ""} onClick={() => changeBox("processed")}>처리문서</button>
+        {user.roleCode === "ADMIN" && <button className={box === "all" ? "active" : ""} onClick={() => changeBox("all")}>전체</button>}
+      </div>
+      <Toolbar title="전자결재" onNew={startCreate} onRefresh={() => load()} />
+      {mode === "list" && (
+        <>
+          <ListSummary count={items.length} text="표시 중인 결재 문서" />
+          {items.length ? (
+            <ContentTable
+              rows={items.map((item) => ({
+                id: item.approvalId,
+                pinned: item.status === "PENDING",
+                title: item.title,
+                writer: item.requesterName,
+                date: formatDate(item.requestedAt),
+                hasAttachment: false,
+                views: item.currentApproverName ? `결재자 ${item.currentApproverName}` : item.status,
+                onOpen: () => loadDetail(item.approvalId)
+              }))}
+              pinnedLabel="진행"
+              metricLabel="결재상태"
+            />
+          ) : <Empty text="표시할 결재 문서가 없습니다." />}
+        </>
+      )}
+      {mode === "detail" && selected && (
+        <DetailPage onBack={() => setMode("list")}>
+          <ReadDetail
+            title={selected.title}
+            content={selected.content}
+            meta={`${selected.requesterName} · ${selected.status} · ${formatDate(selected.requestedAt)}`}
+            badge={selected.status}
+            canEdit={canAct}
+            onEdit={() => action("approve")}
+            onDelete={() => action("reject")}
+            editLabel="승인"
+            deleteLabel="반려"
+          />
+          <ApprovalLineView lines={selected.lines} />
+        </DetailPage>
+      )}
+      {mode === "create" && (
+        <DetailPage onBack={() => setMode("list")}>
+          <div className="editor">
+            <EditorHeader title="결재 문서 작성" onSave={save} onCancel={() => setMode("list")} />
+            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="제목" />
+            <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="내용" />
+            <ApproverPicker employees={employees} selectedIds={form.approverEmpIds} onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} />
+          </div>
+        </DetailPage>
+      )}
+    </section>
+  );
+}
+
+function ApproverPicker({ employees, selectedIds, onChange }: { employees: Employee[]; selectedIds: number[]; onChange: (ids: number[]) => void }) {
+  function toggle(empId: number) {
+    if (selectedIds.includes(empId)) {
+      onChange(selectedIds.filter((id) => id !== empId));
+      return;
+    }
+    onChange([...selectedIds, empId]);
+  }
+
+  return (
+    <div className="approver-picker">
+      <h3>결재선</h3>
+      <div className="approver-list">
+        {employees.map((employee) => (
+          <button key={employee.empId} type="button" className={selectedIds.includes(employee.empId) ? "active" : ""} onClick={() => toggle(employee.empId)}>
+            <strong>{employee.empName}</strong>
+            <span>{employee.deptName ?? "-"} · {employee.positionName ?? employee.jobTitle ?? employee.roleCode}</span>
+          </button>
+        ))}
+      </div>
+      {selectedIds.length ? (
+        <div className="approval-path">
+          {selectedIds.map((id, index) => {
+            const employee = employees.find((item) => item.empId === id);
+            return <span key={id}>{index + 1}. {employee?.empName ?? id}</span>;
+          })}
+        </div>
+      ) : <Empty text="결재자를 순서대로 선택해 주세요." />}
+    </div>
+  );
+}
+
+function ApprovalLineView({ lines }: { lines: Approval["lines"] }) {
+  return (
+    <div className="approval-lines">
+      <h3>결재선</h3>
+      {lines.map((line) => (
+        <div className="approval-line" key={line.lineId}>
+          <strong>{line.lineOrder}. {line.approverName}</strong>
+          <span>{line.approverDeptName ?? "-"} · {line.approverPositionName ?? "-"} · {line.status}</span>
+          {line.comment && <p>{line.comment}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function NotificationPage() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -814,7 +992,7 @@ function ListSummary({ count, text }: { count: number; text: string }) {
   return <div className="list-summary"><strong>{count}</strong><span>{text}</span></div>;
 }
 
-function ContentTable({ rows, pinnedLabel = "고정" }: {
+function ContentTable({ rows, pinnedLabel = "고정", metricLabel = "조회수" }: {
   rows: {
     id: number;
     pinned?: boolean;
@@ -822,10 +1000,11 @@ function ContentTable({ rows, pinnedLabel = "고정" }: {
     writer: string;
     date: string;
     hasAttachment: boolean;
-    views: number;
+    views: ReactNode;
     onOpen: () => void;
   }[];
   pinnedLabel?: string;
+  metricLabel?: string;
 }) {
   return (
     <div className="table-wrap">
@@ -837,7 +1016,7 @@ function ContentTable({ rows, pinnedLabel = "고정" }: {
             <th className="col-writer">작성자</th>
             <th className="col-date">작성일</th>
             <th className="col-attach">첨부</th>
-            <th className="col-views">조회수</th>
+            <th className="col-views">{metricLabel}</th>
           </tr>
         </thead>
         <tbody>
@@ -892,7 +1071,7 @@ function EmptyDetail({ title, text }: { title: string; text: string }) {
   );
 }
 
-function ReadDetail({ title, content, meta, badge, canEdit, onEdit, onDelete }: {
+function ReadDetail({ title, content, meta, badge, canEdit, onEdit, onDelete, editLabel = "수정", deleteLabel = "삭제" }: {
   title: string;
   content: string;
   meta: string;
@@ -900,6 +1079,8 @@ function ReadDetail({ title, content, meta, badge, canEdit, onEdit, onDelete }: 
   canEdit: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  editLabel?: string;
+  deleteLabel?: string;
 }) {
   return (
     <article className="read-detail">
@@ -911,8 +1092,8 @@ function ReadDetail({ title, content, meta, badge, canEdit, onEdit, onDelete }: 
         </div>
         {canEdit && (
           <div className="actions">
-            <button onClick={onEdit}><Edit3 size={16} /> 수정</button>
-            <button className="danger" onClick={onDelete}><Trash2 size={16} /> 삭제</button>
+            <button onClick={onEdit}><Edit3 size={16} /> {editLabel}</button>
+            <button className="danger" onClick={onDelete}><Trash2 size={16} /> {deleteLabel}</button>
           </div>
         )}
       </div>

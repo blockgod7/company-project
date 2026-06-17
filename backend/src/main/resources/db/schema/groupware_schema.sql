@@ -520,6 +520,74 @@ CREATE INDEX idx_notification_created_at ON notification(created_at);
 
 
 -- =========================================================
+-- 9-1. APPROVAL - Electronic Approval
+-- =========================================================
+
+CREATE TABLE approval_document (
+    approval_id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    content TEXT NOT NULL,
+    requester_emp_id BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    requested_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMP NULL,
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    deleted_at TIMESTAMP NULL,
+    deleted_by BIGINT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by BIGINT NULL,
+    updated_at TIMESTAMP NULL,
+    updated_by BIGINT NULL,
+
+    CONSTRAINT chk_approval_document_status CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELED')),
+    CONSTRAINT chk_approval_document_deleted_yn CHECK (deleted_yn IN ('Y', 'N')),
+    CONSTRAINT fk_approval_document_requester FOREIGN KEY (requester_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_document_deleted_by FOREIGN KEY (deleted_by) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_document_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_document_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
+);
+
+CREATE INDEX idx_approval_document_requester ON approval_document(requester_emp_id);
+CREATE INDEX idx_approval_document_status ON approval_document(status);
+CREATE INDEX idx_approval_document_requested_at ON approval_document(requested_at);
+
+CREATE TRIGGER trg_approval_document_updated_at
+BEFORE UPDATE ON approval_document
+FOR EACH ROW
+EXECUTE FUNCTION fn_update_updated_at();
+
+CREATE TABLE approval_line (
+    line_id BIGSERIAL PRIMARY KEY,
+    approval_id BIGINT NOT NULL,
+    approver_emp_id BIGINT NOT NULL,
+    line_order INT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'WAITING',
+    comment TEXT NULL,
+    acted_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by BIGINT NULL,
+    updated_at TIMESTAMP NULL,
+    updated_by BIGINT NULL,
+
+    CONSTRAINT uq_approval_line_order UNIQUE (approval_id, line_order),
+    CONSTRAINT chk_approval_line_status CHECK (status IN ('WAITING', 'PENDING', 'APPROVED', 'REJECTED', 'SKIPPED')),
+    CONSTRAINT fk_approval_line_document FOREIGN KEY (approval_id) REFERENCES approval_document(approval_id),
+    CONSTRAINT fk_approval_line_approver FOREIGN KEY (approver_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_line_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_line_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
+);
+
+CREATE INDEX idx_approval_line_document ON approval_line(approval_id);
+CREATE INDEX idx_approval_line_approver ON approval_line(approver_emp_id);
+CREATE INDEX idx_approval_line_status ON approval_line(status);
+
+CREATE TRIGGER trg_approval_line_updated_at
+BEFORE UPDATE ON approval_line
+FOR EACH ROW
+EXECUTE FUNCTION fn_update_updated_at();
+
+
+-- =========================================================
 -- 10. LOG TABLES
 -- =========================================================
 

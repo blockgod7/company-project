@@ -128,3 +128,32 @@ export type AttachFile = {
   mimeType: string | null;
   createdAt: string;
 };
+
+export type ApprovalLine = {
+  lineId: number;
+  lineOrder: number;
+  status: "WAITING" | "PENDING" | "APPROVED" | "REJECTED" | "SKIPPED";
+  comment: string | null;
+  actedAt: string | null;
+  approverEmpId: number;
+  approverName: string;
+  approverDeptName: string | null;
+  approverPositionName: string | null;
+};
+
+export type ApprovalSummary = {
+  approvalId: number;
+  title: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELED";
+  requestedAt: string;
+  completedAt: string | null;
+  requesterEmpId: number;
+  requesterName: string;
+  currentApproverName: string | null;
+};
+
+export type Approval = ApprovalSummary & {
+  content: string;
+  requesterDeptName: string | null;
+  lines: ApprovalLine[];
+};

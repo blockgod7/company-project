@@ -677,6 +677,68 @@ textarea { line-height: 1.55; }
 .comment-form { margin-top: 12px; }
 .comment-form input { flex: 1; }
 
+.approver-picker, .approval-lines {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.approver-picker h3, .approval-lines h3 {
+  margin: 0;
+  color: var(--navy);
+}
+.approver-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  max-height: 280px;
+  overflow: auto;
+}
+.approver-list button {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 11px 12px;
+  text-align: left;
+}
+.approver-list button.active {
+  border-color: var(--green);
+  background: var(--blue-soft);
+  box-shadow: inset 4px 0 0 var(--green);
+}
+.approver-list span, .approval-line span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.approval-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.approval-path span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--navy);
+  font-weight: 800;
+  font-size: 12px;
+}
+.approval-line {
+  display: grid;
+  gap: 5px;
+  border-bottom: 1px solid var(--line);
+  padding: 11px 0;
+}
+.approval-line p {
+  margin: 0;
+  color: #334155;
+}
+
 .notice-row {
   display: flex;
   justify-content: space-between;
