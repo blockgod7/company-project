@@ -580,6 +580,19 @@ textarea { line-height: 1.55; }
   line-height: 1.7;
   color: #334155;
 }
+.detail-content p {
+  margin: 0 0 14px;
+}
+.detail-content img {
+  display: block;
+  max-width: min(100%, 720px);
+  max-height: 520px;
+  margin: 12px 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  object-fit: contain;
+  background: #fff;
+}
 .editor {
   display: grid;
   gap: 12px;
@@ -593,6 +606,16 @@ textarea { line-height: 1.55; }
   align-items: center;
   justify-content: flex-start;
   min-height: 36px;
+}
+.editor-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.editor-tools span {
+  color: var(--muted);
+  font-size: 12px;
 }
 .check {
   display: inline-flex;
@@ -608,7 +631,7 @@ textarea { line-height: 1.55; }
   margin: 0;
 }
 
-.comments, .attachments {
+.comments, .attachments, .draft-attachments {
   margin-top: 20px;
   border-top: 1px solid var(--line);
   padding-top: 16px;

@@ -48,6 +48,7 @@ type ContentMode = "list" | "detail" | "create" | "edit";
 type NoticeForm = { title: string; content: string; pinned: boolean };
 type BoardForm = { title: string; content: string; draft: boolean };
 type AttachmentPresence = Record<number, boolean>;
+type DraftAttachment = { id: string; file: File };
 
 const routeLabels: Record<Route, string> = {
   dashboard: "대시보드",
@@ -90,6 +91,15 @@ async function loadAttachmentPresence(targetType: string, targetIds: number[]) {
     }
   }));
   return Object.fromEntries(pairs) as AttachmentPresence;
+}
+
+async function uploadAttachments(targetType: string, targetId: number, attachmentsToUpload: DraftAttachment[]) {
+  if (!attachmentsToUpload.length) return;
+  const formData = new FormData();
+  formData.set("targetType", targetType);
+  formData.set("targetId", String(targetId));
+  attachmentsToUpload.forEach((attachment) => formData.append("files", attachment.file));
+  await api<AttachFile[]>("/files/batch", { method: "POST", body: formData });
 }
 
 function displayBoardName(board: Board) {
@@ -360,6 +370,7 @@ function NoticePage({ user }: { user: User }) {
   const [mode, setMode] = useState<ContentMode>("list");
   const [form, setForm] = useState<NoticeForm>({ title: "", content: "", pinned: false });
   const [attachments, setAttachments] = useState<AttachmentPresence>({});
+  const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
   const canEdit = selected ? user.roleCode === "ADMIN" || selected.writerEmpId === user.empId : false;
 
   async function load() {
@@ -383,12 +394,14 @@ function NoticePage({ user }: { user: User }) {
   function startCreate() {
     setSelected(null);
     setForm({ title: "", content: "", pinned: false });
+    setPendingFiles([]);
     setMode("create");
   }
 
   function startEdit() {
     if (!selected || !canEdit) return;
     setForm({ title: selected.title, content: selected.content, pinned: selected.pinned });
+    setPendingFiles([]);
     setMode("edit");
   }
 
@@ -397,6 +410,8 @@ function NoticePage({ user }: { user: User }) {
     const path = isEdit ? `/notices/${selected.noticeId}` : "/notices";
     const method = isEdit ? "PUT" : "POST";
     const saved = await api<Notice>(path, { method, body: jsonBody(form) });
+    await uploadAttachments("NOTICE", saved.noticeId, pendingFiles);
+    setPendingFiles([]);
     await load();
     await loadDetail(saved.noticeId);
   }
@@ -406,6 +421,7 @@ function NoticePage({ user }: { user: User }) {
     await api(`/notices/${selected.noticeId}`, { method: "DELETE" });
     setSelected(null);
     setForm({ title: "", content: "", pinned: false });
+    setPendingFiles([]);
     setMode("list");
     await load();
   }
@@ -452,6 +468,8 @@ function NoticePage({ user }: { user: User }) {
             title={mode === "create" ? "공지 작성" : "공지 수정"}
             form={form}
             setForm={setForm}
+            pendingFiles={pendingFiles}
+            setPendingFiles={setPendingFiles}
             onSave={save}
             onCancel={() => selected ? setMode("detail") : setMode("list")}
             onDelete={mode === "edit" && canEdit ? remove : undefined}
@@ -471,6 +489,7 @@ function BoardPage({ user }: { user: User }) {
   const [mode, setMode] = useState<ContentMode>("list");
   const [form, setForm] = useState<BoardForm>({ title: "", content: "", draft: false });
   const [attachments, setAttachments] = useState<AttachmentPresence>({});
+  const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
   const canEdit = selected ? user.roleCode === "ADMIN" || selected.writerEmpId === user.empId : false;
 
   async function loadBoards() {
@@ -508,18 +527,21 @@ function BoardPage({ user }: { user: User }) {
     setBoardId(nextBoardId);
     setSelected(null);
     setForm({ title: "", content: "", draft: false });
+    setPendingFiles([]);
     setMode("list");
   }
 
   function startCreate() {
     setSelected(null);
     setForm({ title: "", content: "", draft: false });
+    setPendingFiles([]);
     setMode("create");
   }
 
   function startEdit() {
     if (!selected || !canEdit) return;
     setForm({ title: selected.title, content: selected.content, draft: selected.draft });
+    setPendingFiles([]);
     setMode("edit");
   }
 
@@ -529,6 +551,8 @@ function BoardPage({ user }: { user: User }) {
     const path = isEdit ? `/boards/posts/${selected.postId}` : `/boards/${boardId}/posts`;
     const method = isEdit ? "PUT" : "POST";
     const saved = await api<BoardPost>(path, { method, body: jsonBody(form) });
+    await uploadAttachments("BOARD_POST", saved.postId, pendingFiles);
+    setPendingFiles([]);
     await loadPosts(saved.boardId);
     await loadPost(saved.postId);
   }
@@ -538,6 +562,7 @@ function BoardPage({ user }: { user: User }) {
     await api(`/boards/posts/${selected.postId}`, { method: "DELETE" });
     setSelected(null);
     setForm({ title: "", content: "", draft: false });
+    setPendingFiles([]);
     setMode("list");
     await loadPosts();
   }
@@ -599,6 +624,8 @@ function BoardPage({ user }: { user: User }) {
             title={mode === "create" ? "게시글 작성" : "게시글 수정"}
             form={form}
             setForm={setForm}
+            pendingFiles={pendingFiles}
+            setPendingFiles={setPendingFiles}
             onSave={save}
             onCancel={() => selected ? setMode("detail") : setMode("list")}
             onDelete={mode === "edit" && canEdit ? remove : undefined}
@@ -889,15 +916,17 @@ function ReadDetail({ title, content, meta, badge, canEdit, onEdit, onDelete }: 
           </div>
         )}
       </div>
-      <div className="detail-content">{content || "내용이 없습니다."}</div>
+      <div className="detail-content">{content ? <RichContent content={content} /> : "내용이 없습니다."}</div>
     </article>
   );
 }
 
-function NoticeEditor({ title, form, setForm, onSave, onCancel, onDelete }: {
+function NoticeEditor({ title, form, setForm, pendingFiles, setPendingFiles, onSave, onCancel, onDelete }: {
   title: string;
   form: NoticeForm;
   setForm: (value: NoticeForm) => void;
+  pendingFiles: DraftAttachment[];
+  setPendingFiles: (value: DraftAttachment[]) => void;
   onSave: () => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -906,7 +935,9 @@ function NoticeEditor({ title, form, setForm, onSave, onCancel, onDelete }: {
     <div className="editor">
       <EditorHeader title={title} onSave={onSave} onCancel={onCancel} onDelete={onDelete} />
       <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="제목" />
+      <EditorTools content={form.content} onChange={(content) => setForm({ ...form, content })} />
       <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="내용" />
+      <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
       <div className="editor-options">
         <label className="check">
           <input type="checkbox" checked={form.pinned} onChange={(event) => setForm({ ...form, pinned: event.target.checked })} />
@@ -917,10 +948,12 @@ function NoticeEditor({ title, form, setForm, onSave, onCancel, onDelete }: {
   );
 }
 
-function BoardEditor({ title, form, setForm, onSave, onCancel, onDelete }: {
+function BoardEditor({ title, form, setForm, pendingFiles, setPendingFiles, onSave, onCancel, onDelete }: {
   title: string;
   form: BoardForm;
   setForm: (value: BoardForm) => void;
+  pendingFiles: DraftAttachment[];
+  setPendingFiles: (value: DraftAttachment[]) => void;
   onSave: () => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -929,7 +962,9 @@ function BoardEditor({ title, form, setForm, onSave, onCancel, onDelete }: {
     <div className="editor">
       <EditorHeader title={title} onSave={onSave} onCancel={onCancel} onDelete={onDelete} />
       <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="제목" />
+      <EditorTools content={form.content} onChange={(content) => setForm({ ...form, content })} />
       <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="내용" />
+      <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
       <div className="editor-options">
         <label className="check">
           <input type="checkbox" checked={form.draft} onChange={(event) => setForm({ ...form, draft: event.target.checked })} />
@@ -938,6 +973,82 @@ function BoardEditor({ title, form, setForm, onSave, onCancel, onDelete }: {
       </div>
     </div>
   );
+}
+
+function EditorTools({ content, onChange }: { content: string; onChange: (content: string) => void }) {
+  function insertImage() {
+    const url = window.prompt("본문에 넣을 이미지 URL을 입력하세요.");
+    if (!url?.trim()) return;
+    const alt = window.prompt("이미지 설명을 입력하세요.")?.trim() || "image";
+    const next = `${content}${content.endsWith("\n") || !content ? "" : "\n\n"}![${alt}](${url.trim()})`;
+    onChange(next);
+  }
+
+  return (
+    <div className="editor-tools">
+      <button type="button" className="ghost" onClick={insertImage}>
+        <Paperclip size={15} /> 본문 이미지
+      </button>
+      <span>이미지 URL은 본문 안에 바로 표시됩니다.</span>
+    </div>
+  );
+}
+
+function DraftAttachmentPicker({ files, onChange }: { files: DraftAttachment[]; onChange: (files: DraftAttachment[]) => void }) {
+  function add(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    const next = Array.from(fileList).map((file) => ({
+      id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
+      file
+    }));
+    onChange([...files, ...next]);
+  }
+
+  function remove(id: string) {
+    onChange(files.filter((file) => file.id !== id));
+  }
+
+  return (
+    <div className="draft-attachments">
+      <div className="panel-head">
+        <h3>첨부파일</h3>
+        <label className="file-button">
+          <input type="file" multiple onChange={(event) => add(event.target.files)} />
+          <Plus size={16} /> 파일 선택
+        </label>
+      </div>
+      {files.length ? files.map((attachment) => (
+        <div className="file-row" key={attachment.id}>
+          <strong className="file-link">{attachment.file.name}</strong>
+          <span>{Math.ceil(attachment.file.size / 1024)} KB · 저장 시 업로드</span>
+          <button type="button" className="danger ghost" onClick={() => remove(attachment.id)}>
+            <Trash2 size={15} /> 제거
+          </button>
+        </div>
+      )) : <Empty text="저장 전에 첨부할 파일을 선택할 수 있습니다." />}
+    </div>
+  );
+}
+
+function RichContent({ content }: { content: string }) {
+  const imagePattern = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = imagePattern.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<p key={`text-${lastIndex}`}>{content.slice(lastIndex, match.index)}</p>);
+    }
+    parts.push(<img key={`image-${match.index}`} src={match[2]} alt={match[1] || "본문 이미지"} />);
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(<p key={`text-${lastIndex}`}>{content.slice(lastIndex)}</p>);
+  }
+
+  return <>{parts}</>;
 }
 
 function EditorHeader({ title, onSave, onCancel, onDelete }: { title: string; onSave: () => void; onCancel: () => void; onDelete?: () => void }) {
