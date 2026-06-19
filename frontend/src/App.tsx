@@ -1188,8 +1188,8 @@ function ApprovalLineTableEditor({
       <div className="approval-line-editor-head">
         <h3>결재표</h3>
         <div className="actions">
-          <button type="button" className="ghost" onClick={removeLastSlot} disabled={safeSlotCount <= 2}><Trash2 size={15} /> 칸 삭제</button>
-          <button type="button" onClick={addSlot} disabled={safeSlotCount >= 6}><Plus size={15} /> 칸 추가</button>
+          <button type="button" className="ghost" onClick={removeLastSlot} disabled={safeSlotCount <= 2}><Trash2 size={15} /> 결재 삭제</button>
+          <button type="button" onClick={addSlot} disabled={safeSlotCount >= 6}><Plus size={15} /> 결재 추가</button>
         </div>
       </div>
       <div className="approval-stamp-wrap approval-stamp-editor">
