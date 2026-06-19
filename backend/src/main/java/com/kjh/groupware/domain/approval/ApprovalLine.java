@@ -53,6 +53,16 @@ public class ApprovalLine extends BaseEntity {
     @Column(name = "acted_at")
     private LocalDateTime actedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "signature_snapshot_file_id")
+    private com.kjh.groupware.domain.file.AttachFile signatureSnapshotFile;
+
+    @Column(name = "signature_snapshot_json", columnDefinition = "text")
+    private String signatureSnapshotJson;
+
+    @Column(name = "signed_at")
+    private LocalDateTime signedAt;
+
     @Builder
     private ApprovalLine(ApprovalDocument document, Emp approver, Integer lineOrder, boolean first) {
         this.document = document;
@@ -65,10 +75,13 @@ public class ApprovalLine extends BaseEntity {
         return STATUS_PENDING.equals(status) && approver.getEmpId().equals(emp.getEmpId());
     }
 
-    public void approve(String comment) {
+    public void approve(String comment, com.kjh.groupware.domain.file.AttachFile signatureSnapshotFile, String signatureSnapshotJson) {
         this.status = STATUS_APPROVED;
         this.comment = comment;
         this.actedAt = LocalDateTime.now();
+        this.signedAt = this.actedAt;
+        this.signatureSnapshotFile = signatureSnapshotFile;
+        this.signatureSnapshotJson = signatureSnapshotJson;
     }
 
     public void reject(String comment) {
@@ -79,5 +92,15 @@ public class ApprovalLine extends BaseEntity {
 
     public void open() {
         this.status = STATUS_PENDING;
+    }
+
+    public boolean isActed() {
+        return STATUS_APPROVED.equals(status) || STATUS_REJECTED.equals(status);
+    }
+
+    public void skip(String comment) {
+        this.status = "SKIPPED";
+        this.comment = comment;
+        this.actedAt = LocalDateTime.now();
     }
 }

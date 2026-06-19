@@ -7,7 +7,11 @@ import java.util.List;
 
 public record ApprovalSummaryResponse(
     Long approvalId,
+    String documentNo,
     String title,
+    String templateCode,
+    Integer templateVersion,
+    String pdfStatus,
     String status,
     LocalDateTime requestedAt,
     LocalDateTime completedAt,
@@ -24,7 +28,11 @@ public record ApprovalSummaryResponse(
             .orElse(null);
         return new ApprovalSummaryResponse(
             document.getApprovalId(),
+            document.getDocumentNo(),
             document.getTitle(),
+            document.getTemplateCode(),
+            document.getTemplateVersion(),
+            document.getPdfStatus(),
             document.getStatus(),
             document.getRequestedAt(),
             document.getCompletedAt(),

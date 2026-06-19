@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.emp;
 
 import java.util.Optional;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +11,9 @@ import org.springframework.data.repository.query.Param;
 public interface EmpRepository extends JpaRepository<Emp, Long> {
 
     Optional<Emp> findByLoginId(String loginId);
+
+    @Query("select e from Emp e where e.useYn = 'Y' and e.status = 'ACTIVE' order by e.empId asc")
+    List<Emp> findActiveLoginOptions();
 
     @Query("select e from Emp e where e.loginId = :loginId and e.useYn = 'Y' and e.status = 'ACTIVE'")
     Optional<Emp> findActiveByLoginId(@Param("loginId") String loginId);

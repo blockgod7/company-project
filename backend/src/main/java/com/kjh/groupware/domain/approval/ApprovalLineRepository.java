@@ -14,6 +14,8 @@ public interface ApprovalLineRepository extends JpaRepository<ApprovalLine, Long
 
     Optional<ApprovalLine> findByDocumentAndStatus(ApprovalDocument document, String status);
 
+    void deleteByDocument(ApprovalDocument document);
+
     Page<ApprovalLine> findByApproverAndStatusOrderByLineIdDesc(Emp approver, String status, Pageable pageable);
 
     Page<ApprovalLine> findByApproverAndStatusInOrderByLineIdDesc(Emp approver, Collection<String> statuses, Pageable pageable);

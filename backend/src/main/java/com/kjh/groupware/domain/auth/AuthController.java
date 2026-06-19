@@ -1,12 +1,14 @@
 package com.kjh.groupware.domain.auth;
 
 import com.kjh.groupware.domain.auth.dto.CurrentUserResponse;
+import com.kjh.groupware.domain.auth.dto.LoginOptionResponse;
 import com.kjh.groupware.domain.auth.dto.LoginRequest;
 import com.kjh.groupware.domain.auth.dto.LoginResponse;
 import com.kjh.groupware.domain.auth.dto.RefreshTokenRequest;
 import com.kjh.groupware.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,6 +33,11 @@ public class AuthController {
             httpRequest.getRemoteAddr(),
             httpRequest.getHeader("User-Agent")
         ));
+    }
+
+    @GetMapping("/login-options")
+    public ApiResponse<List<LoginOptionResponse>> loginOptions() {
+        return ApiResponse.ok(authService.loginOptions());
     }
 
     @GetMapping("/me")

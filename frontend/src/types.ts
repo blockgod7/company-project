@@ -1,7 +1,9 @@
 export type ApiResponse<T> = {
   success: boolean;
   data: T;
+  code?: string | null;
   message: string | null;
+  status?: number;
   timestamp?: string;
 };
 
@@ -135,6 +137,9 @@ export type ApprovalLine = {
   status: "WAITING" | "PENDING" | "APPROVED" | "REJECTED" | "SKIPPED";
   comment: string | null;
   actedAt: string | null;
+  signedAt: string | null;
+  signatureSnapshotFileId: number | null;
+  signatureSnapshotJson: string | null;
   approverEmpId: number;
   approverName: string;
   approverDeptName: string | null;
@@ -143,8 +148,12 @@ export type ApprovalLine = {
 
 export type ApprovalSummary = {
   approvalId: number;
+  documentNo: string;
   title: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELED";
+  templateCode: string | null;
+  templateVersion: number | null;
+  pdfStatus: "NONE" | "GENERATING" | "GENERATED" | "FAILED";
+  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "CANCELED";
   requestedAt: string;
   completedAt: string | null;
   requesterEmpId: number;
@@ -154,6 +163,23 @@ export type ApprovalSummary = {
 
 export type Approval = ApprovalSummary & {
   content: string;
+  templateSnapshotJson: string | null;
+  formDataJson: string | null;
+  pdfFileId: number | null;
+  pdfGeneratedAt: string | null;
+  pdfErrorMessage: string | null;
+  pdfHash: string | null;
   requesterDeptName: string | null;
+  requesterPositionName: string | null;
   lines: ApprovalLine[];
+};
+
+export type ApprovalTemplateApi = {
+  templateCode: string;
+  templateName: string;
+  version: number;
+  description: string | null;
+  fieldsJson: string;
+  printLayoutJson: string | null;
+  sortOrder: number;
 };

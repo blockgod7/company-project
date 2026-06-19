@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.file;
 
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.approval.ApprovalDocumentRepository;
 import com.kjh.groupware.domain.file.dto.AttachFileResponse;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
@@ -8,8 +9,8 @@ import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -35,6 +36,7 @@ public class FileService {
     private final AttachFileRepository attachFileRepository;
     private final CurrentEmpProvider currentEmpProvider;
     private final AuditLogService auditLogService;
+    private final ApprovalDocumentRepository approvalDocumentRepository;
 
     @Value("${app.file.storage-path:uploads}")
     private String storagePath;
@@ -53,6 +55,7 @@ public class FileService {
         if (multipartFile.getSize() > MAX_FILE_SIZE) {
             throw BusinessException.badRequest("FILE_TOO_LARGE", "File size must be 100MB or less");
         }
+        assertTargetWritable(targetType, targetId);
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         String originalFileName = StringUtils.cleanPath(multipartFile.getOriginalFilename() == null
             ? "file"
@@ -83,6 +86,44 @@ public class FileService {
             .build());
         auditLogService.record(currentEmp.getEmpId(), AuditActionType.CREATE, "attach_file", saved.getFileId(), ipAddress, userAgent);
         return AttachFileResponse.from(saved);
+    }
+
+    @Transactional
+    public AttachFile saveGeneratedFile(
+        String targetType,
+        Long targetId,
+        String originalFileName,
+        byte[] bytes,
+        String mimeType,
+        Emp createdBy
+    ) {
+        if (bytes == null || bytes.length == 0) {
+            throw BusinessException.badRequest("EMPTY_FILE", "Generated file is empty");
+        }
+        String cleanName = StringUtils.cleanPath(originalFileName == null ? "generated-file" : originalFileName);
+        String fileExt = extractExtension(cleanName);
+        String storedFileName = UUID.randomUUID() + (fileExt == null ? "" : "." + fileExt);
+        Path uploadDir = Path.of(storagePath).toAbsolutePath().normalize();
+        Path destination = uploadDir.resolve(storedFileName).normalize();
+        try {
+            Files.createDirectories(uploadDir);
+            Files.write(destination, bytes);
+        } catch (IOException ex) {
+            throw BusinessException.badRequest("FILE_SAVE_FAILED", "Failed to save generated file");
+        }
+
+        return attachFileRepository.save(AttachFile.builder()
+            .targetType(targetType)
+            .targetId(targetId)
+            .originalFileName(cleanName)
+            .storedFileName(storedFileName)
+            .storagePath(uploadDir.toString())
+            .fileSize((long) bytes.length)
+            .fileExt(fileExt)
+            .fileHash(sha256(destination))
+            .mimeType(mimeType)
+            .createdBy(createdBy)
+            .build());
     }
 
     @Transactional(readOnly = true)
@@ -118,6 +159,7 @@ public class FileService {
     public void delete(Long fileId, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         AttachFile file = getDownloadableFile(fileId);
+        assertTargetWritable(file.getTargetType(), file.getTargetId());
         file.delete(currentEmp);
         auditLogService.record(currentEmp.getEmpId(), AuditActionType.DELETE, "attach_file", file.getFileId(), ipAddress, userAgent);
     }
@@ -140,7 +182,7 @@ public class FileService {
         return fileName.substring(dotIndex + 1).toLowerCase();
     }
 
-    private String sha256(Path path) {
+    public String sha256(Path path) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             try (InputStream inputStream = Files.newInputStream(path);
@@ -151,5 +193,19 @@ public class FileService {
         } catch (IOException | NoSuchAlgorithmException ex) {
             return null;
         }
+    }
+
+    private void assertTargetWritable(String targetType, Long targetId) {
+        if (targetType == null || targetId == null) {
+            return;
+        }
+        if (!"APPROVAL".equals(targetType) && !"APPROVAL_DOCUMENT".equals(targetType)) {
+            return;
+        }
+        approvalDocumentRepository.findById(targetId)
+            .filter(document -> "APPROVED".equals(document.getStatus()))
+            .ifPresent(document -> {
+                throw BusinessException.badRequest("APPROVAL_LOCKED", "Approved approval documents cannot be modified");
+            });
     }
 }

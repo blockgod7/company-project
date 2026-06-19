@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.auth;
 
 import com.kjh.groupware.domain.auth.dto.CurrentUserResponse;
+import com.kjh.groupware.domain.auth.dto.LoginOptionResponse;
 import com.kjh.groupware.domain.auth.dto.LoginRequest;
 import com.kjh.groupware.domain.auth.dto.LoginResponse;
 import com.kjh.groupware.domain.auth.dto.RefreshTokenRequest;
@@ -12,6 +13,7 @@ import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import com.kjh.groupware.global.security.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,13 @@ public class AuthService {
         auditLogService.record(emp.getEmpId(), AuditActionType.LOGIN, "emp", emp.getEmpId(), ipAddress, userAgent);
 
         return new LoginResponse(accessToken, refreshToken, "Bearer", emp.getEmpId(), emp.getLoginId(), emp.getEmpName(), emp.getRoleCode());
+    }
+
+    @Transactional(readOnly = true)
+    public List<LoginOptionResponse> loginOptions() {
+        return empRepository.findActiveLoginOptions().stream()
+            .map(LoginOptionResponse::from)
+            .toList();
     }
 
     @Transactional(readOnly = true)

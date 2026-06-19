@@ -1,6 +1,37 @@
 -- Local development seed data for an existing PostgreSQL groupware database.
 -- All sample accounts use the temporary password: admin1234
 
+INSERT INTO approval_template (
+    template_code,
+    template_name,
+    version,
+    description,
+    fields_json,
+    print_layout_json,
+    active_yn,
+    sort_order
+)
+VALUES
+    ('DRAFT', '기안서', 1, '일반 안건, 공지, 업무 진행 요청',
+     '[{"name":"documentNo","label":"문서 번호","type":"text"},{"name":"department","label":"기안 부서","type":"text"},{"name":"cooperation","label":"경유/협조","type":"text"},{"name":"purpose","label":"기안 목적","type":"textarea"},{"name":"details","label":"상세 내용","type":"textarea"},{"name":"expectedEffect","label":"기대 효과","type":"textarea"}]',
+     '{"sections":["meta","fields","approvalLines","signatures"]}', 'Y', 10),
+    ('CONSULT', '품의서', 1, '예산, 구매, 계약 등 의사결정 품의',
+     '[{"name":"category","label":"품의 구분","type":"select","options":["예산","구매","계약","수리","기타"]},{"name":"amount","label":"예상 금액","type":"number"},{"name":"vendor","label":"거래처/대상","type":"text"},{"name":"reason","label":"품의 사유","type":"textarea"},{"name":"alternatives","label":"검토 내용","type":"textarea"},{"name":"schedule","label":"진행 일정","type":"text"}]',
+     '{"sections":["meta","fields","approvalLines","signatures"]}', 'Y', 20),
+    ('LEAVE', '휴가계', 1, '연차, 반차, 교육, 병가 등 근태 신청',
+     '[{"name":"leaveType","label":"휴가 구분","type":"select","options":["연차","오전 반차","오후 반차","교육","병가","경조","기타"]},{"name":"startDate","label":"시작일","type":"date"},{"name":"endDate","label":"종료일","type":"date"},{"name":"days","label":"사용 일수","type":"number"},{"name":"contact","label":"비상 연락처","type":"text"},{"name":"reason","label":"신청 사유","type":"textarea"},{"name":"handover","label":"업무 인수인계","type":"textarea"}]',
+     '{"sections":["meta","fields","approvalLines","signatures"]}', 'Y', 30),
+    ('PURCHASE', '구매요구서', 1, '품목, 수량, 용도, 납기 요청',
+     '[{"name":"requestDept","label":"요구 부서","type":"text"},{"name":"dueDate","label":"희망 납기","type":"date"},{"name":"usage","label":"용도","type":"text"},{"name":"budgetCode","label":"예산/프로젝트 코드","type":"text"},{"name":"items","label":"품목 내역","type":"textarea"},{"name":"purchaseReason","label":"구매 사유","type":"textarea"},{"name":"supplier","label":"추천 업체","type":"text"}]',
+     '{"sections":["meta","fields","approvalLines","signatures"]}', 'Y', 40),
+    ('TRAINING_REQUEST', '교육신청서', 1, '사내외 교육 신청과 비용 승인',
+     '[{"name":"trainingType","label":"교육 구분","type":"select","options":["사내","사외","법정","직무","기타"]},{"name":"trainingName","label":"교육명","type":"text"},{"name":"institution","label":"교육 기관","type":"text"},{"name":"startDate","label":"시작일","type":"date"},{"name":"endDate","label":"종료일","type":"date"},{"name":"cost","label":"교육비","type":"number"},{"name":"reason","label":"신청 사유/교육 목적","type":"textarea"},{"name":"expectedUse","label":"업무 활용 계획","type":"textarea"}]',
+     '{"sections":["meta","fields","approvalLines","signatures"]}', 'Y', 50),
+    ('TRAINING_REPORT', '교육 훈련보고서', 1, '교육 결과, 효과, 후속 계획 보고',
+     '[{"name":"trainingName","label":"교육명","type":"text"},{"name":"institution","label":"교육 기관","type":"text"},{"name":"period","label":"교육 기간","type":"text"},{"name":"participants","label":"참석자","type":"text"},{"name":"summary","label":"주요 교육 내용","type":"textarea"},{"name":"jobImpact","label":"업무 수행 반영 사항","type":"textarea"},{"name":"takeaways","label":"교육 소감","type":"textarea"},{"name":"followUp","label":"후속 조치/전파 계획","type":"textarea"}]',
+     '{"sections":["meta","fields","approvalLines","signatures"]}', 'Y', 60)
+ON CONFLICT (template_code, version) DO NOTHING;
+
 INSERT INTO emp (
     emp_no,
     login_id,
@@ -123,6 +154,16 @@ AND NOT EXISTS (
       AND er.role_id = r.role_id
       AND er.use_yn = 'Y'
 );
+
+INSERT INTO menu (menu_name, menu_path, parent_menu_id, sort_order)
+VALUES
+    ('대시보드', '/', NULL, 1),
+    ('공지사항', '/notices', NULL, 2),
+    ('게시판', '/boards', NULL, 3),
+    ('조직도', '/organization', NULL, 4),
+    ('알림', '/notifications', NULL, 5),
+    ('감사 로그', '/admin/audit-logs', NULL, 99)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO board (board_code, board_name, dept_id, use_yn, created_by)
 VALUES
