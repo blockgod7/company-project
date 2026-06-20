@@ -1,10 +1,18 @@
 $ErrorActionPreference = "Stop"
 
-$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot"
-$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$javaHome = @(
+    (Join-Path $root ".tools\jdk-21"),
+    "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot",
+    "C:\Program Files\Amazon Corretto\jdk21.0.6_7"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($javaHome -and (Test-Path $javaHome)) {
+    $env:JAVA_HOME = $javaHome
+    $env:PATH = "$javaHome\bin;$env:PATH"
+}
 
-$repo = "C:\Project\Groupware\.m2repo"
-$backend = "C:\Project\Groupware\backend"
+$repo = Join-Path $root ".m2repo"
+$backend = Join-Path $root "backend"
 
 $jars = Get-ChildItem $repo -Recurse -Filter "*.jar" |
     Where-Object {

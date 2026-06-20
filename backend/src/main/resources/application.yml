@@ -21,3 +21,7 @@ app:
     refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:1209600}
   file:
     storage-path: ${FILE_STORAGE_PATH:uploads}
+  approval:
+    decision-due-hours: ${APPROVAL_DECISION_DUE_HOURS:72}
+    reminder-fixed-delay-ms: ${APPROVAL_REMINDER_FIXED_DELAY_MS:300000}
+    reminder-scheduler-tick-ms: ${APPROVAL_REMINDER_SCHEDULER_TICK_MS:60000}

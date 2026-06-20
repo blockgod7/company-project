@@ -46,41 +46,44 @@
   - [x] 합의/결재/수신/참조/연람 문서함 확장
   - [x] 상세 화면 상태/단계/처리 버튼 분리
   - [x] 한국어 업무 문구 정리
-- [ ] Phase 5. 템플릿 / 기본 결재선 관리
-  - [ ] 관리자 전용 템플릿 관리
-  - [ ] 템플릿 버전 관리
-  - [ ] 필수값 검증
-  - [ ] 기본 결재선 구조
-- [ ] Phase 6. 첨부파일 / PDF / 스냅샷 / 보안 구현
-  - [ ] 첨부파일 정책
-  - [ ] 완료 문서 첨부 잠금
-  - [ ] PDF 스냅샷
-  - [ ] 서명/결재선 스냅샷
-  - [ ] PDF 해시 및 워터마크
-- [ ] Phase 7. 부재자 / 대리결재 / 지연알림 / 운영 설정
-  - [ ] 대리결재 구조
-  - [ ] 비활성 사용자 처리
-  - [ ] 결재 기한과 지연 알림
-  - [ ] 운영 설정값 분리
-  - [ ] 대시보드 카드
-- [ ] Phase 8. 관리자 / 보존 / 상태 보정 / 고도화
-  - [ ] 관리자 권한 범위 분리
-  - [ ] 문서 삭제/보존 정책
-  - [ ] 상태 보정 구조
-- [ ] Phase 9. API 정리
-  - [ ] 생성/수정/상신 API 정리
-  - [ ] 처리 API 정리
-  - [ ] 목록 box API 정리
-  - [ ] 템플릿 관리 API 정리
-  - [ ] API 오류 응답 통일
-- [ ] Phase 10. 테스트 계획 실행
-  - [ ] 백엔드 테스트
-  - [ ] 프론트 테스트
-  - [ ] 계정별 샘플 데이터 검증
-- [ ] Phase 11. 구현 우선순위 재점검
-  - [ ] 1차 필수 구현 완료 여부 확인
-  - [ ] 2차 구현 후보 정리
-  - [ ] 3차/추후 확장 후보 정리
+- [x] Phase 5. 템플릿 / 기본 결재선 관리
+  - [x] 관리자 전용 템플릿 관리 1차
+  - [x] 템플릿 버전 관리 1차
+  - [x] 필수값 검증 고도화
+  - [x] 기본 결재선 구조 1차
+- [x] Phase 6. 첨부파일 / PDF / 스냅샷 / 보안 구현
+  - [x] 첨부파일 정책
+  - [x] 완료 문서 첨부 잠금
+  - [x] PDF 스냅샷
+  - [x] 서명/결재선 스냅샷
+  - [x] PDF 해시
+  - [x] 워터마크 제외 결정
+- [x] Phase 7. 부재자 / 대리결재 / 지연알림 / 운영 설정
+  - [x] 대리결재 구조 1차
+  - [x] 대리결재 UI 1차
+  - [x] 대리 처리 표기 UX 1차
+  - [x] 비활성 사용자 처리
+  - [x] 결재 기한과 지연 알림
+  - [x] 운영 설정값 분리
+  - [x] 대시보드 카드
+- [x] Phase 8. 관리자 / 보존 / 상태 보정 / 고도화
+  - [x] 관리자 권한 범위 분리
+  - [x] 문서 삭제/보존 정책
+  - [x] 상태 보정 구조
+- [x] Phase 9. API 정리
+  - [x] 생성/수정/상신 API 정리
+  - [x] 처리 API 정리
+  - [x] 목록 box API 정리
+  - [x] 템플릿 관리 API 정리
+  - [x] API 오류 응답 통일
+- [x] Phase 10. 테스트 계획 실행
+  - [x] 백엔드 테스트
+  - [x] 프론트 테스트
+  - [x] 계정별 샘플 데이터 검증
+- [x] Phase 11. 구현 우선순위 재점검
+  - [x] 1차 필수 구현 완료 여부 확인
+  - [x] 2차 구현 후보 정리
+  - [x] 3차/추후 확장 후보 정리
 
 ## 현재 진행 로그
 
@@ -89,7 +92,552 @@
 - [x] Phase 2 완료: 백엔드 결재 흐름 구현 및 서비스 테스트 검증 완료
 - [x] Phase 3 완료: 권한 매트릭스, 감사로그, 알림 상태/실패 구조, 파일/PDF 권한 검증 완료
 - [x] Phase 4 완료: 프론트 전자결재 작성/양식선택/문서함/상세/권한버튼 연결 완료
-- [ ] Phase 5 대기: 사용자가 "다음 Phase 진행"이라고 말하기 전까지 진행하지 않음
+- [x] Phase 4 보완 검증: frontend build, backend test/package, health, 전자결재 작성 화면 진입까지 확인
+- [x] Phase 4 E2E 보완: DB schema patch 누락 보정, draft submit 결재선 중복 버그 수정, 승인/반려/재상신/첨부 흐름 검증
+- [x] Phase 5 기본 결재선 1차: 개인/양식별 기본 결재선 DB/API/UI, 작성 화면 자동 적용, 개인 저장 검증
+- [x] Phase 5 템플릿 관리자 1차: 관리자 전용 양식관리 탭, 새 버전 저장 API, 활성/비활성 제어, fields/print JSON 관리
+- [x] Phase 5 양식 선택 보완: active 템플릿 조회 재검증, fallback 개발용 표시, `VITE_ENABLE_TEMPLATE_FALLBACK` 운영 제어 추가
+- [x] Phase 5 마무리: fields_json 기반 동적 입력 필드, required 필드 상신 검증, 관리자/일반 사용자 권한 QA 완료
+- [x] Phase 6 1차: 최종 승인 시 PDF 자동 생성 연결, PDF 다운로드 lazy-loading 오류 수정, APPROVAL_PDF 권한 검증, 완료 문서 첨부 잠금 QA 완료
+- [x] Phase 7 1차: 대리결재 설정 API, 대리자 결재대기함 조회, 대리 승인/반려 권한, 원 담당자/실제 처리자 분리 기록 QA 완료
+- [x] Phase 7 대리결재 UI 1차: 전자결재 대리설정 탭, 대리자 선택/기간/사유/활성 저장, 해제, 브라우저 QA 완료
+- [x] Phase 7 대리 처리 표기 UX 1차: 실제 처리자 응답 필드 추가, 상세 결재선/결재 의견/결재표에 대리 처리 문구 표시, frontend build와 backend test 통과
+- [x] Phase 7 비활성/휴직 사용자 처리: 신규 결재선/기본 결재선의 휴직·비활성 사용자 지정 차단, 기존 대리설정의 휴직 원 담당자 pending 조회 유지, frontend build와 backend test 통과
+- [x] Phase 7 결재 기한/지연 알림: PENDING 합의/결재 라인 due_at 자동 부여, 스케줄 기반 지연 알림, 담당자/활성 대리자 알림, 상세 기한 표시, frontend build/backend test/package 통과
+- [x] Phase 7 운영 설정값 분리/대시보드 카드: `ApprovalOperationProperties`로 결재 운영값 타입화, `/approvals/dashboard` 요약 API, 홈 전자결재 카드 실제 수치 연결, frontend build/backend test/package 통과
+- [x] Phase 8 1차: 전자결재 운영 관리자(`APPROVAL_ADMIN`)와 감사 조회(`AUDIT_ADMIN`) 권한 범위 분리, 보존삭제 API/UI, 상태 보정 API/UI, frontend build/backend test/package 통과
+- [x] Phase 9 1차: `/approvals/boxes`, `/approvals/{id}/actions/{action}`, 템플릿 관리 alias, box/action 검증, 오류 응답 보강, 프론트 표준 action/box API 전환, frontend build/backend test/package 통과
+- [x] Phase 10 검증: backend test/package, frontend build, 브라우저 관리자 로그인/전자결재 탭/대시보드 카드, 계정별 admin/manager/user API 권한 스모크 검증 완료
+- [x] Phase 11 우선순위 재점검: 전자결재 1차 필수 범위 완료 판정, 2차 안정화/운영 후보, 3차 확장 후보 정리 완료
+- [x] Phase 11 후속 운영 설정 DB/UI: `approval_operation_setting` 테이블, `/approval-operation-settings` API, 전자결재 운영설정 탭, DB 기반 처리 기한/지연 알림 간격 적용, frontend build/backend test 통과
+- [x] Phase 11 후속 대시보드 drill-down: 홈 전자결재 카드 항목별 클릭 이동, `/approvals?dashboardFilter=...` 목록 필터, 필터 배너/해제 UI, frontend build/backend test/package/API smoke 통과
+- [x] Phase 11 후속 보존삭제 복구/조회: `/approvals/deleted`, `/approvals/{id}/restore`, 전자결재 `보존삭제함` 관리자 탭, 삭제일/삭제자 표시, 복구 API/UI, frontend build/backend test/package/API smoke 통과
+- [x] Phase 11 후속 영구보존/영구삭제 정책 1차: 보존삭제 문서 보관일수와 영구삭제 허용 여부를 운영설정 DB/API/UI에 추가, 기본 정책 1825일/영구삭제 차단, frontend build/backend test/package/API smoke 통과
+- [x] Phase 11 후속 보존삭제 감사 리포트: `/approvals/retention-audits` API, 보존삭제함 하단 감사 리포트 표, 삭제/복구 이력 권한 분리, frontend build/backend test/package/API smoke 통과
+- [x] Phase 11 후속 보존삭제 감사 리포트 CSV export: `/approvals/retention-audits/export`, 보존삭제함 CSV 다운로드 버튼, admin 다운로드 200/user 403, frontend build/backend test/package 통과
+- [x] 전자결재 최종 마무리: 1차 운영 가능 범위 완료 판정, 최종 인수 문서 `backend/docs/electronic-approval-final.md`, README 현재 상태 갱신, 최종 검증 체크리스트 정리
+
+## 전자결재 최종 마무리 요약
+
+- 완료 판정:
+  - 전자결재 1차 운영 가능 범위는 완료.
+  - 핵심 결재 흐름, 권한, 감사, 알림, PDF/첨부, 템플릿, 기본 결재선, 대리결재, 휴직/비활성 사용자 처리, 운영설정, 대시보드, 보존삭제/복구/감사 리포트까지 구현 완료.
+- 최종 문서:
+  - `backend/docs/electronic-approval-final.md`
+  - 포함 내용:
+    - 완료 범위
+    - 역할/권한
+    - 주요 API
+    - 운영 설정
+    - DB patch 목록
+    - 최종 검증 결과
+    - 후속 보류 항목
+- 남은 항목의 성격:
+  - 물리 영구삭제 실행, 고급 관리자 통계 카드, 브라우저 E2E 자동화, 템플릿/PDF 디자이너는 후속 고도화 항목.
+  - 현재 릴리스의 필수 차단 항목으로 보지 않음.
+- 최종 검증:
+  - backend `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0.
+  - backend `mvn package -DskipTests` 통과.
+  - frontend `npm.cmd run build` 통과.
+  - backend `/api/v1/health` 200 OK.
+  - frontend `http://127.0.0.1:5173/` 200 OK.
+
+## Phase 11 후속 운영 설정 DB/UI 진행 요약
+
+- DB:
+  - `approval_operation_setting` 테이블 추가.
+  - 관리 key:
+    - `DECISION_DUE_HOURS`
+    - `REMINDER_FIXED_DELAY_MS`
+  - 기존 DB 적용용 patch SQL 추가: `backend/src/main/resources/db/schema/approval_operation_setting_patch.sql`
+  - baseline schema에도 동일 테이블과 기본값 seed 반영.
+- 백엔드:
+  - `GET /api/v1/approval-operation-settings` 추가.
+  - `PUT /api/v1/approval-operation-settings` 추가.
+  - 조회/수정은 `ADMIN`, `APPROVAL_ADMIN` 운영 관리자만 허용.
+  - 결재/합의 라인이 열릴 때 처리 기한은 DB 설정값 기준으로 계산.
+  - 지연 알림 스케줄러는 tick 주기로 실행되며, DB의 `REMINDER_FIXED_DELAY_MS`를 최소 실행 간격으로 사용.
+- 프론트:
+  - 전자결재 관리자 탭에 `운영설정` 추가.
+  - 처리 기한(시간), 지연 알림 간격(ms) 조회/수정 UI 추가.
+- 검증:
+  - frontend `npm.cmd run build` 통과.
+  - backend `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0.
+  - backend `mvn package -DskipTests` 통과.
+  - 로컬 DB에 `approval_operation_setting_patch.sql` 적용 완료.
+  - backend 재기동 후 `/api/v1/health` OK.
+  - API smoke:
+    - `admin`: 운영설정 조회/동일값 저장 200.
+    - `hong.gildong`: 운영설정 조회 403.
+
+## Phase 11 후속 대시보드 drill-down 진행 요약
+
+- 백엔드:
+  - `GET /api/v1/approvals`에 `dashboardFilter` 파라미터 추가.
+  - 지원 필터:
+    - `myPending`
+    - `delegatedPending`
+    - `overdue`
+    - `requestedInProgress`
+    - `recentCompleted`
+  - 잘못된 필터는 `APPROVAL_DASHBOARD_FILTER_INVALID` 400으로 차단.
+  - 대시보드 카드 수치와 이동 후 목록 기준을 동일하게 맞춤.
+- 프론트:
+  - 홈 전자결재 카드의 각 수치를 클릭 가능한 버튼으로 변경.
+  - 클릭 시 전자결재 화면으로 이동하며 해당 목록 필터 적용.
+  - 목록 상단에 현재 필터 배너와 `필터 해제` 버튼 표시.
+  - 일반 문서함 탭, 양식관리, 대리설정, 운영설정, 새 작성 진입 시 대시보드 필터 해제.
+- 검증:
+  - frontend `npm.cmd run build` 통과.
+  - backend `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0.
+  - backend `mvn package -DskipTests` 통과.
+  - backend 재기동 후 `/api/v1/health` OK.
+  - API smoke:
+    - 5개 dashboardFilter 모두 200.
+    - invalid dashboardFilter 400.
+
+## Phase 11 후속 보존삭제 복구/조회 진행 요약
+
+- 백엔드:
+  - `GET /api/v1/approvals/deleted` 추가.
+  - `POST /api/v1/approvals/{approvalId}/restore` 추가.
+  - 보존삭제함 조회와 복구는 `ADMIN`, `APPROVAL_ADMIN`만 허용.
+  - `ApprovalSummaryResponse`에 삭제일/삭제자 정보 추가.
+  - 감사 액션 `RESTORE_APPROVAL` 추가.
+  - 물리 삭제는 추가하지 않고 soft delete 복구만 구현.
+- 프론트:
+  - 전자결재 관리자 탭에 `보존삭제함` 추가.
+  - 삭제 문서 목록에 문서번호, 양식, 제목, 기안자, 상태, 삭제일, 삭제자 표시.
+  - 각 삭제 문서에 `복구` 버튼 추가.
+- 검증:
+  - frontend `npm.cmd run build` 통과.
+  - backend `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0.
+  - backend `mvn package -DskipTests` 통과.
+  - backend 재기동 후 `/api/v1/health` OK.
+  - API smoke:
+    - `admin`: 보존삭제함 조회 200.
+    - `hong.gildong`: 보존삭제함 조회 403.
+    - 없는 문서 복구 404.
+    - 테스트 draft 생성 -> 보존삭제 -> 보존삭제함 노출 -> 복구 -> 일반 상세 조회 성공.
+
+## Phase 11 후속 영구보존/영구삭제 정책 1차 진행 요약
+
+- 정책 방향:
+  - 전자결재 문서는 감사/증빙 성격이 강하므로 물리 영구삭제 실행 기능은 바로 열지 않음.
+  - 먼저 운영설정에서 보존삭제 문서 보관일수와 영구삭제 허용 여부를 명시 관리.
+  - 기본 정책은 `1825일 보관`, `영구삭제 차단`.
+- DB/API:
+  - `approval_operation_setting` key 추가:
+    - `DELETED_DOCUMENT_RETENTION_DAYS`
+    - `PERMANENT_DELETE_ENABLED`
+  - `GET/PUT /api/v1/approval-operation-settings` 응답/요청에 보존정책 필드 추가.
+  - 기존 DB 적용용 `approval_operation_setting_patch.sql`에 기본값 추가.
+- 프론트:
+  - 전자결재 `운영설정` 탭에 보존삭제 문서 보관일수, 영구삭제 허용 체크 추가.
+  - `보존삭제함`에 현재 보존정책 요약 표시.
+- 검증:
+  - frontend `npm.cmd run build` 통과.
+  - backend `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0.
+  - backend `mvn package -DskipTests` 통과.
+  - 로컬 DB에 `approval_operation_setting_patch.sql` 재적용 완료.
+  - backend 재기동 후 `/api/v1/health` OK.
+  - API smoke:
+    - 운영설정 조회/동일값 저장 200.
+    - 보존정책 응답: `1825일`, `영구삭제 차단`.
+
+## Phase 11 후속 보존삭제 감사 리포트 진행 요약
+
+- 백엔드:
+  - `GET /api/v1/approvals/retention-audits` 추가.
+  - 대상 감사 액션:
+    - `DELETE_APPROVAL`
+    - `RESTORE_APPROVAL`
+  - 조회 권한은 `ADMIN`, `APPROVAL_ADMIN`으로 제한.
+- 프론트:
+  - 전자결재 `보존삭제함` 하단에 `보존삭제 감사 리포트` 표 추가.
+  - 작업, 문서 ID, 사용자, 사유, 결과, IP, 일시 표시.
+  - 보존삭제함 새로고침/복구 후 리포트도 함께 갱신.
+- 검증:
+  - frontend `npm.cmd run build` 통과.
+  - backend `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0.
+  - backend `mvn package -DskipTests` 통과.
+  - backend 재기동 후 `/api/v1/health` OK.
+  - API smoke:
+    - `admin`: 보존삭제 감사 리포트 조회 200.
+    - `hong.gildong`: 보존삭제 감사 리포트 조회 403.
+
+## Phase 11 후속 보존삭제 감사 리포트 CSV export 진행 요약
+
+- 백엔드:
+  - `GET /api/v1/approvals/retention-audits/export` 추가.
+  - CSV 항목:
+    - auditId
+    - actionType
+    - targetId
+    - empId
+    - reason
+    - success
+    - ipAddress
+    - createdAt
+  - UTF-8 BOM 포함 CSV로 내려 Excel 한글 호환성을 확보.
+  - 조회 권한은 기존 보존삭제 감사 리포트와 동일하게 `ADMIN`, `APPROVAL_ADMIN`.
+- 프론트:
+  - 전자결재 `보존삭제함` 상단에 `CSV 다운로드` 버튼 추가.
+  - 인증 fetch로 CSV blob을 받아 `approval-retention-audits-YYYY-MM-DD.csv` 파일명으로 다운로드.
+- 검증:
+  - frontend `npm.cmd run build` 통과.
+  - backend `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0.
+  - backend `mvn package -DskipTests` 통과.
+  - backend 재기동 후 `/api/v1/health` OK.
+  - API smoke:
+    - `admin`: CSV export 200, `text/csv; charset=UTF-8`, attachment filename 확인.
+    - `hong.gildong`: CSV export 403.
+
+## Phase 11 구현 우선순위 재점검 요약
+
+1차 필수 구현 완료 판정:
+
+- 핵심 결재 흐름 완료:
+  - 임시저장, 수정, 상신, 합의, 승인, 반려, 회수, 재상신, 취소, 수신 확인, 접수 완료
+  - 참조/연람 조회, 문서함 분리, 결재선 단계/상태 표시
+- 운영 필수 기능 완료:
+  - 템플릿 관리, 기본 결재선, 대리결재, 비활성/휴직 사용자 차단, 결재 기한, 지연 알림
+  - 홈 대시보드 카드, 권한별 문서함, 운영 관리자/감사 조회 권한 분리
+  - 보존삭제, 상태 보정, 감사로그, 알림 상태/실패 정보, PDF 생성/재생성/다운로드 권한
+- API/검증 완료:
+  - 표준 문서함 API(`/approvals/boxes`)와 통합 action API(`/approvals/{id}/actions/{action}`) 추가
+  - 기존 endpoint는 하위 호환용으로 유지
+  - Phase 10 기준 backend test/package, frontend build, 브라우저 QA, 계정별 권한 스모크 검증 통과
+
+2차 구현 후보:
+
+- 운영 설정값을 DB/UI에서 관리하도록 확장:
+  - 결재 기한, 지연 알림 주기는 Phase 11 후속으로 구현 완료
+  - 템플릿 fallback 등 추가 운영값은 필요 시 같은 구조로 확장 가능
+- 보존삭제 후속:
+  - 삭제 문서 조회와 soft delete 복구는 Phase 11 후속으로 구현 완료
+  - 영구보존/영구삭제 정책 설정은 Phase 11 후속으로 구현 완료
+  - 보존삭제/복구 감사 리포트 화면은 Phase 11 후속으로 구현 완료
+  - 보존삭제 감사 리포트 CSV export는 Phase 11 후속으로 구현 완료
+  - 실제 물리 삭제 실행 절차는 정책상 기본 차단 상태로 유지
+- 대시보드 후속:
+  - 카드 클릭 시 해당 문서함/필터 이동은 Phase 11 후속으로 구현 완료
+  - 관리자 운영 현황 카드는 후속 후보로 유지
+- API 문서화/정리:
+  - OpenAPI 또는 README 기반 endpoint 문서 정리
+  - 하위 호환 legacy endpoint 제거 시점과 client migration 계획 수립
+- 테스트 자동화:
+  - 전자결재 주요 시나리오 E2E 자동화
+  - FileService/PDF/첨부 권한 단위 테스트 분리
+
+3차/추후 확장 후보:
+
+- 조직/직급/금액/양식 조건 기반 동적 결재선
+- 이메일, 메신저, 모바일 push 등 외부 알림 채널
+- 감사 리포트, 통계, CSV/Excel export
+- 템플릿 필드 에디터 고도화, 드래그앤드롭 양식 편집
+- PDF 출력 레이아웃/사인 이미지 품질/워터마크 정책 재검토
+- 모바일 반응형과 접근성 보강
+
+남은 리스크/주의사항:
+
+- 운영 DB에 patch SQL이 모두 적용되어 있어야 한다.
+- legacy endpoint는 아직 유지 중이므로, 정리 전에는 client 사용 여부를 확인해야 한다.
+- 실제 조직도/부서/권한 데이터가 커질 때 대리결재, 기본 결재선, 관리자 권한 조합을 추가 QA하는 것이 좋다.
+- 이번 Phase 11은 문서/우선순위 정리 단계라 별도 빌드 재실행은 하지 않았다.
+
+## Phase 10 테스트 계획 실행 요약
+
+- 백엔드 테스트:
+  - `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0
+  - `mvn package -DskipTests` 통과
+- 프론트 테스트:
+  - 별도 test script 없음
+  - `npm.cmd run build`로 TypeScript/Vite 빌드 검증 통과
+- 브라우저 QA:
+  - `admin / admin1234` 로그인 성공
+  - 홈 대시보드 전자결재 카드 실제 수치 표시 확인
+  - 전자결재 화면 진입 성공
+  - 서버 `/approvals/boxes` 기반 문서함 탭 표시 확인
+  - 관리자 전용 `양식관리` 탭 표시 확인
+  - 브라우저 console error 없음
+- 계정별 샘플 데이터/API 권한 검증:
+  - `admin`: role `ADMIN`, 전체문서 box 포함, `/approval-templates/manage` 200
+  - `kim.manager`: role `MANAGER`, 전체문서 box 제외, `/approval-templates/manage` 403
+  - `hong.gildong`: role `USER`, 전체문서 box 제외, `/approval-templates/manage` 403
+- 서버 상태:
+  - frontend: `http://127.0.0.1:5173`
+  - backend health: `http://localhost:8080/api/v1/health` OK
+
+## Phase 9 1차 진행 요약
+
+- 생성/수정/상신 API 정리:
+  - 기존 draft/create/update/submit 경로는 유지해 호환성 보존
+  - 처리성 엔드포인트와 분리되도록 표준 action 경로 추가
+- 처리 API 정리:
+  - `POST /api/v1/approvals/{approvalId}/actions/{action}` 추가
+  - 지원 action:
+    - `approve`
+    - `reject`
+    - `withdraw`
+    - `cancel`
+    - `redraft`
+    - `receive`
+    - `complete-receipt`
+    - `status-correction`
+    - `regenerate-pdf`
+  - 기존 개별 처리 endpoint는 하위 호환용으로 유지
+- 목록 box API 정리:
+  - `GET /api/v1/approvals/boxes` 추가
+  - 서버가 권한에 맞는 문서함 목록/라벨을 제공
+  - 잘못된 box는 `APPROVAL_BOX_INVALID`, 무권한 전체문서 접근은 `APPROVAL_BOX_FORBIDDEN`
+  - 프론트 문서함 탭을 서버 box API 기준으로 전환
+- 템플릿 관리 API 정리:
+  - `GET /api/v1/approval-templates/manage` alias 추가
+  - `PATCH /api/v1/approval-templates/{templateCode}/status` alias 추가
+  - 기존 `/admin`, `/active` 경로는 하위 호환용으로 유지
+- API 오류 응답 통일:
+  - 잘못된 JSON: `REQUEST_BODY_INVALID`
+  - 누락 파라미터: `REQUEST_PARAMETER_MISSING`
+  - 파라미터 타입 오류: `REQUEST_PARAMETER_INVALID`
+  - 미지원 메서드: `METHOD_NOT_ALLOWED`
+  - 없는 리소스: `NOT_FOUND`
+  - Bean/constraint validation: `VALIDATION_FAILED`
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `mvn test` 통과: Tests run 11 / Failures 0 / Errors 0
+  - backend `mvn package -DskipTests` 통과
+
+## Phase 8 1차 진행 요약
+
+- 관리자 권한 범위 분리:
+  - 전자결재 운영 관리: `ADMIN`, `APPROVAL_ADMIN`
+  - 감사/전체 조회: `ADMIN`, `APPROVAL_ADMIN`, `AUDIT_ADMIN`
+  - 양식관리/기본 결재선/보존삭제/상태 보정은 운영 관리자 권한으로 분리
+- 문서 삭제/보존 정책:
+  - `DELETE /api/v1/approvals/{approvalId}` 추가
+  - 물리 삭제 없이 `approval_document.deleted_yn = 'Y'`로 soft delete
+  - `IN_PROGRESS`, `APPROVED` 문서는 보존 대상으로 삭제 차단
+  - 일반 기안자는 반려 문서 삭제 불가, 전자결재 관리자만 반려 문서 보존삭제 가능
+  - 감사 액션 `DELETE_APPROVAL` 추가
+- 상태 보정 구조:
+  - `POST /api/v1/approvals/{approvalId}/status-correction` 추가
+  - 문서 `status`는 바꾸지 않고 `current_stage`만 상태/결재선 기준으로 재정렬
+  - 보정 사유를 `correction_reason`에 저장
+  - 감사 액션 `CORRECT_APPROVAL_STATUS` 추가
+- 프론트:
+  - 상세 화면에 운영 관리자 전용 `상태 보정`, `보존삭제` 버튼 추가
+  - `APPROVAL_ADMIN`, `AUDIT_ADMIN` 역할 문자열 인식
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `mvn test` 통과: Tests run 10 / Failures 0 / Errors 0
+  - backend `mvn package -DskipTests` 통과
+
+## Phase 7 운영 설정값 분리 / 대시보드 카드 진행 요약
+
+- 운영 설정값 분리:
+  - `ApprovalOperationProperties` 추가
+  - `@ConfigurationPropertiesScan` 활성화
+  - `ApprovalReminderService`의 `@Value` 직접 참조 제거
+  - `app.approval.decision-due-hours`, `app.approval.reminder-fixed-delay-ms` 설정을 타입 있는 프로퍼티로 관리
+- 대시보드 카드:
+  - `GET /api/v1/approvals/dashboard` 추가
+  - 응답 항목:
+    - 내 결재대기
+    - 대리대기
+    - 기한초과
+    - 진행문서
+    - 최근완료
+  - 홈 전자결재 카드가 실제 요약 API 수치를 표시하도록 연결
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `mvn test` 통과: Tests run 9 / Failures 0 / Errors 0
+  - backend `mvn package -DskipTests` 통과
+
+## Phase 7 결재 기한/지연 알림 진행 요약
+
+- 합의/결재 라인이 `PENDING`으로 열릴 때 `due_at` 자동 부여.
+  - 기본값: 현재 시각 + 72시간
+  - 환경변수: `APPROVAL_DECISION_DUE_HOURS`
+- 지연 알림 스케줄러 추가.
+  - 기본 실행 주기: 300,000ms
+  - 환경변수: `APPROVAL_REMINDER_FIXED_DELAY_MS`
+  - 대상: `status=PENDING`, `due_at < now`, `reminded_at is null`
+- 지연 알림 수신자:
+  - 활성 상태의 원 담당자
+  - 원 담당자의 현재 활성 대리자
+- 알림 발송 후 `reminded_at` 기록으로 동일 라인 중복 알림 방지.
+- 상세 결재선/결재 의견/결재표에 처리 기한 또는 기한 초과 표시 추가.
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `mvn test` 통과: Tests run 8 / Failures 0 / Errors 0
+  - backend `mvn package -DskipTests` 통과
+
+## Phase 7 비활성/휴직 사용자 처리 진행 요약
+
+- 문서 작성/임시저장/상신 시 합의자, 결재자, 수신자, 참조자, 연람자에 `use_yn=Y` 및 `status=ACTIVE` 사용자인지 서버에서 검증.
+- 휴직(`LEAVE`) 또는 비활성(`use_yn=N`) 사용자가 결재선에 포함되면 `APPROVAL_ASSIGNEE_INACTIVE`로 차단.
+- 개인/양식별 기본 결재선 저장 시에도 재직/활성 사용자만 저장 가능하도록 검증.
+- 기존에 유효한 대리설정이 있는 경우, 원 담당자가 휴직/비활성 상태로 전환되어도 대리자의 결재대기/합의대기/처리함 조회 범위에는 계속 포함.
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `mvn test` 통과: Tests run 7 / Failures 0 / Errors 0
+
+## Phase 7 대리 처리 표기 UX 1차 진행 요약
+
+- `ApprovalLineResponse`에 실제 처리자 이름/부서/직위 필드 추가.
+- 프론트 `ApprovalLine` 타입에 실제 처리자 표시 필드 추가.
+- 원 담당자와 실제 처리자가 다른 완료 결재선에 `대리 처리` 문구 표시:
+  - 상세 결재선
+  - 결재 의견
+  - 결재표 하단 보조 문구
+- 검증:
+  - `frontend npm.cmd run build`: 성공
+  - `backend mvn.cmd test`: 성공, Tests run 6 / Failures 0 / Errors 0
+
+## Phase 7 대리결재 UI 1차 진행 요약
+
+- 전자결재 화면에 `대리설정` 탭 추가.
+- 대리결재 설정 화면 추가:
+  - 대리자 선택
+  - 시작일/종료일
+  - 활성 여부
+  - 사유
+  - 저장/해제
+- 기존 직원 선택 모달을 재사용하여 조직/검색 기반 대리자 선택 지원.
+- 현재 적용 중인 대리설정이 있으면 대리자와 적용 기간 표시.
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `/api/v1/health` 확인: `{"status":"OK"}`
+  - 브라우저 QA:
+    - 전자결재 화면에 `대리설정` 탭 표시 확인
+    - 대리결재 설정 화면의 시작일/종료일/사유/대리자 선택 UI 확인
+    - 대리자 선택 모달에서 김민수 선택 및 적용 확인
+    - 저장 후 `대리결재 설정을 저장했습니다.` 메시지와 `현재 적용 중` 표시 확인
+    - 해제 후 `대리결재 설정을 해제했습니다.` 메시지 확인
+  - 테스트용 관리자 대리설정 해제 상태 확인: `adminDelegation=null`
+
+남은 Phase 7 후속:
+
+- 대리결재 UI 설정 화면 고도화
+- 대리 처리 표기 UX 추가 QA
+- 관리자 편집형 운영 설정 화면은 후속 Phase에서 검토
+
+## Phase 7 1차 진행 요약
+
+- 대리결재 테이블 추가:
+  - `approval_delegation`
+- 대리결재 API 추가:
+  - `GET /approval-delegations/me`
+  - `PUT /approval-delegations/me`
+  - `DELETE /approval-delegations/me`
+- 현재 사용자가 자신의 대리자를 설정/해제하는 1차 구조 구현.
+- 대리 기간:
+  - `startDate` 기본값은 오늘
+  - `endDate`는 선택값
+  - 종료일이 시작일보다 빠르면 차단
+- 대리자 검증:
+  - 본인 지정 차단
+  - 재직/활성 사용자만 대리자로 지정 가능
+- 결재/합의 처리 권한 연결:
+  - 대리자는 원 결재자의 `PENDING` 합의/결재 라인을 조회하고 처리 가능
+  - 수신/참조/연람은 기존 담당자 기준 유지
+- 결재선 기록:
+  - 원 담당자는 `assignedEmp`
+  - 실제 처리자는 `actedEmp`
+  - 대리 승인 시 원 담당자와 실제 처리자가 분리 기록됨
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `mvn test` 통과: 6건 실행, 실패 0건
+  - backend `mvn package -DskipTests` 통과
+  - local DB에 `approval_phase7_delegation_patch.sql` 적용 완료
+  - backend `/api/v1/health` 확인: `{"status":"OK"}`
+  - API QA:
+    - 김민수(`empId=2`)의 대리자를 이서연(`empId=3`)으로 설정
+    - 김민수 결재 문서 `approvalId=12` 생성
+    - 이서연 결재대기함에 문서 노출 확인
+    - 이서연 상세 권한 `canView=true`, `canApprove=true`
+    - 이서연 승인 후 문서 `APPROVED`, `pdfStatus=GENERATED`
+    - 결재선 `assignedEmpId=2`, `actedEmpId=3`, `status=APPROVED` 확인
+    - 재기동 후 이서연이 처리 완료 문서 상세 조회 가능 확인: `canView=true`, `canApprove=false`
+
+남은 Phase 7 후속:
+
+- 대리결재 UI 설정 화면 고도화
+- 대리 처리 표기 UX 추가 QA
+- 관리자 편집형 운영 설정 화면은 후속 Phase에서 검토
+
+## Phase 6 1차 진행 요약
+
+- 최종 결재자가 승인하여 문서가 `APPROVED`/`COMPLETED`가 되는 시점에 `ApprovalPdfService.generateForFinalApproval` 호출.
+- 생성 PDF는 `APPROVAL_PDF` targetType으로 저장하고 `pdfStatus`, `pdfFileId`, `pdfHash`, `pdfGeneratedAt`에 연결.
+- PDF 전용 다운로드에서 lazy-loaded `pdfFile` 프록시가 컨트롤러 밖에서 초기화되며 500이 나던 문제 수정.
+- `APPROVAL_PDF` targetType 보안 보완:
+  - 일반 파일 다운로드 경로(`/files/{fileId}/download`)에서도 전자결재 PDF 출력 권한 확인
+  - 무권한 사용자는 `APPROVAL_PDF_FORBIDDEN` 403
+  - `APPROVAL_PDF` 직접 업로드/수정은 `APPROVAL_PDF_WRITE_FORBIDDEN` 403
+- 완료 문서 첨부 잠금 재확인:
+  - `APPROVAL_DOCUMENT` 첨부 업로드/삭제는 기안자이면서 editable draft/withdrawn 문서일 때만 허용
+  - 승인 완료 문서 첨부 업로드는 `APPROVAL_FILE_WRITE_FORBIDDEN` 403
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `mvn test` 통과: 5건 실행, 실패 0건
+  - backend `mvn package -DskipTests` 통과
+  - backend `/api/v1/health` 확인: `{"status":"OK"}`
+  - API QA 문서 `approvalId=9`: `APPROVED`, `COMPLETED`, `pdfStatus=GENERATED`, `pdfFileId=3`, `pdfHash` 존재
+  - `GET /approvals/{approvalId}/pdf`: 200, `application/pdf`
+  - 무권한 사용자 `GET /files/{pdfFileId}/download`: 403, `APPROVAL_PDF_FORBIDDEN`
+  - 승인 완료 문서 `POST /files targetType=APPROVAL_DOCUMENT`: 403, `APPROVAL_FILE_WRITE_FORBIDDEN`
+  - `POST /files targetType=APPROVAL_PDF`: 403, `APPROVAL_PDF_WRITE_FORBIDDEN`
+
+Phase 6 범위 조정:
+
+- 전자결재 PDF 워터마크는 제외한다.
+- 문서별 템플릿, 작성/상세 UI 레이아웃, PDF 출력 레이아웃 고도화는 전자결재 핵심 기능 완료 후 일괄 보완한다.
+- 첨부/PDF 권한에 대한 별도 FileService 단위 테스트는 후속 안정화 항목으로 유지한다.
+- 사인 이미지 표시 품질 및 대리결재 표기 정책은 Phase 7에서 계속한다.
+
+## Phase 5 진행 요약
+
+- 기본 결재선 테이블 추가:
+  - `approval_default_line`
+  - `approval_default_line_step`
+- 기본 결재선 API 추가:
+  - `GET /approval-default-lines/effective?templateCode=...`
+  - `PUT /approval-default-lines/me`
+  - `GET /approval-default-lines/templates/{templateCode}`
+  - `PUT /approval-default-lines/templates/{templateCode}`
+- 작성 화면에서 양식 선택 후 기본 결재선 자동 적용:
+  - 양식별 기본 결재선 우선
+  - 없으면 개인 기본 결재선 fallback
+  - 없으면 빈 결재선 유지
+- 작성 화면에 `개인 기본 결재선 저장` 버튼 추가.
+- 관리자 전용 `양식관리` 탭 추가:
+  - 최신 양식 목록 조회
+  - 템플릿 코드/명/설명/정렬순서/활성 여부 관리
+  - `fields_json`, `print_layout_json` 조회/수정
+  - 저장 시 기존 row 덮어쓰기 대신 새 버전 생성
+  - 양식별 기본 결재선 연결
+- 양식 선택 fallback 보완:
+  - DB 템플릿이 없거나 조회 실패한 개발 환경에서만 fallback 목록 사용
+  - fallback 사용 시 양식 선택 모달에 `개발용 임시 목록` 표시
+  - 운영에서는 `VITE_ENABLE_TEMPLATE_FALLBACK=true`를 명시하지 않으면 fallback 비활성
+- Phase 5 마무리 보완:
+  - 작성 화면에서 `fields_json` 기반 입력 필드 렌더링
+  - `textarea`, `select`, `date`, `number`, `text` 타입 기본 지원
+  - `formDataJson.fields`에 템플릿 필드 값 저장
+  - 상신 시 `required: true`, `required: "Y"` 필드 누락을 서버에서 차단
+  - 임시저장은 필수값 누락을 허용
+  - 프론트에서도 상신 전 필수값 누락 안내
+  - 일반 사용자의 관리자 템플릿 API 접근 403 확인
+- 검증:
+  - frontend `npm.cmd run build` 통과
+  - backend `mvn test` 통과: 5건 실행, 실패 0건
+  - backend `mvn package -DskipTests` 통과
+  - backend `/api/v1/health` 확인: `{"status":"OK"}`
+  - 브라우저 작성 화면에서 개인 기본 결재선 자동 적용 확인: 김민수 결재자, 이서연 수신자
+  - 브라우저 작성 화면에서 DRAFT 템플릿 필드 렌더링 확인: 기안 목적, 상세 내용, 기대 효과
+  - 브라우저 양식관리 탭 확인: DRAFT v1, 필드 JSON, 양식별 기본 결재선 영역 표시
 
 ## Phase 4 완료 요약
 
@@ -107,6 +655,29 @@
 - 알림 목록에 읽음/미읽음 상태, 전자결재 바로가기, 발송 실패 메시지 표시.
 - frontend npm build 통과.
 - backend 재검증은 Codex 사용량 제한으로 외부 실행 승인이 거절되어 이번 Phase 4 턴에서는 재실행하지 못함. Phase 4에서는 백엔드 코드 변경 없음.
+
+## Phase 4 보완 검증 요약
+
+- 검증 경로: D:\project\CompanyProject.
+- frontend `npm.cmd run build` 통과.
+- backend `mvn test` 통과: 4건 실행, 실패 0건.
+- backend `mvn package -DskipTests` 통과.
+- 실행 중인 backend `/api/v1/health` 응답 확인: HTTP 200, `{"status":"OK"}`.
+- 브라우저에서 관리자 세션 로그인 유지, 전자결재 메뉴 진입, 작성 버튼, 양식 선택 모달, DB 템플릿 목록, 전자결재 작성 화면 진입 확인.
+- 아직 실제 상신/승인/반려/재상신/문서함 전체 노출 흐름은 미검증.
+
+## Phase 4 E2E 보완 요약
+
+- 로컬 DB `approval_document.document_no`가 `NOT NULL`로 남아 있어 draft 생성이 실패하던 문제 확인.
+- `backend/src/main/resources/db/schema/approval_phase1_patch.sql` 적용으로 `document_no` nullable 보정.
+- 임시저장 후 상신 시 기존 draft 결재선 삭제가 flush 되기 전 새 결재선을 insert하면서 `uq_approval_line_order` 중복이 발생하는 문제 수정.
+- `ApprovalService.updateDraft`, `ApprovalService.submit`에서 `deleteByDocument` 직후 `lineRepository.flush()` 호출.
+- API E2E 검증 통과:
+  - 임시저장 -> 상신 -> 결재자 승인 -> 수신 확인 -> 접수완료
+  - 상신 -> 결재자 반려 -> 기안자 재상신 초안 생성 -> 재상신 -> 승인
+  - draft 첨부 업로드 -> 상신/승인 후 결재자 첨부 목록/다운로드
+- 브라우저에서 관리자 기안문서함에 E2E 문서 노출 확인.
+- 검증 후 `frontend npm.cmd run build`, backend `mvn test` 통과.
 
 ## Phase 3 완료 요약
 

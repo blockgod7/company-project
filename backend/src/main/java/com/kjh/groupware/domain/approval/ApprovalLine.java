@@ -174,28 +174,34 @@ public class ApprovalLine extends BaseEntity {
         return isAgreement() || isApproval();
     }
 
-    public void approve(String comment, com.kjh.groupware.domain.file.AttachFile signatureSnapshotFile, String signatureSnapshotJson) {
+    public void approve(Emp actedEmp, String comment, com.kjh.groupware.domain.file.AttachFile signatureSnapshotFile, String signatureSnapshotJson) {
         this.status = STATUS_APPROVED;
         this.comment = comment;
         this.actedAt = LocalDateTime.now();
         this.signedAt = this.actedAt;
-        this.actedEmp = this.assignedEmp;
+        this.actedEmp = actedEmp == null ? this.assignedEmp : actedEmp;
         this.signatureSnapshotFile = signatureSnapshotFile;
         this.signatureSnapshotJson = signatureSnapshotJson;
         this.signSnapshotFile = signatureSnapshotFile;
     }
 
-    public void reject(String comment) {
+    public void reject(Emp actedEmp, String comment) {
         this.status = STATUS_REJECTED;
         this.comment = comment;
         this.actedAt = LocalDateTime.now();
-        this.actedEmp = this.assignedEmp;
+        this.actedEmp = actedEmp == null ? this.assignedEmp : actedEmp;
     }
 
     public void open() {
+        open(null);
+    }
+
+    public void open(LocalDateTime dueAt) {
         this.status = STATUS_PENDING;
         this.actedAt = null;
         this.comment = null;
+        this.dueAt = dueAt;
+        this.remindedAt = null;
     }
 
     public boolean isActed() {
@@ -225,11 +231,22 @@ public class ApprovalLine extends BaseEntity {
         this.readAt = LocalDateTime.now();
     }
 
-    public void completeReceipt(String comment) {
+    public void completeReceipt(Emp actedEmp, String comment) {
         this.status = STATUS_RECEIPT_COMPLETED;
         this.comment = comment;
         this.actedAt = LocalDateTime.now();
-        this.actedEmp = this.assignedEmp;
+        this.actedEmp = actedEmp == null ? this.assignedEmp : actedEmp;
+    }
+
+    public boolean isOverdueForReminder(LocalDateTime now) {
+        return STATUS_PENDING.equals(status)
+            && dueAt != null
+            && dueAt.isBefore(now == null ? LocalDateTime.now() : now)
+            && remindedAt == null;
+    }
+
+    public void markReminded() {
+        this.remindedAt = LocalDateTime.now();
     }
 
     private void snapshotAssignee(Emp assignee) {

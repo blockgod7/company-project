@@ -19,7 +19,7 @@ export type User = {
   empId: number;
   loginId: string;
   empName: string;
-  roleCode: "ADMIN" | "MANAGER" | "USER";
+  roleCode: "ADMIN" | "APPROVAL_ADMIN" | "AUDIT_ADMIN" | "MANAGER" | "USER";
   deptId: number | null;
   deptName: string | null;
   permissions: string[];
@@ -154,6 +154,11 @@ export type ApprovalLine = {
   approverPositionName: string | null;
   assignedEmpId: number | null;
   actedEmpId: number | null;
+  actedEmpName: string | null;
+  actedEmpDeptName: string | null;
+  actedEmpPositionName: string | null;
+  dueAt: string | null;
+  remindedAt: string | null;
   empNoSnapshot: string | null;
   empNameSnapshot: string | null;
   deptIdSnapshot: number | null;
@@ -177,6 +182,9 @@ export type ApprovalSummary = {
   requesterEmpId: number;
   requesterName: string;
   currentApproverName: string | null;
+  deletedAt: string | null;
+  deletedByEmpId: number | null;
+  deletedByName: string | null;
 };
 
 export type ApprovalPermissions = {
@@ -224,5 +232,60 @@ export type ApprovalTemplateApi = {
   description: string | null;
   fieldsJson: string;
   printLayoutJson: string | null;
+  activeYn: "Y" | "N";
   sortOrder: number;
+};
+
+export type ApprovalDefaultLineStepApi = {
+  stepId: number;
+  stepOrder: number;
+  approverEmpId: number;
+  approverName: string;
+  approverDeptName: string | null;
+  approverPositionName: string | null;
+  lineType: "AGREEMENT" | "APPROVAL" | "RECEIVER" | "REFERENCE" | "READER";
+  required: boolean;
+};
+
+export type ApprovalDefaultLineApi = {
+  defaultLineId: number | null;
+  lineName: string | null;
+  defaultType: "PERSONAL" | "TEMPLATE" | null;
+  source: "PERSONAL" | "TEMPLATE" | "EMPTY";
+  templateCode: string | null;
+  steps: ApprovalDefaultLineStepApi[];
+};
+
+export type ApprovalDelegationApi = {
+  delegationId: number;
+  ownerEmpId: number;
+  ownerName: string;
+  delegateEmpId: number;
+  delegateName: string;
+  delegateDeptName: string | null;
+  delegatePositionName: string | null;
+  startDate: string;
+  endDate: string | null;
+  reason: string | null;
+  activeYn: "Y" | "N";
+  activeNow: boolean;
+};
+
+export type ApprovalDashboard = {
+  myPendingCount: number;
+  delegatedPendingCount: number;
+  overdueCount: number;
+  requestedInProgressCount: number;
+  recentCompletedCount: number;
+};
+
+export type ApprovalOperationSettings = {
+  decisionDueHours: number;
+  reminderFixedDelayMs: number;
+  deletedDocumentRetentionDays: number;
+  permanentDeleteEnabled: boolean;
+  fallbackDecisionDueHours: number;
+  fallbackReminderFixedDelayMs: number;
+  fallbackDeletedDocumentRetentionDays: number;
+  fallbackPermanentDeleteEnabled: boolean;
 };

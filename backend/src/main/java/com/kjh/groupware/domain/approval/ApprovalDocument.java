@@ -303,10 +303,21 @@ public class ApprovalDocument extends BaseEntity {
         this.completedAt = LocalDateTime.now();
     }
 
+    public void correctCurrentStage(String currentStage, String reason) {
+        this.currentStage = currentStage;
+        this.correctionReason = reason;
+    }
+
     public void delete(Emp deletedBy) {
         this.deletedYn = "Y";
         this.deletedAt = LocalDateTime.now();
         this.deletedBy = deletedBy;
+    }
+
+    public void restore() {
+        this.deletedYn = "N";
+        this.deletedAt = null;
+        this.deletedBy = null;
     }
 
     public boolean isLocked() {

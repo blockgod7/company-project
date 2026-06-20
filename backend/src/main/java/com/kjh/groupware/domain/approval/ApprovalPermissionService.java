@@ -5,20 +5,34 @@ import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.global.exception.BusinessException;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class ApprovalPermissionService {
+
+    private final ApprovalDelegationService delegationService;
 
     public ApprovalPermissionResponse permissions(Emp emp, ApprovalDocument document, List<ApprovalLine> lines) {
         boolean requester = isRequester(emp, document);
         boolean decisionAssignee = lines.stream().anyMatch(line -> line.isDecisionLine() && line.isAssignedTo(emp));
+        boolean delegatedPendingDecisionAssignee = lines.stream().anyMatch(line -> line.isDecisionLine()
+            && ApprovalLine.STATUS_PENDING.equals(line.getStatus())
+            && delegationService.canActFor(emp, line.getAssignedEmp()));
+        boolean delegatedActedDecisionAssignee = lines.stream().anyMatch(line -> line.isDecisionLine() && isActedBy(line, emp));
         boolean receiver = lines.stream().anyMatch(line -> line.isReceiver() && line.isAssignedTo(emp));
         boolean shared = lines.stream().anyMatch(line -> (line.isReference() || line.isReader()) && line.isAssignedTo(emp));
-        boolean auditAdmin = isAuditAdmin(emp);
+        boolean auditAdmin = canViewAllDocuments(emp);
         boolean approved = ApprovalDocument.STATUS_APPROVED.equals(document.getStatus());
         boolean viewByPostApprovalRole = approved && (receiver || shared);
-        boolean canView = requester || decisionAssignee || viewByPostApprovalRole || auditAdmin;
-        boolean pendingDecision = lines.stream().anyMatch(line -> line.isDecisionLine() && line.isPendingFor(emp));
+        boolean canView = requester || decisionAssignee || delegatedPendingDecisionAssignee || delegatedActedDecisionAssignee || viewByPostApprovalRole || auditAdmin;
+        boolean canPrintPdf = canView
+            && approved
+            && ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus())
+            && document.getPdfFile() != null;
+        boolean pendingDecision = lines.stream().anyMatch(line -> line.isDecisionLine()
+            && ApprovalLine.STATUS_PENDING.equals(line.getStatus())
+            && (line.isPendingFor(emp) || delegationService.canActFor(emp, line.getAssignedEmp())));
         boolean canApprove = pendingDecision;
         boolean canReject = pendingDecision;
         boolean canWithdraw = requester
@@ -43,7 +57,7 @@ public class ApprovalPermissionService {
             canReceive,
             canCompleteReceipt,
             canView,
-            canView,
+            canPrintPdf,
             canView
         );
     }
@@ -70,7 +84,15 @@ public class ApprovalPermissionService {
         return emp != null && document.getRequester().getEmpId().equals(emp.getEmpId());
     }
 
-    private boolean isAuditAdmin(Emp emp) {
-        return emp != null && ("ADMIN".equals(emp.getRoleCode()) || "AUDIT_ADMIN".equals(emp.getRoleCode()));
+    private boolean isActedBy(ApprovalLine line, Emp emp) {
+        return emp != null && line.getActedEmp() != null && line.getActedEmp().getEmpId().equals(emp.getEmpId());
+    }
+
+    public boolean canManageOperations(Emp emp) {
+        return emp != null && ("ADMIN".equals(emp.getRoleCode()) || "APPROVAL_ADMIN".equals(emp.getRoleCode()));
+    }
+
+    public boolean canViewAllDocuments(Emp emp) {
+        return canManageOperations(emp) || (emp != null && "AUDIT_ADMIN".equals(emp.getRoleCode()));
     }
 }

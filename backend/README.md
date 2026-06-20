@@ -1,6 +1,8 @@
 # Groupware Backend
 
-Phase 1 backend for the company integrated groupware project.
+Backend for the company integrated groupware project.
+
+Current working state: electronic approval finalization is complete for the first production-ready pass. Core workflow, operations settings, dashboard drill-down, retention restore, retention policy, audit report, CSV export, backend/frontend builds, and API smoke checks pass. Final handoff notes are in `docs/electronic-approval-final.md`.
 
 ## Stack
 
@@ -17,7 +19,7 @@ Phase 1 backend for the company integrated groupware project.
 
 All backend APIs use `/api/v1`.
 
-Implemented Phase 1 APIs:
+Implemented APIs include:
 
 - `GET /api/v1/health`
 - `POST /api/v1/auth/login`
@@ -42,10 +44,45 @@ Implemented Phase 1 APIs:
 - `DELETE /api/v1/boards/posts/comments/{commentId}`
 - `POST /api/v1/boards/posts/{postId}/read`
 - `GET /api/v1/approvals`
+  - optional dashboard drill-down query: `dashboardFilter=myPending|delegatedPending|overdue|requestedInProgress|recentCompleted`
+- `GET /api/v1/approvals/boxes`
+- `GET /api/v1/approvals/dashboard`
+- `GET /api/v1/approvals/deleted`
+- `GET /api/v1/approvals/retention-audits`
+- `GET /api/v1/approvals/retention-audits/export`
 - `POST /api/v1/approvals`
+- `POST /api/v1/approvals/drafts`
 - `GET /api/v1/approvals/{approvalId}`
+- `PUT /api/v1/approvals/{approvalId}/draft`
+- `POST /api/v1/approvals/{approvalId}/submit`
+- `POST /api/v1/approvals/{approvalId}/withdraw`
+- `POST /api/v1/approvals/{approvalId}/cancel`
+- `POST /api/v1/approvals/{approvalId}/redraft`
 - `POST /api/v1/approvals/{approvalId}/approve`
+- `POST /api/v1/approvals/{approvalId}/actions/{action}`
 - `POST /api/v1/approvals/{approvalId}/reject`
+- `POST /api/v1/approvals/{approvalId}/receive`
+- `POST /api/v1/approvals/{approvalId}/complete-receipt`
+- `GET /api/v1/approvals/{approvalId}/pdf`
+- `POST /api/v1/approvals/{approvalId}/pdf/regenerate`
+- `DELETE /api/v1/approvals/{approvalId}`
+- `POST /api/v1/approvals/{approvalId}/restore`
+- `POST /api/v1/approvals/{approvalId}/status-correction`
+- `GET /api/v1/approval-templates`
+- `GET /api/v1/approval-templates/admin`
+- `GET /api/v1/approval-templates/manage`
+- `POST /api/v1/approval-templates`
+- `PATCH /api/v1/approval-templates/{templateCode}/active`
+- `PATCH /api/v1/approval-templates/{templateCode}/status`
+- `GET /api/v1/approval-default-lines/effective`
+- `PUT /api/v1/approval-default-lines/me`
+- `GET /api/v1/approval-default-lines/templates/{templateCode}`
+- `PUT /api/v1/approval-default-lines/templates/{templateCode}`
+- `GET /api/v1/approval-delegations/me`
+- `PUT /api/v1/approval-delegations/me`
+- `DELETE /api/v1/approval-delegations/me`
+- `GET /api/v1/approval-operation-settings`
+- `PUT /api/v1/approval-operation-settings`
 - `GET /api/v1/depts/tree`
 - `GET /api/v1/emps`
 - `GET /api/v1/notifications`
@@ -91,6 +128,10 @@ Runtime settings are environment-variable driven:
 - `JWT_REFRESH_TOKEN_VALIDITY_SECONDS`, default `1209600`
 - `FILE_STORAGE_PATH`, default `uploads`
 - `CORS_ALLOWED_ORIGINS`, default `http://localhost:5173,http://127.0.0.1:5173`
+- frontend `VITE_ENABLE_TEMPLATE_FALLBACK=true` enables development fallback approval templates outside dev mode
+- `APPROVAL_DECISION_DUE_HOURS`, default `72`
+- `APPROVAL_REMINDER_FIXED_DELAY_MS`, default `300000`
+- `APPROVAL_REMINDER_SCHEDULER_TICK_MS`, default `60000`
 
 The PostgreSQL schema baseline is stored at:
 
@@ -100,7 +141,7 @@ JPA is configured with `ddl-auto: validate`; create/update database tables from 
 
 ## Local Run
 
-From the repository root, the easiest local launcher is:
+From the repository root, the easiest local launcher is path-independent and works from either `D:\project\CompanyProject` now or `C:\Project\Groupware` later:
 
 ```powershell
 .\start-web.ps1
@@ -109,9 +150,10 @@ From the repository root, the easiest local launcher is:
 Backend-only commands:
 
 ```powershell
-cd C:\Project\Groupware\backend
-& C:\Project\Groupware\.tools\apache-maven-3.9.9\bin\mvn.cmd test '-Dmaven.repo.local=C:\Project\Groupware\.m2repo'
-& C:\Project\Groupware\.tools\apache-maven-3.9.9\bin\mvn.cmd spring-boot:run '-Dmaven.repo.local=C:\Project\Groupware\.m2repo'
+cd <PROJECT_ROOT>\backend
+$root = Split-Path -Parent (Get-Location)
+& "$root\.tools\apache-maven-3.9.9\bin\mvn.cmd" test "-Dmaven.repo.local=$root\.m2repo"
+& "$root\.tools\apache-maven-3.9.9\bin\mvn.cmd" spring-boot:run "-Dmaven.repo.local=$root\.m2repo"
 ```
 
 Health check:
@@ -123,7 +165,7 @@ Invoke-WebRequest -UseBasicParsing http://localhost:8080/api/v1/health
 Frontend commands:
 
 ```powershell
-cd C:\Project\Groupware\frontend
+cd <PROJECT_ROOT>\frontend
 npm.cmd run build
 npm.cmd run dev
 ```
@@ -149,5 +191,7 @@ Important login IDs:
 
 ## Known Issues
 
-- The current approval model supports `PENDING`, `APPROVED`, and `REJECTED` document states. Draft, withdrawal, and cancellation are planned later and are not part of the current Phase 1 implementation.
+- Electronic approval first-pass finalization is complete. Deferred enhancements are documented in `docs/electronic-approval-final.md`.
+- Electronic approval PDF watermarking is intentionally excluded for now.
+- Future template work can focus on richer field components, drag-and-drop template editing, and refined PDF layout if needed.
 - Live end-to-end login requires a running PostgreSQL database with the schema and seed data applied.

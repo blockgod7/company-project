@@ -348,17 +348,24 @@ select { min-height: 42px; }
 .metric-card small { color: var(--muted); }
 .approval-preview {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 10px;
   margin-top: 20px;
 }
-.approval-preview div {
+.approval-preview button {
   display: grid;
   justify-items: center;
   gap: 7px;
   padding: 18px 8px;
-  border-radius: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: var(--soft);
+  color: var(--text);
+  cursor: pointer;
+}
+.approval-preview button:hover {
+  border-color: var(--green);
+  background: #f8fffb;
 }
 .approval-preview strong { color: var(--green); font-size: 32px; }
 .approval-preview span { color: var(--muted); font-size: 12px; }
@@ -667,6 +674,14 @@ select { min-height: 42px; }
   font-size: 9px;
   color: var(--muted);
 }
+.stamp-delegate {
+  display: block;
+  margin-top: 2px;
+  color: #0f766e;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+}
 .approval-line-editor {
   display: grid;
   gap: 8px;
@@ -885,6 +900,12 @@ select { min-height: 42px; }
   display: grid;
   gap: 18px;
 }
+.approval-template-line {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
 .template-switcher {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -912,6 +933,12 @@ select { min-height: 42px; }
   font-size: 12px;
   line-height: 1.35;
 }
+.template-fallback-note {
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 900;
+}
 .template-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -921,6 +948,16 @@ select { min-height: 42px; }
   display: grid;
   gap: 7px;
   font-weight: 800;
+}
+.template-form .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+}
+.template-form .checkbox-label input {
+  width: 18px;
+  height: 18px;
 }
 .template-form .wide {
   grid-column: 1 / -1;
@@ -1076,6 +1113,20 @@ select { min-height: 42px; }
 .approval-line p {
   margin: 0;
   color: #334155;
+}
+.delegated-action-text {
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
+}
+.delegated-action-text b {
+  margin-right: 4px;
+  color: #115e59;
+}
+.due-text {
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 700;
 }
 .modal-backdrop {
   position: fixed;
@@ -1328,6 +1379,19 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .approval-form-grid .wide {
   grid-column: 1 / -1;
 }
+.template-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.template-field-grid label {
+  display: grid;
+  gap: 7px;
+  font-weight: 800;
+}
+.template-field-grid .wide {
+  grid-column: 1 / -1;
+}
 .template-note {
   display: flex;
   justify-content: space-between;
@@ -1339,6 +1403,21 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 }
 .template-note span {
   color: var(--muted);
+}
+.approval-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-weight: 800;
+}
+.approval-filter-banner span {
+  min-width: 0;
 }
 .line-picker-grid {
   display: grid;
@@ -1395,8 +1474,8 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   .page-title, .detail-actions { flex-direction: column; }
   .two-pane, .org-layout, .login-card { grid-template-columns: 1fr; }
   .login-fields { justify-content: flex-start; }
-  .org-picker-layout, .template-select-layout, .line-picker-grid, .approval-form-grid { grid-template-columns: 1fr; }
-  .approval-form-grid .wide { grid-column: auto; }
+  .org-picker-layout, .template-select-layout, .line-picker-grid, .approval-form-grid, .template-field-grid { grid-template-columns: 1fr; }
+  .approval-form-grid .wide, .template-field-grid .wide { grid-column: auto; }
   .org-picker-tree, .org-picker-results {
     border-right: 0;
     border-bottom: 1px solid var(--line);

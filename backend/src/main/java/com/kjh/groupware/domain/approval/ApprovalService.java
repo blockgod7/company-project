@@ -1,8 +1,11 @@
 package com.kjh.groupware.domain.approval;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kjh.groupware.domain.approval.dto.ApprovalActionRequest;
+import com.kjh.groupware.domain.approval.dto.ApprovalBoxResponse;
+import com.kjh.groupware.domain.approval.dto.ApprovalDashboardResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalSummaryResponse;
@@ -44,6 +47,29 @@ public class ApprovalService {
     private static final String BOX_SHARED = "shared";
     private static final String BOX_PROCESSED = "processed";
     private static final String BOX_ALL = "all";
+    private static final String DASHBOARD_MY_PENDING = "myPending";
+    private static final String DASHBOARD_DELEGATED_PENDING = "delegatedPending";
+    private static final String DASHBOARD_OVERDUE = "overdue";
+    private static final String DASHBOARD_REQUESTED_IN_PROGRESS = "requestedInProgress";
+    private static final String DASHBOARD_RECENT_COMPLETED = "recentCompleted";
+    private static final List<String> APPROVAL_BOX_ORDER = List.of(
+        BOX_AGREEMENT,
+        BOX_PENDING,
+        BOX_RECEIVED,
+        BOX_SHARED,
+        BOX_REQUESTED,
+        BOX_PROCESSED,
+        BOX_ALL
+    );
+    private static final Map<String, String> APPROVAL_BOX_LABELS = Map.of(
+        BOX_AGREEMENT, "합의대기",
+        BOX_PENDING, "결재대기",
+        BOX_RECEIVED, "수신문서",
+        BOX_SHARED, "참조/연람",
+        BOX_REQUESTED, "기안문서",
+        BOX_PROCESSED, "처리문서",
+        BOX_ALL, "전체문서"
+    );
 
     private final ApprovalDocumentRepository documentRepository;
     private final ApprovalLineRepository lineRepository;
@@ -55,8 +81,68 @@ public class ApprovalService {
     private final EmpSignatureService signatureService;
     private final ApprovalPdfService pdfService;
     private final ApprovalPermissionService permissionService;
+    private final ApprovalDelegationService delegationService;
+    private final ApprovalReminderService reminderService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+
+    @Transactional(readOnly = true)
+    public List<ApprovalBoxResponse> boxes() {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        return APPROVAL_BOX_ORDER.stream()
+            .filter(box -> !BOX_ALL.equals(box) || permissionService.canViewAllDocuments(currentEmp))
+            .map(box -> new ApprovalBoxResponse(box, APPROVAL_BOX_LABELS.get(box)))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ApprovalDashboardResponse dashboard() {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        List<String> decisionTypes = List.of(ApprovalLine.TYPE_AGREEMENT, ApprovalLine.TYPE_APPROVAL);
+        List<Emp> directAssignees = List.of(currentEmp);
+        List<Emp> decisionAssignees = delegationService.decisionAssigneesFor(currentEmp);
+        if (decisionAssignees == null || decisionAssignees.isEmpty()) {
+            decisionAssignees = directAssignees;
+        }
+        List<Emp> delegatedAssignees = decisionAssignees.stream()
+            .filter(emp -> emp != null && !emp.getEmpId().equals(currentEmp.getEmpId()))
+            .toList();
+
+        long myPendingCount = lineRepository.countByAssignedEmpInAndLineTypeInAndStatus(
+            directAssignees,
+            decisionTypes,
+            ApprovalLine.STATUS_PENDING
+        );
+        long delegatedPendingCount = delegatedAssignees.isEmpty() ? 0 : lineRepository.countByAssignedEmpInAndLineTypeInAndStatus(
+            delegatedAssignees,
+            decisionTypes,
+            ApprovalLine.STATUS_PENDING
+        );
+        long overdueCount = decisionAssignees.isEmpty() ? 0 : lineRepository.countOverdueByAssignedEmpIn(
+            decisionAssignees,
+            decisionTypes,
+            ApprovalLine.STATUS_PENDING,
+            LocalDateTime.now()
+        );
+        long requestedInProgressCount = documentRepository.countByRequesterAndDeletedYnAndStatus(
+            currentEmp,
+            "N",
+            ApprovalDocument.STATUS_IN_PROGRESS
+        );
+        long recentCompletedCount = documentRepository.countByRequesterAndDeletedYnAndStatusInAndCompletedAtAfter(
+            currentEmp,
+            "N",
+            List.of(ApprovalDocument.STATUS_APPROVED, ApprovalDocument.STATUS_REJECTED),
+            LocalDateTime.now().minusDays(7)
+        );
+        return new ApprovalDashboardResponse(
+            myPendingCount,
+            delegatedPendingCount,
+            overdueCount,
+            requestedInProgressCount,
+            recentCompletedCount
+        );
+    }
 
     @Transactional(readOnly = true)
     public PageResponse<ApprovalSummaryResponse> findPage(
@@ -68,7 +154,8 @@ public class ApprovalService {
         String status,
         Long requesterEmpId,
         LocalDate dateFrom,
-        LocalDate dateTo
+        LocalDate dateTo,
+        String dashboardFilter
     ) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         int safePage = Math.max(page, 0);
@@ -76,6 +163,10 @@ public class ApprovalService {
         PageRequest documentPageRequest = PageRequest.of(safePage, safeSize, Sort.by(Sort.Order.desc("approvalId")));
         PageRequest linePageRequest = PageRequest.of(safePage, safeSize);
         String normalizedBox = box == null || box.isBlank() ? BOX_PENDING : box;
+        validateBox(normalizedBox, currentEmp);
+        if (hasText(dashboardFilter)) {
+            return findDashboardPage(dashboardFilter, currentEmp, documentPageRequest, linePageRequest);
+        }
 
         if (hasSearch(keyword, templateCode, status, requesterEmpId, dateFrom, dateTo)) {
             Emp requester = requesterEmpId == null ? null : empRepository.findById(requesterEmpId)
@@ -88,7 +179,7 @@ public class ApprovalService {
                 blankToNull(status),
                 requester,
                 currentEmp,
-                "ADMIN".equals(currentEmp.getRoleCode()),
+                permissionService.canViewAllDocuments(currentEmp),
                 from,
                 to,
                 documentPageRequest
@@ -96,16 +187,16 @@ public class ApprovalService {
         }
 
         if (BOX_AGREEMENT.equals(normalizedBox)) {
-            return PageResponse.from(lineRepository.findByAssignedEmpAndLineTypeAndStatusOrderByLineIdDesc(
-                currentEmp,
+            return PageResponse.from(lineRepository.findByAssignedEmpInAndLineTypeAndStatusOrderByLineIdDesc(
+                delegationService.decisionAssigneesFor(currentEmp),
                 ApprovalLine.TYPE_AGREEMENT,
                 ApprovalLine.STATUS_PENDING,
                 linePageRequest
             ).map(line -> summary(line.getDocument())));
         }
         if (BOX_PENDING.equals(normalizedBox)) {
-            return PageResponse.from(lineRepository.findByAssignedEmpAndLineTypeAndStatusOrderByLineIdDesc(
-                currentEmp,
+            return PageResponse.from(lineRepository.findByAssignedEmpInAndLineTypeAndStatusOrderByLineIdDesc(
+                delegationService.decisionAssigneesFor(currentEmp),
                 ApprovalLine.TYPE_APPROVAL,
                 ApprovalLine.STATUS_PENDING,
                 linePageRequest
@@ -128,8 +219,8 @@ public class ApprovalService {
             ).map(line -> summary(line.getDocument())));
         }
         if (BOX_PROCESSED.equals(normalizedBox)) {
-            return PageResponse.from(lineRepository.findByAssignedEmpAndStatusInOrderByLineIdDesc(
-                currentEmp,
+            return PageResponse.from(lineRepository.findByAssignedEmpInAndStatusInOrderByLineIdDesc(
+                delegationService.decisionAssigneesFor(currentEmp),
                 List.of(ApprovalLine.STATUS_APPROVED, ApprovalLine.STATUS_REJECTED, ApprovalLine.STATUS_RECEIPT_COMPLETED),
                 linePageRequest
             ).map(line -> summary(line.getDocument())));
@@ -138,12 +229,82 @@ public class ApprovalService {
             return PageResponse.from(documentRepository.findByRequesterAndDeletedYnOrderByApprovalIdDesc(currentEmp, "N", documentPageRequest)
                 .map(this::summary));
         }
-        if (BOX_ALL.equals(normalizedBox) && "ADMIN".equals(currentEmp.getRoleCode())) {
+        if (BOX_ALL.equals(normalizedBox) && permissionService.canViewAllDocuments(currentEmp)) {
             return PageResponse.from(documentRepository.findByDeletedYnOrderByApprovalIdDesc("N", documentPageRequest).map(this::summary));
         }
 
         Page<ApprovalDocument> visible = documentRepository.findVisibleToApprover(currentEmp, documentPageRequest);
         return PageResponse.from(visible.map(this::summary));
+    }
+
+    private PageResponse<ApprovalSummaryResponse> findDashboardPage(
+        String dashboardFilter,
+        Emp currentEmp,
+        PageRequest documentPageRequest,
+        PageRequest linePageRequest
+    ) {
+        List<String> decisionTypes = List.of(ApprovalLine.TYPE_AGREEMENT, ApprovalLine.TYPE_APPROVAL);
+        List<Emp> foundDecisionAssignees = delegationService.decisionAssigneesFor(currentEmp);
+        List<Emp> decisionAssignees = foundDecisionAssignees == null || foundDecisionAssignees.isEmpty()
+            ? List.of(currentEmp)
+            : foundDecisionAssignees;
+        return switch (dashboardFilter) {
+            case DASHBOARD_MY_PENDING -> PageResponse.from(lineRepository.findByAssignedEmpInAndLineTypeInAndStatusOrderByLineIdDesc(
+                List.of(currentEmp),
+                decisionTypes,
+                ApprovalLine.STATUS_PENDING,
+                linePageRequest
+            ).map(line -> summary(line.getDocument())));
+            case DASHBOARD_DELEGATED_PENDING -> {
+                List<Emp> delegatedAssignees = decisionAssignees.stream()
+                    .filter(emp -> emp != null && !emp.getEmpId().equals(currentEmp.getEmpId()))
+                    .toList();
+                yield delegatedAssignees.isEmpty()
+                    ? PageResponse.from(Page.<ApprovalLine>empty(linePageRequest).map(line -> summary(line.getDocument())))
+                    : PageResponse.from(lineRepository.findByAssignedEmpInAndLineTypeInAndStatusOrderByLineIdDesc(
+                        delegatedAssignees,
+                        decisionTypes,
+                        ApprovalLine.STATUS_PENDING,
+                        linePageRequest
+                    ).map(line -> summary(line.getDocument())));
+            }
+            case DASHBOARD_OVERDUE -> PageResponse.from(lineRepository.findOverdueByAssignedEmpIn(
+                decisionAssignees,
+                decisionTypes,
+                ApprovalLine.STATUS_PENDING,
+                LocalDateTime.now(),
+                linePageRequest
+            ).map(line -> summary(line.getDocument())));
+            case DASHBOARD_REQUESTED_IN_PROGRESS -> PageResponse.from(documentRepository.findByRequesterAndDeletedYnAndStatusOrderByApprovalIdDesc(
+                currentEmp,
+                "N",
+                ApprovalDocument.STATUS_IN_PROGRESS,
+                documentPageRequest
+            ).map(this::summary));
+            case DASHBOARD_RECENT_COMPLETED -> PageResponse.from(documentRepository.findByRequesterAndDeletedYnAndStatusInAndCompletedAtAfterOrderByCompletedAtDesc(
+                currentEmp,
+                "N",
+                List.of(ApprovalDocument.STATUS_APPROVED, ApprovalDocument.STATUS_REJECTED),
+                LocalDateTime.now().minusDays(7),
+                documentPageRequest
+            ).map(this::summary));
+            default -> throw BusinessException.badRequest("APPROVAL_DASHBOARD_FILTER_INVALID", "지원하지 않는 대시보드 필터입니다.");
+        };
+    }
+
+    @Transactional
+    public ApprovalResponse act(Long approvalId, String action, ApprovalActionRequest request, String ipAddress, String userAgent) {
+        return switch (ApprovalActionCode.from(action)) {
+            case APPROVE -> approve(approvalId, request, ipAddress, userAgent);
+            case REJECT -> reject(approvalId, request, ipAddress, userAgent);
+            case WITHDRAW -> withdraw(approvalId, request, ipAddress, userAgent);
+            case CANCEL -> cancel(approvalId, ipAddress, userAgent);
+            case REDRAFT -> redraft(approvalId, ipAddress, userAgent);
+            case RECEIVE -> receive(approvalId, ipAddress, userAgent);
+            case COMPLETE_RECEIPT -> completeReceipt(approvalId, request, ipAddress, userAgent);
+            case STATUS_CORRECTION -> correctStatus(approvalId, request, ipAddress, userAgent);
+            case REGENERATE_PDF -> regeneratePdf(approvalId, request);
+        };
     }
 
     @Transactional
@@ -152,6 +313,7 @@ public class ApprovalService {
         ApprovalTemplate template = activeTemplate(request.templateCode());
         boolean draft = Boolean.TRUE.equals(request.draft());
         validateLineSelection(requester, request, !draft);
+        validateRequiredFields(template, request, !draft);
 
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
         String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
@@ -211,6 +373,7 @@ public class ApprovalService {
         validateLineSelection(requester, request, false);
 
         ApprovalTemplate template = activeTemplate(request.templateCode());
+        validateRequiredFields(template, request, false);
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
         String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
         document.updateDraft(
@@ -225,6 +388,7 @@ public class ApprovalService {
         );
         document.saveAsDraft();
         lineRepository.deleteByDocument(document);
+        lineRepository.flush();
         createLines(document, request, false);
         auditApproval(requester, AuditActionType.UPDATE, document, "결재선 변경", true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), requester);
@@ -241,6 +405,7 @@ public class ApprovalService {
         validateLineSelection(requester, request, true);
 
         ApprovalTemplate template = activeTemplate(request.templateCode());
+        validateRequiredFields(template, request, true);
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
         String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
         String documentNo = hasText(document.getDocumentNo()) ? document.getDocumentNo() : generateDocumentNo(template.getTemplateCode());
@@ -255,6 +420,7 @@ public class ApprovalService {
             request.priority()
         );
         lineRepository.deleteByDocument(document);
+        lineRepository.flush();
         createLines(document, request, true);
         document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), hasAgreement(request));
         notifyInitialPendingLines(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), requester);
@@ -285,7 +451,7 @@ public class ApprovalService {
         ApprovalLine currentLine = currentDecisionLineForUpdate(lines, currentEmp);
 
         AttachFile signatureFile = currentLine.isApproval() ? signatureService.activeSignatureFile(currentEmp) : null;
-        currentLine.approve(request == null ? null : request.comment(), signatureFile, signatureService.snapshotJson(currentEmp));
+        currentLine.approve(currentEmp, request == null ? null : request.comment(), signatureFile, signatureService.snapshotJson(currentEmp));
 
         if (currentLine.isAgreement()) {
             progressAfterAgreement(document, lines);
@@ -308,7 +474,7 @@ public class ApprovalService {
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
         ApprovalLine currentLine = currentDecisionLineForUpdate(lines, currentEmp);
 
-        currentLine.reject(comment);
+        currentLine.reject(currentEmp, comment);
         lines.stream()
             .filter(line -> !line.getLineId().equals(currentLine.getLineId()))
             .filter(line -> !line.isActed())
@@ -402,7 +568,7 @@ public class ApprovalService {
         if (!ApprovalLine.STATUS_RECEIVED.equals(receiverLine.getStatus()) && !ApprovalLine.STATUS_READ.equals(receiverLine.getStatus())) {
             throw BusinessException.badRequest("APPROVAL_RECEIPT_DUPLICATED", "이미 처리된 문서입니다.");
         }
-        receiverLine.completeReceipt(request == null ? null : request.comment());
+        receiverLine.completeReceipt(currentEmp, request == null ? null : request.comment());
         auditApproval(currentEmp, AuditActionType.COMPLETE_RECEIPT, document, request == null ? null : request.comment(), true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), currentEmp);
     }
@@ -411,6 +577,64 @@ public class ApprovalService {
     public ApprovalResponse regeneratePdf(Long approvalId, ApprovalActionRequest request) {
         ApprovalDocument document = pdfService.regenerate(approvalId, request == null ? null : request.comment());
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), currentEmpProvider.getCurrentEmp());
+    }
+
+    @Transactional
+    public void deleteForRetention(Long approvalId, ApprovalActionRequest request, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
+        boolean requester = document.getRequester().getEmpId().equals(currentEmp.getEmpId());
+        boolean approvalAdmin = permissionService.canManageOperations(currentEmp);
+        if (!requester && !approvalAdmin) {
+            throw BusinessException.forbidden("APPROVAL_DELETE_FORBIDDEN", "문서 삭제 권한이 없습니다.");
+        }
+        if (ApprovalDocument.STATUS_IN_PROGRESS.equals(document.getStatus()) || ApprovalDocument.STATUS_APPROVED.equals(document.getStatus())) {
+            throw BusinessException.badRequest("APPROVAL_RETENTION_REQUIRED", "진행 중이거나 승인 완료된 문서는 보존 대상입니다.");
+        }
+        if (!approvalAdmin && ApprovalDocument.STATUS_REJECTED.equals(document.getStatus())) {
+            throw BusinessException.badRequest("APPROVAL_DELETE_ADMIN_REQUIRED", "반려 문서 보존삭제는 전자결재 관리자만 할 수 있습니다.");
+        }
+        document.delete(currentEmp);
+        auditApproval(currentEmp, AuditActionType.DELETE_APPROVAL, document, request == null ? "보존삭제" : request.comment(), true, ipAddress, userAgent);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ApprovalSummaryResponse> deletedPage(int page, int size) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        if (!permissionService.canManageOperations(currentEmp)) {
+            throw BusinessException.forbidden("APPROVAL_DELETED_VIEW_FORBIDDEN", "전자결재 관리자만 보존삭제 문서를 조회할 수 있습니다.");
+        }
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        PageRequest pageRequest = PageRequest.of(safePage, safeSize, Sort.by(Sort.Order.desc("deletedAt"), Sort.Order.desc("approvalId")));
+        return PageResponse.from(documentRepository.findByDeletedYn("Y", pageRequest).map(this::summary));
+    }
+
+    @Transactional
+    public ApprovalResponse restore(Long approvalId, ApprovalActionRequest request, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        if (!permissionService.canManageOperations(currentEmp)) {
+            throw BusinessException.forbidden("APPROVAL_RESTORE_FORBIDDEN", "전자결재 관리자만 보존삭제 문서를 복구할 수 있습니다.");
+        }
+        ApprovalDocument document = getDeletedDocumentForUpdate(approvalId);
+        document.restore();
+        List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
+        auditApproval(currentEmp, AuditActionType.RESTORE_APPROVAL, document, request == null ? "보존삭제 복구" : request.comment(), true, ipAddress, userAgent);
+        return response(document, lines, currentEmp);
+    }
+
+    @Transactional
+    public ApprovalResponse correctStatus(Long approvalId, ApprovalActionRequest request, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        if (!permissionService.canManageOperations(currentEmp)) {
+            throw BusinessException.forbidden("APPROVAL_CORRECTION_FORBIDDEN", "전자결재 관리자만 상태를 보정할 수 있습니다.");
+        }
+        ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
+        List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
+        String correctedStage = correctedStage(document, lines);
+        document.correctCurrentStage(correctedStage, request == null ? "상태 보정" : request.comment());
+        auditApproval(currentEmp, AuditActionType.CORRECT_APPROVAL_STATUS, document, "단계 보정: " + correctedStage, true, ipAddress, userAgent);
+        return response(document, lines, currentEmp);
     }
 
     private void progressAfterAgreement(ApprovalDocument document, List<ApprovalLine> lines) {
@@ -425,7 +649,7 @@ public class ApprovalService {
             .filter(line -> ApprovalLine.STATUS_WAITING.equals(line.getStatus()))
             .findFirst()
             .orElseThrow(() -> BusinessException.badRequest("APPROVAL_INVALID_LINE", "Approver line is missing"));
-        firstApprover.open();
+        firstApprover.open(reminderService.decisionDueAt());
         document.moveToApprovalProgress();
         notificationService.notifyEmp(firstApprover.getAssignedEmp().getEmpId(), "전자결재 요청", "합의가 완료되어 결재 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
     }
@@ -438,13 +662,44 @@ public class ApprovalService {
             .findFirst()
             .orElse(null);
         if (nextApprover != null) {
-            nextApprover.open();
+            nextApprover.open(reminderService.decisionDueAt());
             notificationService.notifyEmp(nextApprover.getAssignedEmp().getEmpId(), "전자결재 요청", "결재 요청 문서가 도착했습니다.", "APPROVAL", document.getApprovalId());
             return;
         }
         document.approve();
+        pdfService.generateForFinalApproval(document);
         openPostApprovalLines(document, lines);
         notificationService.notifyEmp(document.getRequester().getEmpId(), "전자결재 완료", "상신한 문서가 최종 승인되었습니다.", "APPROVAL", document.getApprovalId());
+    }
+
+    private String correctedStage(ApprovalDocument document, List<ApprovalLine> lines) {
+        return switch (document.getStatus()) {
+            case ApprovalDocument.STATUS_DRAFT -> ApprovalDocument.STAGE_DRAFT;
+            case ApprovalDocument.STATUS_APPROVED -> ApprovalDocument.STAGE_COMPLETED;
+            case ApprovalDocument.STATUS_REJECTED -> ApprovalDocument.STAGE_REJECTED;
+            case ApprovalDocument.STATUS_WITHDRAWN -> ApprovalDocument.STAGE_WITHDRAWN;
+            case ApprovalDocument.STATUS_CANCELED -> ApprovalDocument.STAGE_CANCELED;
+            case ApprovalDocument.STATUS_IN_PROGRESS -> correctedInProgressStage(lines);
+            default -> document.getCurrentStage();
+        };
+    }
+
+    private String correctedInProgressStage(List<ApprovalLine> lines) {
+        boolean hasUnfinishedAgreement = lines.stream()
+            .filter(ApprovalLine::isAgreement)
+            .anyMatch(line -> !ApprovalLine.STATUS_APPROVED.equals(line.getStatus())
+                && !ApprovalLine.STATUS_SKIPPED.equals(line.getStatus()));
+        if (hasUnfinishedAgreement) {
+            return ApprovalDocument.STAGE_AGREEMENT_PROGRESS;
+        }
+        boolean hasApprovalLine = lines.stream().anyMatch(ApprovalLine::isApproval);
+        if (hasApprovalLine) {
+            return ApprovalDocument.STAGE_APPROVAL_PROGRESS;
+        }
+        boolean hasOpenReceiver = lines.stream()
+            .filter(ApprovalLine::isReceiver)
+            .anyMatch(line -> ApprovalLine.STATUS_RECEIVED.equals(line.getStatus()) || ApprovalLine.STATUS_READ.equals(line.getStatus()));
+        return hasOpenReceiver ? ApprovalDocument.STAGE_RECEIVER_PROGRESS : ApprovalDocument.STAGE_APPROVAL_PROGRESS;
     }
 
     private void openPostApprovalLines(ApprovalDocument document, List<ApprovalLine> lines) {
@@ -465,6 +720,15 @@ public class ApprovalService {
 
     private ApprovalSummaryResponse summary(ApprovalDocument document) {
         return ApprovalSummaryResponse.from(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
+    }
+
+    private void validateBox(String box, Emp currentEmp) {
+        if (!APPROVAL_BOX_LABELS.containsKey(box)) {
+            throw BusinessException.badRequest("APPROVAL_BOX_INVALID", "지원하지 않는 전자결재 문서함입니다.");
+        }
+        if (BOX_ALL.equals(box) && !permissionService.canViewAllDocuments(currentEmp)) {
+            throw BusinessException.forbidden("APPROVAL_BOX_FORBIDDEN", "전체문서 문서함을 조회할 권한이 없습니다.");
+        }
     }
 
     private ApprovalResponse response(ApprovalDocument document, List<ApprovalLine> lines, Emp currentEmp) {
@@ -524,6 +788,15 @@ public class ApprovalService {
         return document;
     }
 
+    private ApprovalDocument getDeletedDocumentForUpdate(Long approvalId) {
+        ApprovalDocument document = documentRepository.findByIdForUpdate(approvalId)
+            .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
+        if (!"Y".equals(document.getDeletedYn())) {
+            throw BusinessException.badRequest("APPROVAL_NOT_DELETED", "보존삭제 문서가 아닙니다.");
+        }
+        return document;
+    }
+
     private ApprovalDocument getPendingDocumentForUpdate(Long approvalId) {
         ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
         if (!document.isPending()) {
@@ -543,12 +816,14 @@ public class ApprovalService {
     private ApprovalLine currentDecisionLineForUpdate(List<ApprovalLine> lines, Emp currentEmp) {
         ApprovalLine candidate = lines.stream()
             .filter(ApprovalLine::isDecisionLine)
-            .filter(line -> line.isPendingFor(currentEmp))
+            .filter(line -> line.isPendingFor(currentEmp) || (ApprovalLine.STATUS_PENDING.equals(line.getStatus()) && delegationService.canActFor(currentEmp, line.getAssignedEmp())))
             .findFirst()
             .orElseThrow(() -> BusinessException.forbidden("APPROVAL_FORBIDDEN", "Only the current agreement or approver can process this document"));
         ApprovalLine locked = lineRepository.findByIdForUpdate(candidate.getLineId())
             .orElseThrow(() -> BusinessException.notFound("APPROVAL_LINE_NOT_FOUND", "Approval line was not found"));
-        if (!locked.isDecisionLine() || !locked.isPendingFor(currentEmp)) {
+        if (!locked.isDecisionLine()
+            || !ApprovalLine.STATUS_PENDING.equals(locked.getStatus())
+            || !(locked.isPendingFor(currentEmp) || delegationService.canActFor(currentEmp, locked.getAssignedEmp()))) {
             throw BusinessException.badRequest("APPROVAL_ALREADY_PROCESSED", "This approval line has already been processed");
         }
         return locked;
@@ -602,11 +877,92 @@ public class ApprovalService {
                 throw BusinessException.badRequest("APPROVAL_INVALID_LINE", "Agreement, approval, and receiver assignees cannot overlap");
             }
         }
+        requireActiveAssignees("AGREEMENT", agreementIds);
+        requireActiveAssignees("APPROVAL", approverIds);
+        requireActiveAssignees("RECEIVER", receiverIds);
+        requireActiveAssignees("REFERENCE", ids(request.referenceEmpIds()));
+        requireActiveAssignees("READER", ids(request.readerEmpIds()));
+    }
+
+    private void validateRequiredFields(ApprovalTemplate template, ApprovalRequest request, boolean enforceRequired) {
+        if (!enforceRequired || !hasText(template.getFieldsJson())) {
+            return;
+        }
+        JsonNode fields = readJson(template.getFieldsJson(), "APPROVAL_TEMPLATE_INVALID_FIELDS", "Approval template fields JSON is invalid");
+        if (!fields.isArray()) {
+            return;
+        }
+        JsonNode formData = hasText(request.formDataJson())
+            ? readJson(request.formDataJson(), "APPROVAL_FORM_INVALID_JSON", "Approval form data JSON is invalid")
+            : objectMapper.createObjectNode();
+        JsonNode nestedFields = formData.path("fields");
+        for (JsonNode field : fields) {
+            if (!isRequiredField(field)) {
+                continue;
+            }
+            String name = field.path("name").asText("");
+            if (!hasText(name)) {
+                continue;
+            }
+            JsonNode value = nestedFields.has(name) ? nestedFields.get(name) : formData.get(name);
+            if (isBlankFieldValue(value)) {
+                String label = field.path("label").asText(name);
+                throw BusinessException.badRequest("APPROVAL_REQUIRED_FIELD_MISSING", label + " 필수값을 입력해 주세요.");
+            }
+        }
+    }
+
+    private JsonNode readJson(String json, String code, String message) {
+        try {
+            return objectMapper.readTree(json);
+        } catch (JsonProcessingException ex) {
+            throw BusinessException.badRequest(code, message);
+        }
+    }
+
+    private boolean isRequiredField(JsonNode field) {
+        JsonNode required = field.get("required");
+        if (required == null) {
+            return false;
+        }
+        if (required.isBoolean()) {
+            return required.asBoolean();
+        }
+        return "Y".equalsIgnoreCase(required.asText()) || "true".equalsIgnoreCase(required.asText());
+    }
+
+    private boolean isBlankFieldValue(JsonNode value) {
+        if (value == null || value.isNull() || value.isMissingNode()) {
+            return true;
+        }
+        if (value.isTextual()) {
+            return !hasText(value.asText());
+        }
+        if (value.isArray() || value.isObject()) {
+            return value.isEmpty();
+        }
+        return false;
     }
 
     private void requireNoDuplicate(String lineType, List<Long> empIds) {
         if (new HashSet<>(empIds).size() != empIds.size()) {
             throw BusinessException.badRequest("APPROVAL_INVALID_LINE", lineType + " assignees cannot contain duplicates");
+        }
+    }
+
+    private void requireActiveAssignees(String lineType, List<Long> empIds) {
+        for (Long empId : new HashSet<>(empIds)) {
+            if (empId == null) {
+                throw BusinessException.badRequest("APPROVAL_INVALID_LINE", lineType + " assignee is required");
+            }
+            Emp assignee = empRepository.findById(empId)
+                .orElseThrow(() -> BusinessException.notFound("APPROVAL_ASSIGNEE_NOT_FOUND", "Approval assignee was not found"));
+            if (!assignee.isActiveUser()) {
+                throw BusinessException.badRequest(
+                    "APPROVAL_ASSIGNEE_INACTIVE",
+                    "재직 중인 사용자만 결재선에 지정할 수 있습니다: " + assignee.getEmpName()
+                );
+            }
         }
     }
 
@@ -640,7 +996,7 @@ public class ApprovalService {
                 .first(false)
                 .build();
             if (pending && (ApprovalLine.TYPE_AGREEMENT.equals(lineType) || index == 0)) {
-                line.open();
+                line.open(reminderService.decisionDueAt());
             }
             lineRepository.save(line);
         }

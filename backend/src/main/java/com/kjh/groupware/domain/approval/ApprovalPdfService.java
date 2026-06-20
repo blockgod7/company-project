@@ -128,8 +128,9 @@ public class ApprovalPdfService {
         if (!ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus()) || document.getPdfFile() == null) {
             throw BusinessException.notFound("PDF_NOT_FOUND", "PDF has not been generated");
         }
+        Long pdfFileId = document.getPdfFile().getFileId();
         auditLogService.record(currentEmp.getEmpId(), AuditActionType.PRINT_PDF, "approval_document", approvalId, null, null, ipAddress, userAgent, "PDF 출력 시도", true);
-        return document.getPdfFile();
+        return fileService.getDownloadableFile(pdfFileId);
     }
 
     private GeneratedPdf render(ApprovalDocument document, List<ApprovalLine> lines) {

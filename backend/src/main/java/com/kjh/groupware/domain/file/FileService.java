@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.file;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.approval.ApprovalDocument;
 import com.kjh.groupware.domain.approval.ApprovalDocumentRepository;
+import com.kjh.groupware.domain.approval.ApprovalLine;
 import com.kjh.groupware.domain.approval.ApprovalLineRepository;
 import com.kjh.groupware.domain.approval.ApprovalPermissionService;
 import com.kjh.groupware.domain.file.dto.AttachFileResponse;
@@ -207,7 +208,10 @@ public class FileService {
         if (targetType == null || targetId == null) {
             return;
         }
-        if (!isApprovalTarget(targetType)) {
+        if (isApprovalPdfTarget(targetType)) {
+            throw BusinessException.forbidden("APPROVAL_PDF_WRITE_FORBIDDEN", "PDF 파일은 직접 수정할 수 없습니다.");
+        }
+        if (!isApprovalDocumentTarget(targetType)) {
             return;
         }
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
@@ -219,20 +223,25 @@ public class FileService {
     }
 
     private void assertTargetReadable(String targetType, Long targetId) {
-        if (targetType == null || targetId == null || !isApprovalTarget(targetType)) {
+        if (targetType == null || targetId == null || (!isApprovalDocumentTarget(targetType) && !isApprovalPdfTarget(targetType))) {
             return;
         }
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         ApprovalDocument document = approvalDocumentRepository.findById(targetId)
             .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
-        approvalPermissionService.assertCanDownloadAttachment(
-            currentEmp,
-            document,
-            approvalLineRepository.findByDocumentOrderByLineOrderAsc(document)
-        );
+        List<ApprovalLine> lines = approvalLineRepository.findByDocumentOrderByLineOrderAsc(document);
+        if (isApprovalPdfTarget(targetType)) {
+            approvalPermissionService.assertCanPrintPdf(currentEmp, document, lines);
+        } else {
+            approvalPermissionService.assertCanDownloadAttachment(currentEmp, document, lines);
+        }
     }
 
-    private boolean isApprovalTarget(String targetType) {
+    private boolean isApprovalDocumentTarget(String targetType) {
         return "APPROVAL".equals(targetType) || "APPROVAL_DOCUMENT".equals(targetType);
+    }
+
+    private boolean isApprovalPdfTarget(String targetType) {
+        return "APPROVAL_PDF".equals(targetType);
     }
 }

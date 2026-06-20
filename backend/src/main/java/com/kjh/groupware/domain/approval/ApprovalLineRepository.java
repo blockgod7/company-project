@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.approval;
 
 import com.kjh.groupware.domain.emp.Emp;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,15 @@ public interface ApprovalLineRepository extends JpaRepository<ApprovalLine, Long
 
     Page<ApprovalLine> findByAssignedEmpAndLineTypeAndStatusOrderByLineIdDesc(Emp assignedEmp, String lineType, String status, Pageable pageable);
 
+    Page<ApprovalLine> findByAssignedEmpInAndLineTypeAndStatusOrderByLineIdDesc(Collection<Emp> assignedEmps, String lineType, String status, Pageable pageable);
+
+    Page<ApprovalLine> findByAssignedEmpInAndLineTypeInAndStatusOrderByLineIdDesc(
+        Collection<Emp> assignedEmps,
+        Collection<String> lineTypes,
+        String status,
+        Pageable pageable
+    );
+
     Page<ApprovalLine> findByAssignedEmpAndLineTypeInAndStatusInOrderByLineIdDesc(
         Emp assignedEmp,
         Collection<String> lineTypes,
@@ -34,6 +44,71 @@ public interface ApprovalLineRepository extends JpaRepository<ApprovalLine, Long
     );
 
     Page<ApprovalLine> findByAssignedEmpAndStatusInOrderByLineIdDesc(Emp assignedEmp, Collection<String> statuses, Pageable pageable);
+
+    Page<ApprovalLine> findByAssignedEmpInAndStatusInOrderByLineIdDesc(Collection<Emp> assignedEmps, Collection<String> statuses, Pageable pageable);
+
+    @Query("""
+        select count(l) from ApprovalLine l
+        join l.document d
+        where d.deletedYn = 'N'
+          and l.assignedEmp in :assignedEmps
+          and l.lineType in :lineTypes
+          and l.status = :status
+        """)
+    long countByAssignedEmpInAndLineTypeInAndStatus(
+        @Param("assignedEmps") Collection<Emp> assignedEmps,
+        @Param("lineTypes") Collection<String> lineTypes,
+        @Param("status") String status
+    );
+
+    @Query("""
+        select count(l) from ApprovalLine l
+        join l.document d
+        where d.deletedYn = 'N'
+          and l.assignedEmp in :assignedEmps
+          and l.lineType in :lineTypes
+          and l.status = :status
+          and l.dueAt is not null
+          and l.dueAt < :now
+        """)
+    long countOverdueByAssignedEmpIn(
+        @Param("assignedEmps") Collection<Emp> assignedEmps,
+        @Param("lineTypes") Collection<String> lineTypes,
+        @Param("status") String status,
+        @Param("now") LocalDateTime now
+    );
+
+    @Query("""
+        select l from ApprovalLine l
+        join l.document d
+        where d.deletedYn = 'N'
+          and l.assignedEmp in :assignedEmps
+          and l.lineType in :lineTypes
+          and l.status = :status
+          and l.dueAt is not null
+          and l.dueAt < :now
+        order by l.dueAt asc, l.lineId desc
+        """)
+    Page<ApprovalLine> findOverdueByAssignedEmpIn(
+        @Param("assignedEmps") Collection<Emp> assignedEmps,
+        @Param("lineTypes") Collection<String> lineTypes,
+        @Param("status") String status,
+        @Param("now") LocalDateTime now,
+        Pageable pageable
+    );
+
+    @Query("""
+        select l from ApprovalLine l
+        join fetch l.document d
+        join fetch l.assignedEmp e
+        where l.status = :status
+          and l.dueAt is not null
+          and l.dueAt < :now
+          and l.remindedAt is null
+          and d.deletedYn = 'N'
+        order by l.dueAt asc, l.lineId asc
+        """)
+    List<ApprovalLine> findDueForReminder(@Param("status") String status, @Param("now") LocalDateTime now);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select l from ApprovalLine l join fetch l.document where l.lineId = :lineId")

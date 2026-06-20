@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.approval;
 import com.kjh.groupware.domain.emp.Emp;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +16,33 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
 
     Page<ApprovalDocument> findByDeletedYnOrderByApprovalIdDesc(String deletedYn, Pageable pageable);
 
+    Page<ApprovalDocument> findByDeletedYn(String deletedYn, Pageable pageable);
+
     Page<ApprovalDocument> findByRequesterAndDeletedYnOrderByApprovalIdDesc(Emp requester, String deletedYn, Pageable pageable);
+
+    Page<ApprovalDocument> findByRequesterAndDeletedYnAndStatusOrderByApprovalIdDesc(
+        Emp requester,
+        String deletedYn,
+        String status,
+        Pageable pageable
+    );
+
+    Page<ApprovalDocument> findByRequesterAndDeletedYnAndStatusInAndCompletedAtAfterOrderByCompletedAtDesc(
+        Emp requester,
+        String deletedYn,
+        Collection<String> statuses,
+        LocalDateTime completedAt,
+        Pageable pageable
+    );
+
+    long countByRequesterAndDeletedYnAndStatus(Emp requester, String deletedYn, String status);
+
+    long countByRequesterAndDeletedYnAndStatusInAndCompletedAtAfter(
+        Emp requester,
+        String deletedYn,
+        Collection<String> statuses,
+        LocalDateTime completedAt
+    );
 
     @Query(value = """
         select coalesce(max(cast(substring(document_no from length(:prefixYear) + 1) as integer)), 0)

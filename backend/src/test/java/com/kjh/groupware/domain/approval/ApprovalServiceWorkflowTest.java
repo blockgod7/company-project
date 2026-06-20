@@ -6,13 +6,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kjh.groupware.domain.approval.dto.ApprovalActionRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
+import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.emp.EmpSignatureService;
@@ -22,12 +25,15 @@ import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -49,7 +55,9 @@ class ApprovalServiceWorkflowTest {
     private final NotificationService notificationService = mock(NotificationService.class);
     private final EmpSignatureService signatureService = mock(EmpSignatureService.class);
     private final ApprovalPdfService pdfService = mock(ApprovalPdfService.class);
-    private final ApprovalPermissionService permissionService = new ApprovalPermissionService();
+    private final ApprovalDelegationService delegationService = mock(ApprovalDelegationService.class);
+    private final ApprovalReminderService reminderService = mock(ApprovalReminderService.class);
+    private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService);
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final AtomicReference<Emp> currentEmp = new AtomicReference<>();
     private final AtomicLong documentIds = new AtomicLong(100);
@@ -70,6 +78,8 @@ class ApprovalServiceWorkflowTest {
             ReflectionTestUtils.setField(emp, "empName", "User" + id);
             ReflectionTestUtils.setField(emp, "roleCode", "USER");
             ReflectionTestUtils.setField(emp, "positionName", "Staff");
+            ReflectionTestUtils.setField(emp, "status", "ACTIVE");
+            ReflectionTestUtils.setField(emp, "useYn", "Y");
             emps.put(id, emp);
         }
 
@@ -115,13 +125,62 @@ class ApprovalServiceWorkflowTest {
         when(lineRepository.findByIdForUpdate(any())).thenAnswer(invocation -> lines.stream()
             .filter(line -> line.getLineId().equals(invocation.getArgument(0)))
             .findFirst());
+        when(lineRepository.countByAssignedEmpInAndLineTypeInAndStatus(any(), any(), anyString())).thenAnswer(invocation -> {
+            Collection<Emp> assignedEmps = invocation.getArgument(0);
+            Collection<String> lineTypes = invocation.getArgument(1);
+            String lineStatus = invocation.getArgument(2);
+            Set<Long> assignedIds = assignedEmps.stream().map(Emp::getEmpId).collect(java.util.stream.Collectors.toSet());
+            return lines.stream()
+                .filter(line -> "N".equals(line.getDocument().getDeletedYn()))
+                .filter(line -> line.getAssignedEmp() != null && assignedIds.contains(line.getAssignedEmp().getEmpId()))
+                .filter(line -> lineTypes.contains(line.getLineType()))
+                .filter(line -> lineStatus.equals(line.getStatus()))
+                .count();
+        });
+        when(lineRepository.countOverdueByAssignedEmpIn(any(), any(), anyString(), any())).thenAnswer(invocation -> {
+            Collection<Emp> assignedEmps = invocation.getArgument(0);
+            Collection<String> lineTypes = invocation.getArgument(1);
+            String lineStatus = invocation.getArgument(2);
+            LocalDateTime now = invocation.getArgument(3);
+            Set<Long> assignedIds = assignedEmps.stream().map(Emp::getEmpId).collect(java.util.stream.Collectors.toSet());
+            return lines.stream()
+                .filter(line -> "N".equals(line.getDocument().getDeletedYn()))
+                .filter(line -> line.getAssignedEmp() != null && assignedIds.contains(line.getAssignedEmp().getEmpId()))
+                .filter(line -> lineTypes.contains(line.getLineType()))
+                .filter(line -> lineStatus.equals(line.getStatus()))
+                .filter(line -> line.getDueAt() != null && line.getDueAt().isBefore(now))
+                .count();
+        });
         org.mockito.Mockito.doAnswer(invocation -> {
             ApprovalDocument document = invocation.getArgument(0);
             lines.removeIf(line -> line.getDocument() == document);
             return null;
         }).when(lineRepository).deleteByDocument(any());
+        when(documentRepository.countByRequesterAndDeletedYnAndStatus(any(), anyString(), anyString())).thenAnswer(invocation -> {
+            Emp requester = invocation.getArgument(0);
+            String deletedYn = invocation.getArgument(1);
+            String documentStatus = invocation.getArgument(2);
+            return documents.values().stream()
+                .filter(document -> requester.getEmpId().equals(document.getRequester().getEmpId()))
+                .filter(document -> deletedYn.equals(document.getDeletedYn()))
+                .filter(document -> documentStatus.equals(document.getStatus()))
+                .count();
+        });
+        when(documentRepository.countByRequesterAndDeletedYnAndStatusInAndCompletedAtAfter(any(), anyString(), any(), any())).thenAnswer(invocation -> {
+            Emp requester = invocation.getArgument(0);
+            String deletedYn = invocation.getArgument(1);
+            Collection<String> statuses = invocation.getArgument(2);
+            LocalDateTime completedAfter = invocation.getArgument(3);
+            return documents.values().stream()
+                .filter(document -> requester.getEmpId().equals(document.getRequester().getEmpId()))
+                .filter(document -> deletedYn.equals(document.getDeletedYn()))
+                .filter(document -> statuses.contains(document.getStatus()))
+                .filter(document -> document.getCompletedAt() != null && document.getCompletedAt().isAfter(completedAfter))
+                .count();
+        });
         when(signatureService.snapshotJson(any())).thenReturn("{}");
         when(signatureService.activeSignatureFile(any())).thenReturn(null);
+        when(reminderService.decisionDueAt()).thenReturn(LocalDateTime.of(2026, 6, 23, 9, 0));
         when(notificationService.notifyEmp(any(), anyString(), anyString(), anyString(), any())).thenReturn(mock(Notification.class));
 
         service = new ApprovalService(
@@ -135,6 +194,8 @@ class ApprovalServiceWorkflowTest {
             signatureService,
             pdfService,
             permissionService,
+            delegationService,
+            reminderService,
             jdbcTemplate,
             new ObjectMapper()
         );
@@ -159,8 +220,12 @@ class ApprovalServiceWorkflowTest {
         assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_AGREEMENT_PROGRESS);
         assertThat(documentLines).filteredOn(ApprovalLine::isAgreement).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_PENDING, ApprovalLine.STATUS_PENDING);
+        assertThat(documentLines).filteredOn(ApprovalLine::isAgreement).extracting(ApprovalLine::getDueAt)
+            .containsExactly(LocalDateTime.of(2026, 6, 23, 9, 0), LocalDateTime.of(2026, 6, 23, 9, 0));
         assertThat(documentLines).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_WAITING, ApprovalLine.STATUS_WAITING);
+        assertThat(documentLines).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getDueAt)
+            .containsExactly((LocalDateTime) null, null);
 
         currentEmp.set(emps.get(2L));
         service.approve(document.getApprovalId(), new ApprovalActionRequest("agree"), "127.0.0.1", "test");
@@ -172,6 +237,8 @@ class ApprovalServiceWorkflowTest {
         assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_APPROVAL_PROGRESS);
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_PENDING, ApprovalLine.STATUS_WAITING);
+        assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getDueAt)
+            .containsExactly(LocalDateTime.of(2026, 6, 23, 9, 0), null);
 
         currentEmp.set(emps.get(4L));
         service.approve(document.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
@@ -179,11 +246,14 @@ class ApprovalServiceWorkflowTest {
             .isInstanceOf(BusinessException.class);
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_APPROVED, ApprovalLine.STATUS_PENDING);
+        assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getDueAt)
+            .containsExactly(LocalDateTime.of(2026, 6, 23, 9, 0), LocalDateTime.of(2026, 6, 23, 9, 0));
 
         currentEmp.set(emps.get(5L));
         service.approve(document.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
         assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_COMPLETED);
+        verify(pdfService).generateForFinalApproval(document);
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isReceiver).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_RECEIVED);
         assertThat(orderedLines(document)).filteredOn(line -> line.isReference() || line.isReader()).extracting(ApprovalLine::getStatus)
@@ -260,6 +330,56 @@ class ApprovalServiceWorkflowTest {
     }
 
     @Test
+    void boxesAndUnifiedActionApiValidateInputs() {
+        currentEmp.set(emps.get(1L));
+        assertThat(service.boxes()).extracting("code").doesNotContain("all");
+        assertThatThrownBy(() -> service.findPage("unknown", 0, 10, null, null, null, null, null, null, null))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("문서함");
+
+        ApprovalDocument document = createdDocument(service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
+        ), "127.0.0.1", "test").approvalId());
+
+        currentEmp.set(emps.get(4L));
+        ApprovalResponse approved = service.act(document.getApprovalId(), "approve", new ApprovalActionRequest("ok"), "127.0.0.1", "test");
+        assertThat(approved.status()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
+        assertThatThrownBy(() -> service.act(document.getApprovalId(), "unknown", null, "127.0.0.1", "test"))
+            .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void delegatedApproverCanApprovePendingLineAndIsRecordedAsActor() {
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument document = createdDocument(service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
+        ), "127.0.0.1", "test").approvalId());
+        ApprovalLine approvalLine = orderedLines(document).stream()
+            .filter(ApprovalLine::isApproval)
+            .findFirst()
+            .orElseThrow();
+        when(delegationService.canActFor(emps.get(9L), emps.get(4L))).thenReturn(true);
+
+        currentEmp.set(emps.get(9L));
+        service.approve(document.getApprovalId(), new ApprovalActionRequest("delegated"), "127.0.0.1", "test");
+
+        assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
+        assertThat(approvalLine.getAssignedEmp().getEmpId()).isEqualTo(4L);
+        assertThat(approvalLine.getActedEmp().getEmpId()).isEqualTo(9L);
+        assertThat(service.findOne(document.getApprovalId(), "127.0.0.1", "test").permissions().canView()).isTrue();
+    }
+
+    @Test
     void withdrawResubmitRedraftAndSelectionValidation() {
         currentEmp.set(emps.get(1L));
         ApprovalDocument document = createdDocument(service.create(request(
@@ -301,6 +421,189 @@ class ApprovalServiceWorkflowTest {
             .isInstanceOf(BusinessException.class);
     }
 
+    @Test
+    void createRejectsInactiveOrLeaveAssignees() {
+        currentEmp.set(emps.get(1L));
+        ReflectionTestUtils.setField(emps.get(4L), "status", "LEAVE");
+
+        assertThatThrownBy(() -> service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
+        ), "127.0.0.1", "test"))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("재직 중인 사용자만 결재선에 지정할 수 있습니다");
+
+        ReflectionTestUtils.setField(emps.get(4L), "status", "ACTIVE");
+        ReflectionTestUtils.setField(emps.get(5L), "useYn", "N");
+
+        assertThatThrownBy(() -> service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(5L),
+            List.of(),
+            true
+        ), "127.0.0.1", "test"))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("재직 중인 사용자만 결재선에 지정할 수 있습니다");
+    }
+
+    @Test
+    void dueReminderNotifiesAssigneeAndActiveDelegateOnce() {
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument document = createdDocument(service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
+        ), "127.0.0.1", "test").approvalId());
+        ApprovalLine approvalLine = orderedLines(document).stream()
+            .filter(ApprovalLine::isApproval)
+            .findFirst()
+            .orElseThrow();
+        LocalDateTime now = LocalDateTime.of(2026, 6, 24, 10, 0);
+        ReflectionTestUtils.setField(approvalLine, "dueAt", now.minusHours(1));
+        ReflectionTestUtils.setField(approvalLine, "remindedAt", null);
+        when(lineRepository.findDueForReminder(ApprovalLine.STATUS_PENDING, now)).thenReturn(List.of(approvalLine));
+        when(delegationService.activeDelegatesFor(emps.get(4L))).thenReturn(List.of(emps.get(9L)));
+        clearInvocations(notificationService);
+        ApprovalOperationSettingService operationSettingService = mock(ApprovalOperationSettingService.class);
+        when(operationSettingService.decisionDueHours()).thenReturn(72L);
+        when(operationSettingService.reminderFixedDelayMs()).thenReturn(300000L);
+
+        ApprovalReminderService service = new ApprovalReminderService(
+            lineRepository,
+            delegationService,
+            notificationService,
+            operationSettingService
+        );
+
+        assertThat(service.sendDueReminders(now)).isEqualTo(1);
+        assertThat(approvalLine.getRemindedAt()).isNotNull();
+        verify(notificationService, times(1)).notifyEmp(eq(4L), eq("전자결재 결재 지연"), anyString(), eq("APPROVAL"), eq(document.getApprovalId()));
+        verify(notificationService, times(1)).notifyEmp(eq(9L), eq("전자결재 결재 지연"), anyString(), eq("APPROVAL"), eq(document.getApprovalId()));
+    }
+
+    @Test
+    void dashboardCountsDirectDelegatedOverdueAndRequesterDocuments() {
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument document = createdDocument(service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
+        ), "127.0.0.1", "test").approvalId());
+        ApprovalLine approvalLine = orderedLines(document).stream()
+            .filter(ApprovalLine::isApproval)
+            .findFirst()
+            .orElseThrow();
+        ReflectionTestUtils.setField(approvalLine, "dueAt", LocalDateTime.now().minusHours(1));
+
+        when(delegationService.decisionAssigneesFor(emps.get(4L))).thenReturn(List.of(emps.get(4L)));
+        currentEmp.set(emps.get(4L));
+        assertThat(service.dashboard().myPendingCount()).isEqualTo(1);
+        assertThat(service.dashboard().overdueCount()).isEqualTo(1);
+
+        when(delegationService.decisionAssigneesFor(emps.get(9L))).thenReturn(List.of(emps.get(9L), emps.get(4L)));
+        currentEmp.set(emps.get(9L));
+        assertThat(service.dashboard().delegatedPendingCount()).isEqualTo(1);
+
+        when(delegationService.decisionAssigneesFor(emps.get(1L))).thenReturn(List.of(emps.get(1L)));
+        currentEmp.set(emps.get(1L));
+        assertThat(service.dashboard().requestedInProgressCount()).isEqualTo(1);
+    }
+
+    @Test
+    void adminDeleteUsesRetentionPolicyAndStatusCorrectionRestoresStage() {
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument document = createdDocument(service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
+        ), "127.0.0.1", "test").approvalId());
+
+        ReflectionTestUtils.setField(emps.get(9L), "roleCode", "APPROVAL_ADMIN");
+        currentEmp.set(emps.get(9L));
+        assertThatThrownBy(() -> service.deleteForRetention(document.getApprovalId(), new ApprovalActionRequest("delete"), "127.0.0.1", "test"))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("보존 대상");
+
+        currentEmp.set(emps.get(4L));
+        service.reject(document.getApprovalId(), new ApprovalActionRequest("reject"), "127.0.0.1", "test");
+
+        currentEmp.set(emps.get(1L));
+        assertThatThrownBy(() -> service.deleteForRetention(document.getApprovalId(), new ApprovalActionRequest("requester delete"), "127.0.0.1", "test"))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("전자결재 관리자");
+
+        ReflectionTestUtils.setField(document, "currentStage", ApprovalDocument.STAGE_APPROVAL_PROGRESS);
+        currentEmp.set(emps.get(9L));
+        ApprovalResponse corrected = service.correctStatus(document.getApprovalId(), new ApprovalActionRequest("fix stage"), "127.0.0.1", "test");
+        assertThat(corrected.currentStage()).isEqualTo(ApprovalDocument.STAGE_REJECTED);
+
+        service.deleteForRetention(document.getApprovalId(), new ApprovalActionRequest("archive rejected"), "127.0.0.1", "test");
+        assertThat(document.getDeletedYn()).isEqualTo("Y");
+        assertThat(document.getDeletedBy().getEmpId()).isEqualTo(9L);
+    }
+
+    @Test
+    void submitRequiresTemplateRequiredFieldsButDraftAllowsMissingValues() {
+        ApprovalTemplate template = ApprovalTemplate.builder()
+            .templateCode("PURCHASE")
+            .templateName("Purchase")
+            .version(2)
+            .fieldsJson("[{\"name\":\"purpose\",\"label\":\"기안 목적\",\"type\":\"textarea\",\"required\":true}]")
+            .activeYn("Y")
+            .build();
+        when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("PURCHASE"), eq("Y"))).thenReturn(Optional.of(template));
+
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument draft = createdDocument(service.create(request(
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            "{\"content\":\"draft\",\"fields\":{}}",
+            true
+        ), "127.0.0.1", "test").approvalId());
+        assertThat(draft.getStatus()).isEqualTo(ApprovalDocument.STATUS_DRAFT);
+
+        assertThatThrownBy(() -> service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            "{\"content\":\"submit\",\"fields\":{\"purpose\":\" \"}}",
+            false
+        ), "127.0.0.1", "test"))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("기안 목적");
+
+        ApprovalDocument submitted = createdDocument(service.create(request(
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            "{\"content\":\"submit\",\"fields\":{\"purpose\":\"필수값 입력\"}}",
+            false
+        ), "127.0.0.1", "test").approvalId());
+        assertThat(submitted.getStatus()).isEqualTo(ApprovalDocument.STATUS_IN_PROGRESS);
+    }
+
     private ApprovalRequest request(
         List<Long> agreementEmpIds,
         List<Long> approverEmpIds,
@@ -314,6 +617,30 @@ class ApprovalServiceWorkflowTest {
             "content",
             "PURCHASE",
             "{\"content\":\"content\"}",
+            "NORMAL",
+            agreementEmpIds,
+            approverEmpIds,
+            receiverEmpIds,
+            referenceEmpIds,
+            readerEmpIds,
+            draft
+        );
+    }
+
+    private ApprovalRequest request(
+        List<Long> agreementEmpIds,
+        List<Long> approverEmpIds,
+        List<Long> receiverEmpIds,
+        List<Long> referenceEmpIds,
+        List<Long> readerEmpIds,
+        String formDataJson,
+        boolean draft
+    ) {
+        return new ApprovalRequest(
+            "Purchase request",
+            "content",
+            "PURCHASE",
+            formDataJson,
             "NORMAL",
             agreementEmpIds,
             approverEmpIds,

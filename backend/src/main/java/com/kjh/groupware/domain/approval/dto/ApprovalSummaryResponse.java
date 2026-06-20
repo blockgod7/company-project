@@ -19,7 +19,10 @@ public record ApprovalSummaryResponse(
     LocalDateTime completedAt,
     Long requesterEmpId,
     String requesterName,
-    String currentApproverName
+    String currentApproverName,
+    LocalDateTime deletedAt,
+    Long deletedByEmpId,
+    String deletedByName
 ) {
 
     public static ApprovalSummaryResponse from(ApprovalDocument document, List<ApprovalLine> lines) {
@@ -42,7 +45,10 @@ public record ApprovalSummaryResponse(
             document.getCompletedAt(),
             document.getRequester().getEmpId(),
             document.getRequester().getEmpName(),
-            currentApproverName
+            currentApproverName,
+            document.getDeletedAt(),
+            document.getDeletedBy() == null ? null : document.getDeletedBy().getEmpId(),
+            document.getDeletedBy() == null ? null : document.getDeletedBy().getEmpName()
         );
     }
 }

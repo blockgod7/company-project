@@ -1,6 +1,8 @@
 package com.kjh.groupware.domain.approval;
 
 import com.kjh.groupware.domain.approval.dto.ApprovalActionRequest;
+import com.kjh.groupware.domain.approval.dto.ApprovalBoxResponse;
+import com.kjh.groupware.domain.approval.dto.ApprovalDashboardResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalSummaryResponse;
@@ -18,6 +20,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,6 +39,24 @@ public class ApprovalController {
     private final ApprovalPdfService pdfService;
     private final FileService fileService;
 
+    @GetMapping("/boxes")
+    public ApiResponse<java.util.List<ApprovalBoxResponse>> boxes() {
+        return ApiResponse.ok(approvalService.boxes());
+    }
+
+    @GetMapping("/dashboard")
+    public ApiResponse<ApprovalDashboardResponse> dashboard() {
+        return ApiResponse.ok(approvalService.dashboard());
+    }
+
+    @GetMapping("/deleted")
+    public ApiResponse<PageResponse<ApprovalSummaryResponse>> deletedPage(
+        @RequestParam(required = false, defaultValue = "0") int page,
+        @RequestParam(required = false, defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(approvalService.deletedPage(page, size));
+    }
+
     @GetMapping
     public ApiResponse<PageResponse<ApprovalSummaryResponse>> findPage(
         @RequestParam(required = false, defaultValue = "pending") String box,
@@ -46,9 +67,10 @@ public class ApprovalController {
         @RequestParam(required = false) String status,
         @RequestParam(required = false) Long requesterEmpId,
         @RequestParam(required = false) LocalDate dateFrom,
-        @RequestParam(required = false) LocalDate dateTo
+        @RequestParam(required = false) LocalDate dateTo,
+        @RequestParam(required = false) String dashboardFilter
     ) {
-        return ApiResponse.ok(approvalService.findPage(box, page, size, keyword, templateCode, status, requesterEmpId, dateFrom, dateTo));
+        return ApiResponse.ok(approvalService.findPage(box, page, size, keyword, templateCode, status, requesterEmpId, dateFrom, dateTo, dashboardFilter));
     }
 
     @PostMapping
@@ -124,6 +146,16 @@ public class ApprovalController {
         return ApiResponse.ok(approvalService.approve(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
+    @PostMapping("/{approvalId}/actions/{action}")
+    public ApiResponse<ApprovalResponse> act(
+        @PathVariable Long approvalId,
+        @PathVariable String action,
+        @RequestBody(required = false) ApprovalActionRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalService.act(approvalId, action, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
     @PostMapping("/{approvalId}/reject")
     public ApiResponse<ApprovalResponse> reject(
         @PathVariable Long approvalId,
@@ -167,5 +199,33 @@ public class ApprovalController {
         @RequestBody(required = false) ApprovalActionRequest request
     ) {
         return ApiResponse.ok(approvalService.regeneratePdf(approvalId, request));
+    }
+
+    @DeleteMapping("/{approvalId}")
+    public ApiResponse<Void> deleteForRetention(
+        @PathVariable Long approvalId,
+        @RequestBody(required = false) ApprovalActionRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        approvalService.deleteForRetention(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent"));
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/{approvalId}/restore")
+    public ApiResponse<ApprovalResponse> restore(
+        @PathVariable Long approvalId,
+        @RequestBody(required = false) ApprovalActionRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalService.restore(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
+    @PostMapping("/{approvalId}/status-correction")
+    public ApiResponse<ApprovalResponse> correctStatus(
+        @PathVariable Long approvalId,
+        @RequestBody(required = false) ApprovalActionRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalService.correctStatus(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 }

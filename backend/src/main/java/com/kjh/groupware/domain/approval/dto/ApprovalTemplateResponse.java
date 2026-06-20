@@ -9,6 +9,7 @@ public record ApprovalTemplateResponse(
     String description,
     String fieldsJson,
     String printLayoutJson,
+    String activeYn,
     Integer sortOrder
 ) {
 
@@ -20,6 +21,7 @@ public record ApprovalTemplateResponse(
             template.getDescription(),
             template.getFieldsJson(),
             template.getPrintLayoutJson(),
+            template.getActiveYn(),
             template.getSortOrder()
         );
     }

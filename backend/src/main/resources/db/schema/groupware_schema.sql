@@ -693,6 +693,109 @@ BEFORE UPDATE ON approval_line
 FOR EACH ROW
 EXECUTE FUNCTION fn_update_updated_at();
 
+CREATE TABLE approval_default_line (
+    default_line_id BIGSERIAL PRIMARY KEY,
+    owner_emp_id BIGINT NULL,
+    template_code VARCHAR(50) NULL,
+    line_name VARCHAR(100) NOT NULL,
+    default_type VARCHAR(30) NOT NULL,
+    active_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NULL,
+    created_by BIGINT NULL,
+    updated_by BIGINT NULL,
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    CONSTRAINT chk_approval_default_line_type CHECK (default_type IN ('PERSONAL', 'TEMPLATE')),
+    CONSTRAINT chk_approval_default_line_active CHECK (active_yn IN ('Y', 'N')),
+    CONSTRAINT chk_approval_default_line_deleted CHECK (deleted_yn IN ('Y', 'N')),
+    CONSTRAINT fk_approval_default_line_owner FOREIGN KEY (owner_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_default_line_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_default_line_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
+);
+
+CREATE INDEX idx_approval_default_line_owner ON approval_default_line(owner_emp_id, default_type, active_yn, deleted_yn);
+CREATE INDEX idx_approval_default_line_template ON approval_default_line(template_code, default_type, active_yn, deleted_yn);
+
+CREATE TABLE approval_default_line_step (
+    default_line_step_id BIGSERIAL PRIMARY KEY,
+    default_line_id BIGINT NOT NULL,
+    step_order INT NOT NULL,
+    approver_emp_id BIGINT NOT NULL,
+    line_type VARCHAR(30) NOT NULL,
+    required_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NULL,
+    created_by BIGINT NULL,
+    updated_by BIGINT NULL,
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    CONSTRAINT chk_approval_default_line_step_type CHECK (line_type IN ('AGREEMENT', 'APPROVAL', 'RECEIVER', 'REFERENCE', 'READER')),
+    CONSTRAINT chk_approval_default_line_step_required CHECK (required_yn IN ('Y', 'N')),
+    CONSTRAINT chk_approval_default_line_step_deleted CHECK (deleted_yn IN ('Y', 'N')),
+    CONSTRAINT fk_approval_default_line_step_line FOREIGN KEY (default_line_id) REFERENCES approval_default_line(default_line_id),
+    CONSTRAINT fk_approval_default_line_step_approver FOREIGN KEY (approver_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_default_line_step_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_default_line_step_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
+);
+
+CREATE INDEX idx_approval_default_line_step_line ON approval_default_line_step(default_line_id, deleted_yn, step_order);
+
+CREATE TABLE approval_delegation (
+    delegation_id BIGSERIAL PRIMARY KEY,
+    owner_emp_id BIGINT NOT NULL,
+    delegate_emp_id BIGINT NOT NULL,
+    start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    end_date DATE NULL,
+    reason TEXT NULL,
+    active_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
+    deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by BIGINT NULL,
+    updated_at TIMESTAMP NULL,
+    updated_by BIGINT NULL,
+    CONSTRAINT chk_approval_delegation_active CHECK (active_yn IN ('Y', 'N')),
+    CONSTRAINT chk_approval_delegation_deleted CHECK (deleted_yn IN ('Y', 'N')),
+    CONSTRAINT chk_approval_delegation_period CHECK (end_date IS NULL OR end_date >= start_date),
+    CONSTRAINT chk_approval_delegation_not_self CHECK (owner_emp_id <> delegate_emp_id),
+    CONSTRAINT fk_approval_delegation_owner FOREIGN KEY (owner_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_delegation_delegate FOREIGN KEY (delegate_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_delegation_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_delegation_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
+);
+
+CREATE INDEX idx_approval_delegation_owner ON approval_delegation(owner_emp_id, active_yn, deleted_yn);
+CREATE INDEX idx_approval_delegation_delegate ON approval_delegation(delegate_emp_id, active_yn, deleted_yn, start_date, end_date);
+
+CREATE TRIGGER trg_approval_delegation_updated_at
+BEFORE UPDATE ON approval_delegation
+FOR EACH ROW
+EXECUTE FUNCTION fn_update_updated_at();
+
+CREATE TABLE approval_operation_setting (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value VARCHAR(500) NOT NULL,
+    description VARCHAR(500) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by BIGINT NULL,
+    updated_at TIMESTAMP NULL,
+    updated_by BIGINT NULL,
+    CONSTRAINT fk_approval_operation_setting_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_operation_setting_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
+);
+
+CREATE TRIGGER trg_approval_operation_setting_updated_at
+BEFORE UPDATE ON approval_operation_setting
+FOR EACH ROW
+EXECUTE FUNCTION fn_update_updated_at();
+
+INSERT INTO approval_operation_setting (setting_key, setting_value, description)
+VALUES
+    ('DECISION_DUE_HOURS', '72', '결재/합의 라인이 열린 뒤 처리 기한까지의 시간'),
+    ('REMINDER_FIXED_DELAY_MS', '300000', '지연 알림 스캔 최소 실행 간격(ms)'),
+    ('DELETED_DOCUMENT_RETENTION_DAYS', '1825', '보존삭제 문서를 영구보존 검토 전까지 보관할 최소 일수'),
+    ('PERMANENT_DELETE_ENABLED', 'false', '전자결재 영구삭제 실행 허용 여부')
+ON CONFLICT (setting_key) DO NOTHING;
+
 CREATE TABLE emp_signature (
     signature_id BIGSERIAL PRIMARY KEY,
     emp_id BIGINT NOT NULL,

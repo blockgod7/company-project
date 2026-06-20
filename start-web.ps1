@@ -7,10 +7,14 @@ $maven = Join-Path $root ".tools\apache-maven-3.9.9\bin\mvn.cmd"
 $m2repo = Join-Path $root ".m2repo"
 $logDir = Join-Path $root "tmp\logs"
 $npm = "C:\Program Files\nodejs\npm.cmd"
-$javaHome = "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot"
+$javaHome = @(
+    (Join-Path $root ".tools\jdk-21"),
+    "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot",
+    "C:\Program Files\Amazon Corretto\jdk21.0.6_7"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
 $powershell = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 
-if (Test-Path $javaHome) {
+if ($javaHome -and (Test-Path $javaHome)) {
     $env:JAVA_HOME = $javaHome
     $env:PATH = "$javaHome\bin;$env:PATH"
 }
@@ -29,8 +33,10 @@ $backendErr = Join-Path $logDir "backend.err.log"
 $frontendErr = Join-Path $logDir "frontend.err.log"
 
 $backendCommand = @"
-`$env:JAVA_HOME = '$javaHome'
-`$env:PATH = '$javaHome\bin;' + `$env:PATH
+if ('$javaHome') {
+    `$env:JAVA_HOME = '$javaHome'
+    `$env:PATH = '$javaHome\bin;' + `$env:PATH
+}
 Set-Location '$backend'
 & '$maven' '-Dmaven.repo.local=$m2repo' spring-boot:run *> '$backendLog'
 "@

@@ -67,4 +67,12 @@ public class ApprovalTemplate extends BaseEntity {
         this.activeYn = activeYn == null ? "Y" : activeYn;
         this.sortOrder = sortOrder == null ? 0 : sortOrder;
     }
+
+    public void deactivate() {
+        this.activeYn = "N";
+    }
+
+    public void activate() {
+        this.activeYn = "Y";
+    }
 }
