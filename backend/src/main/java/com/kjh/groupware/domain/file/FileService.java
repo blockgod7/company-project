@@ -1,7 +1,10 @@
 package com.kjh.groupware.domain.file;
 
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.approval.ApprovalDocument;
 import com.kjh.groupware.domain.approval.ApprovalDocumentRepository;
+import com.kjh.groupware.domain.approval.ApprovalLineRepository;
+import com.kjh.groupware.domain.approval.ApprovalPermissionService;
 import com.kjh.groupware.domain.file.dto.AttachFileResponse;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
@@ -37,6 +40,8 @@ public class FileService {
     private final CurrentEmpProvider currentEmpProvider;
     private final AuditLogService auditLogService;
     private final ApprovalDocumentRepository approvalDocumentRepository;
+    private final ApprovalLineRepository approvalLineRepository;
+    private final ApprovalPermissionService approvalPermissionService;
 
     @Value("${app.file.storage-path:uploads}")
     private String storagePath;
@@ -128,6 +133,7 @@ public class FileService {
 
     @Transactional(readOnly = true)
     public List<AttachFileResponse> findByTarget(String targetType, Long targetId) {
+        assertTargetReadable(targetType, targetId);
         return attachFileRepository.findByTargetTypeAndTargetIdAndDeletedYnOrderByFileIdAsc(targetType, targetId, "N").stream()
             .map(AttachFileResponse::from)
             .toList();
@@ -167,7 +173,9 @@ public class FileService {
     @Transactional
     public void recordDownload(Long fileId, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        auditLogService.record(currentEmp.getEmpId(), AuditActionType.DOWNLOAD, "attach_file", fileId, ipAddress, userAgent);
+        AttachFile file = getDownloadableFile(fileId);
+        assertTargetReadable(file.getTargetType(), file.getTargetId());
+        auditLogService.record(currentEmp.getEmpId(), AuditActionType.DOWNLOAD, "attach_file", fileId, null, null, ipAddress, userAgent, "첨부파일 다운로드 시도", true);
     }
 
     public MediaType mediaType(AttachFile file) {
@@ -199,13 +207,32 @@ public class FileService {
         if (targetType == null || targetId == null) {
             return;
         }
-        if (!"APPROVAL".equals(targetType) && !"APPROVAL_DOCUMENT".equals(targetType)) {
+        if (!isApprovalTarget(targetType)) {
             return;
         }
-        approvalDocumentRepository.findById(targetId)
-            .filter(document -> "APPROVED".equals(document.getStatus()))
-            .ifPresent(document -> {
-                throw BusinessException.badRequest("APPROVAL_LOCKED", "Approved approval documents cannot be modified");
-            });
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        ApprovalDocument document = approvalDocumentRepository.findById(targetId)
+            .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
+        if (!document.getRequester().getEmpId().equals(currentEmp.getEmpId()) || !document.isEditableDraft()) {
+            throw BusinessException.forbidden("APPROVAL_FILE_WRITE_FORBIDDEN", "첨부파일을 수정할 권한이 없습니다.");
+        }
+    }
+
+    private void assertTargetReadable(String targetType, Long targetId) {
+        if (targetType == null || targetId == null || !isApprovalTarget(targetType)) {
+            return;
+        }
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        ApprovalDocument document = approvalDocumentRepository.findById(targetId)
+            .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
+        approvalPermissionService.assertCanDownloadAttachment(
+            currentEmp,
+            document,
+            approvalLineRepository.findByDocumentOrderByLineOrderAsc(document)
+        );
+    }
+
+    private boolean isApprovalTarget(String targetType) {
+        return "APPROVAL".equals(targetType) || "APPROVAL_DOCUMENT".equals(targetType);
     }
 }

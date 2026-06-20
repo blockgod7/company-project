@@ -47,6 +47,15 @@ public class Notification {
     @Column(name = "read_yn", nullable = false, length = 1)
     private String readYn;
 
+    @Column(name = "notification_status", nullable = false, length = 20)
+    private String notificationStatus;
+
+    @Column(name = "retry_count", nullable = false)
+    private Integer retryCount;
+
+    @Column(name = "last_error_message", columnDefinition = "text")
+    private String lastErrorMessage;
+
     @Column(name = "read_at")
     private LocalDateTime readAt;
 
@@ -62,6 +71,8 @@ public class Notification {
         this.targetType = targetType;
         this.targetId = targetId;
         this.readYn = "N";
+        this.notificationStatus = "SENT";
+        this.retryCount = 0;
     }
 
     public void markRead() {
@@ -69,5 +80,11 @@ public class Notification {
             this.readYn = "Y";
             this.readAt = LocalDateTime.now();
         }
+    }
+
+    public void markSendFailed(String message) {
+        this.notificationStatus = "FAILED";
+        this.retryCount = retryCount == null ? 1 : retryCount + 1;
+        this.lastErrorMessage = message;
     }
 }

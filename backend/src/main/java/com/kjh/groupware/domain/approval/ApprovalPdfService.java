@@ -3,6 +3,8 @@ package com.kjh.groupware.domain.approval;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.file.AttachFile;
 import com.kjh.groupware.domain.file.FileService;
+import com.kjh.groupware.global.audit.AuditActionType;
+import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.io.ByteArrayOutputStream;
@@ -38,6 +40,8 @@ public class ApprovalPdfService {
     private final ApprovalPdfHistoryRepository historyRepository;
     private final FileService fileService;
     private final CurrentEmpProvider currentEmpProvider;
+    private final ApprovalPermissionService permissionService;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public void generateForFinalApproval(ApprovalDocument document) {
@@ -105,9 +109,16 @@ public class ApprovalPdfService {
     }
 
     @Transactional(readOnly = true)
-    public AttachFile getGeneratedPdf(Long approvalId) {
+    public AttachFile getGeneratedPdf(Long approvalId, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
         ApprovalDocument document = documentRepository.findById(approvalId)
             .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
+        try {
+            permissionService.assertCanPrintPdf(currentEmp, document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
+        } catch (BusinessException ex) {
+            auditLogService.record(currentEmp.getEmpId(), AuditActionType.ACCESS_DENIED, "approval_document", approvalId, null, null, ipAddress, userAgent, "PDF 출력 권한 없음", false);
+            throw ex;
+        }
         if (ApprovalDocument.PDF_STATUS_GENERATING.equals(document.getPdfStatus())) {
             throw BusinessException.badRequest("PDF_GENERATING", "PDF is still being generated");
         }
@@ -117,6 +128,7 @@ public class ApprovalPdfService {
         if (!ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus()) || document.getPdfFile() == null) {
             throw BusinessException.notFound("PDF_NOT_FOUND", "PDF has not been generated");
         }
+        auditLogService.record(currentEmp.getEmpId(), AuditActionType.PRINT_PDF, "approval_document", approvalId, null, null, ipAddress, userAgent, "PDF 출력 시도", true);
         return document.getPdfFile();
     }
 

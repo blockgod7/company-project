@@ -507,15 +507,20 @@ CREATE TABLE notification (
     target_type VARCHAR(50) NULL,
     target_id BIGINT NULL,
     read_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    notification_status VARCHAR(20) NOT NULL DEFAULT 'SENT',
+    retry_count INT NOT NULL DEFAULT 0,
+    last_error_message TEXT NULL,
     read_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
     CONSTRAINT chk_notification_read_yn CHECK (read_yn IN ('Y', 'N')),
+    CONSTRAINT chk_notification_status CHECK (notification_status IN ('PENDING', 'SENT', 'FAILED')),
     CONSTRAINT fk_notification_emp FOREIGN KEY (emp_id) REFERENCES emp(emp_id)
 );
 
 CREATE INDEX idx_notification_emp ON notification(emp_id);
 CREATE INDEX idx_notification_read_yn ON notification(read_yn);
+CREATE INDEX idx_notification_status ON notification(notification_status);
 CREATE INDEX idx_notification_created_at ON notification(created_at);
 
 
@@ -553,22 +558,40 @@ EXECUTE FUNCTION fn_update_updated_at();
 
 CREATE TABLE approval_document (
     approval_id BIGSERIAL PRIMARY KEY,
-    document_no VARCHAR(30) NOT NULL,
+    document_no VARCHAR(50) NULL,
     title VARCHAR(200) NOT NULL,
     content TEXT NOT NULL,
     template_code VARCHAR(50) NULL,
     template_version INT NULL,
     template_snapshot_json TEXT NULL,
     form_data_json TEXT NULL,
+    content_snapshot_json TEXT NULL,
+    approval_line_snapshot_json TEXT NULL,
+    signature_snapshot_json TEXT NULL,
     search_text TEXT NULL,
     correction_of_approval_id BIGINT NULL,
+    correction_reason TEXT NULL,
+    origin_document_id BIGINT NULL,
+    revision_no INT NOT NULL DEFAULT 0,
+    resubmit_reason TEXT NULL,
     requester_emp_id BIGINT NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    draft_dept_id BIGINT NULL,
+    draft_dept_code VARCHAR(50) NULL,
+    draft_dept_name VARCHAR(100) NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    current_stage VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
+    priority VARCHAR(30) NOT NULL DEFAULT 'NORMAL',
     requested_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    first_submitted_at TIMESTAMP NULL,
+    last_submitted_at TIMESTAMP NULL,
+    submit_count INT NOT NULL DEFAULT 0,
     completed_at TIMESTAMP NULL,
+    withdrawn_at TIMESTAMP NULL,
+    withdraw_reason TEXT NULL,
     pdf_status VARCHAR(20) NOT NULL DEFAULT 'NONE',
     pdf_file_id BIGINT NULL,
     pdf_generated_at TIMESTAMP NULL,
+    pdf_generated_by BIGINT NULL,
     pdf_error_message TEXT NULL,
     pdf_hash VARCHAR(128) NULL,
     deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
@@ -578,14 +601,20 @@ CREATE TABLE approval_document (
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
 
-    CONSTRAINT chk_approval_document_status CHECK (status IN ('DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'CANCELED')),
+    CONSTRAINT chk_approval_document_status CHECK (status IN ('DRAFT', 'IN_PROGRESS', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'CANCELED')),
+    CONSTRAINT chk_approval_document_stage CHECK (current_stage IN ('DRAFT', 'AGREEMENT_PROGRESS', 'APPROVAL_PROGRESS', 'RECEIVER_PROGRESS', 'COMPLETED', 'REJECTED', 'WITHDRAWN', 'CANCELED')),
+    CONSTRAINT chk_approval_document_priority CHECK (priority IN ('NORMAL', 'IMPORTANT', 'URGENT')),
     CONSTRAINT chk_approval_document_pdf_status CHECK (pdf_status IN ('NONE', 'GENERATING', 'GENERATED', 'FAILED')),
     CONSTRAINT chk_approval_document_deleted_yn CHECK (deleted_yn IN ('Y', 'N')),
     CONSTRAINT uq_approval_document_no UNIQUE (document_no),
     CONSTRAINT fk_approval_document_requester FOREIGN KEY (requester_emp_id) REFERENCES emp(emp_id),
     CONSTRAINT fk_approval_document_correction FOREIGN KEY (correction_of_approval_id) REFERENCES approval_document(approval_id),
+    CONSTRAINT fk_approval_document_origin FOREIGN KEY (origin_document_id) REFERENCES approval_document(approval_id),
+    CONSTRAINT fk_approval_document_draft_dept FOREIGN KEY (draft_dept_id) REFERENCES dept(dept_id),
     CONSTRAINT fk_approval_document_pdf_file FOREIGN KEY (pdf_file_id) REFERENCES attach_file(file_id),
+    CONSTRAINT fk_approval_document_pdf_generated_by FOREIGN KEY (pdf_generated_by) REFERENCES emp(emp_id),
     CONSTRAINT fk_approval_document_deleted_by FOREIGN KEY (deleted_by) REFERENCES emp(emp_id),
     CONSTRAINT fk_approval_document_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
     CONSTRAINT fk_approval_document_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
@@ -593,8 +622,11 @@ CREATE TABLE approval_document (
 
 CREATE INDEX idx_approval_document_requester ON approval_document(requester_emp_id);
 CREATE INDEX idx_approval_document_status ON approval_document(status);
+CREATE INDEX idx_approval_document_status_stage ON approval_document(status, current_stage);
 CREATE INDEX idx_approval_document_requested_at ON approval_document(requested_at);
+CREATE INDEX idx_approval_document_submitted ON approval_document(last_submitted_at);
 CREATE INDEX idx_approval_document_template ON approval_document(template_code);
+CREATE INDEX idx_approval_document_draft_dept ON approval_document(draft_dept_id);
 CREATE INDEX idx_approval_document_search_text ON approval_document USING gin(to_tsvector('simple', coalesce(search_text, '')));
 
 CREATE TRIGGER trg_approval_document_updated_at
@@ -606,10 +638,26 @@ CREATE TABLE approval_line (
     line_id BIGSERIAL PRIMARY KEY,
     approval_id BIGINT NOT NULL,
     approver_emp_id BIGINT NOT NULL,
+    line_type VARCHAR(30) NOT NULL DEFAULT 'APPROVAL',
+    target_type VARCHAR(30) NULL,
+    target_id BIGINT NULL,
+    assigned_emp_id BIGINT NULL,
+    acted_emp_id BIGINT NULL,
     line_order INT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'WAITING',
     comment TEXT NULL,
     acted_at TIMESTAMP NULL,
+    due_at TIMESTAMP NULL,
+    reminded_at TIMESTAMP NULL,
+    read_at TIMESTAMP NULL,
+    emp_no_snapshot VARCHAR(50) NULL,
+    emp_name_snapshot VARCHAR(100) NULL,
+    dept_id_snapshot BIGINT NULL,
+    dept_code_snapshot VARCHAR(50) NULL,
+    dept_name_snapshot VARCHAR(100) NULL,
+    position_snapshot VARCHAR(100) NULL,
+    sign_image_file_id BIGINT NULL,
+    sign_snapshot_file_id BIGINT NULL,
     signature_snapshot_file_id BIGINT NULL,
     signature_snapshot_json TEXT NULL,
     signed_at TIMESTAMP NULL,
@@ -617,11 +665,18 @@ CREATE TABLE approval_line (
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
 
     CONSTRAINT uq_approval_line_order UNIQUE (approval_id, line_order),
-    CONSTRAINT chk_approval_line_status CHECK (status IN ('WAITING', 'PENDING', 'APPROVED', 'REJECTED', 'SKIPPED')),
+    CONSTRAINT chk_approval_line_type CHECK (line_type IN ('AGREEMENT', 'APPROVAL', 'RECEIVER', 'REFERENCE', 'READER')),
+    CONSTRAINT chk_approval_line_status CHECK (status IN ('WAITING', 'PENDING', 'APPROVED', 'REJECTED', 'SKIPPED', 'RECEIVED', 'READ', 'RECEIPT_COMPLETED')),
     CONSTRAINT fk_approval_line_document FOREIGN KEY (approval_id) REFERENCES approval_document(approval_id),
     CONSTRAINT fk_approval_line_approver FOREIGN KEY (approver_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_line_assigned_emp FOREIGN KEY (assigned_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_line_acted_emp FOREIGN KEY (acted_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_line_dept_snapshot FOREIGN KEY (dept_id_snapshot) REFERENCES dept(dept_id),
+    CONSTRAINT fk_approval_line_sign_image_file FOREIGN KEY (sign_image_file_id) REFERENCES attach_file(file_id),
+    CONSTRAINT fk_approval_line_sign_snapshot_file FOREIGN KEY (sign_snapshot_file_id) REFERENCES attach_file(file_id),
     CONSTRAINT fk_approval_line_signature_file FOREIGN KEY (signature_snapshot_file_id) REFERENCES attach_file(file_id),
     CONSTRAINT fk_approval_line_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
     CONSTRAINT fk_approval_line_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
@@ -630,6 +685,8 @@ CREATE TABLE approval_line (
 CREATE INDEX idx_approval_line_document ON approval_line(approval_id);
 CREATE INDEX idx_approval_line_approver ON approval_line(approver_emp_id);
 CREATE INDEX idx_approval_line_status ON approval_line(status);
+CREATE INDEX idx_approval_line_emp_type_status ON approval_line(assigned_emp_id, line_type, status);
+CREATE INDEX idx_approval_line_target ON approval_line(target_type, target_id);
 
 CREATE TRIGGER trg_approval_line_updated_at
 BEFORE UPDATE ON approval_line
@@ -694,8 +751,11 @@ CREATE TABLE audit_log (
     after_json JSONB NULL,
     ip_address VARCHAR(50) NULL,
     user_agent VARCHAR(500) NULL,
+    reason TEXT NULL,
+    success_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
+    CONSTRAINT chk_audit_log_success_yn CHECK (success_yn IN ('Y', 'N')),
     CONSTRAINT fk_audit_log_emp FOREIGN KEY (emp_id) REFERENCES emp(emp_id)
 );
 

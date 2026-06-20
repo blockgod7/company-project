@@ -27,7 +27,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { api, clearTokens, getAccessToken, jsonBody, setTokens } from "./api";
+import { api, authenticatedFetch, clearTokens, jsonBody, setTokens } from "./api";
 import schunkLogo from "./assets/schunk-carbon-logo.png";
 import type {
   AuditLog,
@@ -51,24 +51,52 @@ type Route = "dashboard" | "notices" | "boards" | "approvals" | "notifications" 
 type ContentMode = "list" | "detail" | "create" | "edit";
 type NoticeForm = { title: string; content: string; pinned: boolean };
 type BoardForm = { title: string; content: string; draft: boolean };
-type ApprovalTemplateOption = { code: string; name: string; description: string };
-type ApprovalForm = { title: string; content: string; templateCode: string; approverEmpIds: number[]; approvalSlotCount: number };
+type ApprovalTemplateOption = { code: string; name: string; description: string; version?: number | null };
+type ApprovalBox = "agreement" | "pending" | "received" | "shared" | "requested" | "processed" | "all";
+type ApprovalForm = {
+  title: string;
+  content: string;
+  templateCode: string;
+  templateVersion: number | null;
+  priority: "NORMAL" | "IMPORTANT" | "URGENT";
+  agreementEmpIds: number[];
+  approverEmpIds: number[];
+  receiverEmpIds: number[];
+  referenceEmpIds: number[];
+  readerEmpIds: number[];
+};
 type AttachmentPresence = Record<number, boolean>;
 type DraftAttachment = { id: string; file: File };
 type LoginOption = { loginId: string; empName: string; deptName?: string | null; positionName?: string | null; roleCode: string };
 
 const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
-  { code: "DRAFT", name: "기안서", description: "일반 업무 기안" },
-  { code: "CONSULT", name: "품의서", description: "예산/구매/계약 품의" },
-  { code: "LEAVE", name: "휴가계", description: "연차/반차/근태 신청" },
-  { code: "PURCHASE", name: "구매요구서", description: "품목/수량/납기 구매 요청" },
-  { code: "TRAINING_REQUEST", name: "교육신청서", description: "교육 신청 및 비용 승인" },
-  { code: "TRAINING_REPORT", name: "교육 훈련보고서", description: "교육 결과 보고" }
+  { code: "GENERAL", name: "일반문서", description: "일반 업무 기안", version: 1 },
+  { code: "PURCHASE", name: "구매요청서", description: "물품 또는 서비스 구매 요청", version: 1 },
+  { code: "TRAINING_REQUEST", name: "교육계획서", description: "교육 계획 및 비용 승인", version: 1 },
+  { code: "TRAINING_REPORT", name: "교육기록서", description: "교육 결과 및 참석 기록", version: 1 },
+  { code: "MONTHLY_MAINTENANCE", name: "월간보전계획서", description: "월간 보전 계획", version: 1 },
+  { code: "ANNUAL_MAINTENANCE", name: "연간보전계획서", description: "연간 보전 계획", version: 1 },
+  { code: "EQUIPMENT_REPAIR", name: "설비수리보고서", description: "설비 수리 결과 보고", version: 1 }
 ];
 
 function defaultApprovalForm(templates = DEFAULT_APPROVAL_TEMPLATES): ApprovalForm {
   const template = templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
-  return { title: template.name, content: "", templateCode: template.code, approverEmpIds: [], approvalSlotCount: 3 };
+  return {
+    title: template.name,
+    content: "",
+    templateCode: template.code,
+    templateVersion: template.version ?? null,
+    priority: "NORMAL",
+    agreementEmpIds: [],
+    approverEmpIds: [],
+    receiverEmpIds: [],
+    referenceEmpIds: [],
+    readerEmpIds: []
+  };
+}
+
+function idsFromJson(value: unknown) {
+  return Array.isArray(value) ? value.filter((id): id is number => typeof id === "number") : [];
 }
 
 function clampApprovalSlotCount(count: number) {
@@ -80,11 +108,14 @@ function approvalDraftData(approval: Approval) {
     const parsed = approval.formDataJson ? JSON.parse(approval.formDataJson) : {};
     return {
       content: typeof parsed.content === "string" ? parsed.content : approval.content,
-      approverEmpIds: Array.isArray(parsed.approverEmpIds) ? parsed.approverEmpIds.filter((id: unknown) => typeof id === "number") : [],
-      approvalSlotCount: typeof parsed.approvalSlotCount === "number" ? clampApprovalSlotCount(parsed.approvalSlotCount) : 3
+      agreementEmpIds: idsFromJson(parsed.agreementEmpIds),
+      approverEmpIds: idsFromJson(parsed.approverEmpIds),
+      receiverEmpIds: idsFromJson(parsed.receiverEmpIds),
+      referenceEmpIds: idsFromJson(parsed.referenceEmpIds),
+      readerEmpIds: idsFromJson(parsed.readerEmpIds)
     };
   } catch {
-    return { content: approval.content === "{content=}" ? "" : approval.content, approverEmpIds: [], approvalSlotCount: 3 };
+    return { content: approval.content === "{content=}" ? "" : approval.content, agreementEmpIds: [], approverEmpIds: [], receiverEmpIds: [], referenceEmpIds: [], readerEmpIds: [] };
   }
 }
 
@@ -251,7 +282,7 @@ function App() {
           {route === "notices" && <NoticePage user={user} />}
           {route === "boards" && <BoardPage user={user} />}
           {route === "approvals" && <ApprovalPage user={user} />}
-          {route === "notifications" && <NotificationPage />}
+          {route === "notifications" && <NotificationPage go={setRoute} />}
           {route === "organization" && <OrganizationPage />}
           {route === "audit" && (isAdmin ? <AuditLogPage /> : <AccessDenied />)}
         </main>
@@ -707,30 +738,37 @@ function BoardPage({ user }: { user: User }) {
 }
 
 function ApprovalPage({ user }: { user: User }) {
-  const [box, setBox] = useState<"pending" | "requested" | "processed" | "all">("pending");
+  const [box, setBox] = useState<ApprovalBox>("pending");
   const [items, setItems] = useState<ApprovalSummary[]>([]);
   const [selected, setSelected] = useState<Approval | null>(null);
   const [mode, setMode] = useState<ContentMode>("list");
   const [templates, setTemplates] = useState<ApprovalTemplateOption[]>(DEFAULT_APPROVAL_TEMPLATES);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<ApprovalTemplateOption>(DEFAULT_APPROVAL_TEMPLATES[0]);
   const [form, setForm] = useState<ApprovalForm>(() => defaultApprovalForm());
   const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [approvalError, setApprovalError] = useState("");
 
-  async function load(targetBox: "pending" | "requested" | "processed" | "all") {
+  async function load(targetBox: ApprovalBox) {
     const page = await api<PageResponse<ApprovalSummary>>(`/approvals?box=${targetBox}&size=30`);
     setItems(page.content);
   }
 
   async function loadEmployees() {
-    const page = await api<PageResponse<Employee>>("/emps?size=30&status=ACTIVE");
-    setEmployees(page.content.filter((employee) => employee.empId !== user.empId));
+    const page = await api<PageResponse<Employee>>("/emps?size=100&status=ACTIVE");
+    setEmployees(page.content);
   }
 
   async function loadDetail(id: number) {
-    const detail = await api<Approval>(`/approvals/${id}`);
-    setSelected(detail);
-    setMode("detail");
+    try {
+      const detail = await api<Approval>(`/approvals/${id}`);
+      setSelected(detail);
+      setMode("detail");
+      setApprovalError("");
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : "문서 조회 권한이 없습니다.");
+    }
   }
 
   useEffect(() => {
@@ -744,16 +782,17 @@ function ApprovalPage({ user }: { user: User }) {
       const nextTemplates = items.map((item) => ({
         code: item.templateCode,
         name: item.templateName,
-        description: item.description ?? ""
+        description: item.description ?? "",
+        version: item.version
       }));
-      if (nextTemplates.length) {
-        setTemplates(nextTemplates);
-        setForm((current) => current.templateCode ? current : defaultApprovalForm(nextTemplates));
-      }
+      const merged = nextTemplates.length ? nextTemplates : DEFAULT_APPROVAL_TEMPLATES;
+      setTemplates(merged);
+      setPreviewTemplate(merged[0]);
+      setForm((current) => current.templateCode ? current : defaultApprovalForm(merged));
     }).catch(() => undefined);
   }, []);
 
-  async function changeBox(nextBox: "pending" | "requested" | "processed" | "all") {
+  async function changeBox(nextBox: ApprovalBox) {
     setApprovalError("");
     setBox(nextBox);
     setSelected(null);
@@ -764,50 +803,107 @@ function ApprovalPage({ user }: { user: User }) {
 
   function startCreate() {
     setSelected(null);
-    setForm(defaultApprovalForm(templates));
     setPendingFiles([]);
     setApprovalError("");
+    setPreviewTemplate(templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0]);
+    setTemplateModalOpen(true);
+  }
+
+  function confirmTemplate() {
+    setForm({ ...defaultApprovalForm([previewTemplate]), title: previewTemplate.name });
+    setTemplateModalOpen(false);
     setMode("create");
   }
 
   function editDraft() {
-    if (!selected || selected.status !== "DRAFT") return;
+    if (!selected || !selected.permissions?.canEditDraft) return;
     const draftData = approvalDraftData(selected);
+    const template = templates.find((item) => item.code === selected.templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
     setForm({
       title: selected.title,
       content: draftData.content,
-      templateCode: selected.templateCode ?? templates[0]?.code ?? DEFAULT_APPROVAL_TEMPLATES[0].code,
-      approverEmpIds: selected.lines.length ? selected.lines.map((line) => line.approverEmpId) : draftData.approverEmpIds,
-      approvalSlotCount: clampApprovalSlotCount(Math.max(selected.lines.length + 1, draftData.approvalSlotCount))
+      templateCode: selected.templateCode ?? template.code,
+      templateVersion: selected.templateVersion ?? template.version ?? null,
+      priority: selected.priority,
+      agreementEmpIds: selected.lines.filter((line) => line.lineType === "AGREEMENT").map((line) => line.assignedEmpId ?? line.approverEmpId),
+      approverEmpIds: selected.lines.filter((line) => line.lineType === "APPROVAL").map((line) => line.assignedEmpId ?? line.approverEmpId),
+      receiverEmpIds: selected.lines.filter((line) => line.lineType === "RECEIVER").map((line) => line.assignedEmpId ?? line.approverEmpId),
+      referenceEmpIds: selected.lines.filter((line) => line.lineType === "REFERENCE").map((line) => line.assignedEmpId ?? line.approverEmpId),
+      readerEmpIds: selected.lines.filter((line) => line.lineType === "READER").map((line) => line.assignedEmpId ?? line.approverEmpId)
     });
     setPendingFiles([]);
     setApprovalError("");
     setMode("edit");
   }
 
+  function validateDraftLine() {
+    const restricted = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
+    if (form.agreementEmpIds.includes(user.empId) || form.approverEmpIds.includes(user.empId)) {
+      return "기안자 본인은 합의자 또는 결재자로 지정할 수 없습니다.";
+    }
+    if (new Set(restricted).size !== restricted.length) {
+      return "합의자, 결재자, 수신자는 중복 지정할 수 없습니다.";
+    }
+    if (!form.approverEmpIds.length) {
+      return "상신 전 결재자를 1명 이상 선택해 주세요.";
+    }
+    return "";
+  }
+
   async function save(submit = true) {
     setApprovalError("");
+    if (submit) {
+      const validation = validateDraftLine();
+      if (validation) {
+        setApprovalError(validation);
+        return;
+      }
+    }
     try {
       const template = templates.find((item) => item.code === form.templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
       const payload = {
         title: form.title.trim() || template.name,
         content: form.content,
         templateCode: template.code,
-        formDataJson: JSON.stringify({ content: form.content, approverEmpIds: form.approverEmpIds, approvalSlotCount: form.approvalSlotCount }),
+        templateVersion: template.version ?? form.templateVersion,
+        formDataJson: JSON.stringify({
+          content: form.content,
+          agreementEmpIds: form.agreementEmpIds,
+          approverEmpIds: form.approverEmpIds,
+          receiverEmpIds: form.receiverEmpIds,
+          referenceEmpIds: form.referenceEmpIds,
+          readerEmpIds: form.readerEmpIds
+        }),
+        priority: form.priority,
+        agreementEmpIds: form.agreementEmpIds,
         approverEmpIds: form.approverEmpIds,
+        receiverEmpIds: form.receiverEmpIds,
+        referenceEmpIds: form.referenceEmpIds,
+        readerEmpIds: form.readerEmpIds,
         draft: !submit
       };
-      const saved = mode === "edit" && selected?.status === "DRAFT"
-        ? await api<Approval>(submit ? `/approvals/${selected.approvalId}/submit` : `/approvals/${selected.approvalId}/draft`, {
-            method: submit ? "POST" : "PUT",
-            body: jsonBody(payload)
-          })
-        : await api<Approval>("/approvals", { method: "POST", body: jsonBody(payload) });
-      await uploadAttachments("APPROVAL", saved.approvalId, pendingFiles);
+      const editing = mode === "edit" && selected && selected.permissions?.canEditDraft;
+      let saved: Approval;
+      if (editing) {
+        if (submit) {
+          await uploadAttachments("APPROVAL_DOCUMENT", selected.approvalId, pendingFiles);
+          saved = await api<Approval>(`/approvals/${selected.approvalId}/submit`, { method: "POST", body: jsonBody({ ...payload, draft: false }) });
+        } else {
+          saved = await api<Approval>(`/approvals/${selected.approvalId}/draft`, { method: "PUT", body: jsonBody({ ...payload, draft: true }) });
+          await uploadAttachments("APPROVAL_DOCUMENT", saved.approvalId, pendingFiles);
+        }
+      } else if (submit) {
+        const draft = await api<Approval>("/approvals/drafts", { method: "POST", body: jsonBody({ ...payload, draft: true }) });
+        await uploadAttachments("APPROVAL_DOCUMENT", draft.approvalId, pendingFiles);
+        saved = await api<Approval>(`/approvals/${draft.approvalId}/submit`, { method: "POST", body: jsonBody({ ...payload, draft: false }) });
+      } else {
+        saved = await api<Approval>("/approvals/drafts", { method: "POST", body: jsonBody({ ...payload, draft: true }) });
+        await uploadAttachments("APPROVAL_DOCUMENT", saved.approvalId, pendingFiles);
+      }
       setPendingFiles([]);
       setForm(defaultApprovalForm(templates));
-      setSelected(null);
-      setMode("list");
+      setSelected(saved);
+      setMode("detail");
       setBox("requested");
       await load("requested");
     } catch (err) {
@@ -816,152 +912,493 @@ function ApprovalPage({ user }: { user: User }) {
   }
 
   async function withdraw() {
-    if (!selected || !window.confirm("아직 결재자가 처리하지 않은 문서를 회수합니다.")) return;
-    const updated = await api<Approval>(`/approvals/${selected.approvalId}/withdraw`, { method: "POST" });
+    if (!selected || !window.confirm("아직 합의/결재 처리되지 않은 문서를 회수합니다.")) return;
+    const reason = window.prompt("회수 사유", "수정 후 재상신") ?? "";
+    const updated = await api<Approval>(`/approvals/${selected.approvalId}/withdraw`, { method: "POST", body: jsonBody({ comment: reason }) });
     setSelected(updated);
     await load(box);
   }
 
   async function redraft() {
     if (!selected) return;
-    await api<Approval>(`/approvals/${selected.approvalId}/redraft`, { method: "POST" });
-    setSelected(null);
-    setMode("list");
+    const draft = await api<Approval>(`/approvals/${selected.approvalId}/redraft`, { method: "POST" });
+    setSelected(draft);
+    setMode("detail");
     setBox("requested");
     await load("requested");
   }
 
-  async function action(type: "approve" | "reject") {
+  async function action(type: "approve" | "reject" | "receive" | "complete-receipt" | "cancel") {
     if (!selected) return;
-    const comment = window.prompt(type === "approve" ? "승인 의견" : "반려 사유") ?? "";
-    const updated = await api<Approval>(`/approvals/${selected.approvalId}/${type}`, {
-      method: "POST",
-      body: jsonBody({ comment })
-    });
-    setSelected(updated);
-    await load(box);
+    let comment = "";
+    if (type === "reject") {
+      comment = window.prompt("반려 사유를 입력해 주세요.") ?? "";
+      if (!comment.trim()) {
+        setApprovalError("반려 사유를 입력해 주세요.");
+        return;
+      }
+    }
+    if (type === "complete-receipt") {
+      comment = window.prompt("접수완료 의견", "접수완료") ?? "";
+    }
+    try {
+      const updated = await api<Approval>(`/approvals/${selected.approvalId}/${type}`, {
+        method: "POST",
+        body: comment ? jsonBody({ comment }) : undefined
+      });
+      setSelected(updated);
+      setApprovalError("");
+      await load(box);
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : "결재 처리 중 오류가 발생했습니다.");
+    }
   }
 
   function changeTemplate(templateCode: string) {
+    const nextTemplate = templates.find((item) => item.code === templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
     const currentTemplate = templates.find((item) => item.code === form.templateCode);
-    const nextTemplate = templates.find((item) => item.code === templateCode) ?? currentTemplate;
     const shouldUseTemplateTitle = !form.title.trim() || form.title === currentTemplate?.name;
     setForm({
       ...form,
       templateCode,
-      title: shouldUseTemplateTitle && nextTemplate ? nextTemplate.name : form.title
+      templateVersion: nextTemplate.version ?? null,
+      title: shouldUseTemplateTitle ? nextTemplate.name : form.title
     });
   }
 
-  const myApprovalLine = selected?.lines.find((line) => line.approverEmpId === user.empId);
-  const isApprovalParticipant = selected?.status === "PENDING" && !!myApprovalLine;
-  const canAct = isApprovalParticipant && myApprovalLine?.status === "PENDING";
-  const isRequester = selected?.requesterEmpId === user.empId;
-  const canEditDraft = !!selected && selected.status === "DRAFT" && isRequester;
-  const canWithdraw = !!selected && selected.status === "PENDING" && isRequester && selected.lines.every((line) => line.status !== "APPROVED" && line.status !== "REJECTED");
-  const canRedraft = !!selected && (selected.status === "WITHDRAWN" || selected.status === "REJECTED") && isRequester;
+  const selectedTemplate = templates.find((item) => item.code === form.templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
+  const restrictedIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
+  const permissions = selected?.permissions;
 
   return (
-    <section className="panel board-screen">
-      <div className="board-tabs">
-        <button className={box === "pending" ? "active" : ""} onClick={() => void changeBox("pending")}>결재대기</button>
-        <button className={box === "requested" ? "active" : ""} onClick={() => void changeBox("requested")}>기안문서</button>
-        <button className={box === "processed" ? "active" : ""} onClick={() => void changeBox("processed")}>처리문서</button>
-        {user.roleCode === "ADMIN" && <button className={box === "all" ? "active" : ""} onClick={() => void changeBox("all")}>전체</button>}
+    <section className="panel board-screen approval-screen">
+      <div className="board-tabs approval-tabs">
+        {APPROVAL_BOXES.map((tab) => (
+          <button key={tab.box} className={box === tab.box ? "active" : ""} onClick={() => void changeBox(tab.box)}>{tab.label}</button>
+        ))}
       </div>
-      <Toolbar
-        title="전자결재"
-        onNew={startCreate}
-        onRefresh={() => load(box)}
-        beforeRefresh={canAct && (
-          <>
-            <button type="button" className="primary-action" onClick={() => action("approve")}><Check size={16} /> 승인</button>
-            <button type="button" className="danger" onClick={() => action("reject")}><X size={16} /> 반려</button>
-          </>
-        )}
-      />
+      <Toolbar title="전자결재" onNew={startCreate} onRefresh={() => load(box)} />
       {approvalError && <p className="error">{approvalError}</p>}
       {mode === "list" && (
         <>
-          <ListSummary count={items.length} text="표시 중인 결재 문서" />
-          {items.length ? (
-            <ContentTable
-              rows={items.map((item) => ({
-                id: item.approvalId,
-                pinned: item.status === "PENDING",
-                title: item.title,
-                writer: item.requesterName,
-                date: formatDate(item.requestedAt),
-                hasAttachment: false,
-                views: item.currentApproverName ? `결재자 ${item.currentApproverName}` : item.status,
-                onOpen: () => loadDetail(item.approvalId)
-              }))}
-              pinnedLabel="진행"
-              metricLabel="결재상태"
-            />
-          ) : <Empty text="표시할 결재 문서가 없습니다." />}
+          <ListSummary count={items.length} text={`${APPROVAL_BOXES.find((item) => item.box === box)?.label ?? "문서"} 문서`} />
+          {items.length ? <ApprovalListTable items={items} templates={templates} onOpen={loadDetail} /> : <Empty text="표시할 전자결재 문서가 없습니다." />}
         </>
       )}
       {mode === "detail" && selected && (
         <DetailPage onBack={() => setMode("list")}>
-          <ReadDetail
-            title={selected.title}
-            content={approvalContent(selected)}
-            meta={`${selected.requesterName} · ${selected.status} · ${formatDate(selected.requestedAt)}`}
-            badge={selected.status}
-            canEdit={false}
-            onEdit={() => action("approve")}
-            onDelete={() => action("reject")}
-            editLabel="승인"
-            deleteLabel="반려"
-          />
-          <ApprovalStampTable approval={selected} />
-          <ApprovalOpinionList lines={selected.lines} />
-          {(canEditDraft || canWithdraw || canRedraft) && (
-            <div className="approval-actions">
-              {canEditDraft && <button onClick={editDraft}><Edit3 size={16} /> 이어쓰기</button>}
-              {canWithdraw && <button className="ghost" onClick={withdraw}><RefreshCw size={16} /> 회수</button>}
-              {canRedraft && <button onClick={redraft}><Save size={16} /> 재기안</button>}
-            </div>
-          )}
-          <AttachmentBox targetType="APPROVAL" targetId={selected.approvalId} readOnly={selected.status === "APPROVED"} />
+          <ApprovalDetailView approval={selected} templates={templates} />
+          <div className="approval-actions">
+            {permissions?.canEditDraft && <button onClick={editDraft}><Edit3 size={16} /> 수정</button>}
+            {permissions?.canSubmit && selected.status !== "IN_PROGRESS" && <button onClick={() => { editDraft(); }}><Check size={16} /> 상신</button>}
+            {permissions?.canApprove && <button className="primary-action" onClick={() => action("approve")}><Check size={16} /> 승인</button>}
+            {permissions?.canReject && <button className="danger" onClick={() => action("reject")}><X size={16} /> 반려</button>}
+            {permissions?.canWithdraw && <button className="ghost" onClick={withdraw}><RefreshCw size={16} /> 회수</button>}
+            {permissions?.canRedraft && <button onClick={redraft}><Save size={16} /> 재상신</button>}
+            {permissions?.canReceive && <button onClick={() => action("receive")}><Inbox size={16} /> 수신 확인</button>}
+            {permissions?.canCompleteReceipt && <button onClick={() => action("complete-receipt")}><Check size={16} /> 접수완료</button>}
+            {permissions?.canCancel && <button className="ghost" onClick={() => action("cancel")}><X size={16} /> 취소</button>}
+            {permissions?.canPrintPdf && <button className="ghost" onClick={() => downloadApprovalPdf(selected.approvalId, selected.documentNo ?? selected.title)}><Paperclip size={16} /> PDF 출력</button>}
+          </div>
+          <AttachmentBox targetType="APPROVAL_DOCUMENT" targetId={selected.approvalId} readOnly={!permissions?.canEditDraft} canDownload={!!permissions?.canDownloadAttachment} />
         </DetailPage>
       )}
       {(mode === "create" || mode === "edit") && (
-        <DetailPage onBack={() => setMode("list")}>
-          <div className="editor">
+        <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
+          <div className="editor approval-editor">
             <div className="panel-head">
-              <h3>{mode === "edit" ? "임시저장 이어쓰기" : "결재 문서 작성"}</h3>
+              <div>
+                <h3>{mode === "edit" ? "전자결재 수정" : "전자결재 작성"}</h3>
+                <p className="muted-text">문서번호는 상신 시 자동 생성됩니다. 예상 형식: {documentPrefix(form.templateCode)}-{new Date().getFullYear()}-자동생성</p>
+              </div>
               <div className="actions">
                 <button type="button" className="ghost" onClick={() => void save(false)}><Save size={16} /> 임시저장</button>
                 <button type="button" onClick={() => void save(true)}><Check size={16} /> 상신</button>
-                <button type="button" className="ghost" onClick={() => setMode(selected ? "detail" : "list")}><X size={16} /> 취소</button>
+                <button type="button" className="ghost" onClick={() => selected ? setMode("detail") : setMode("list")}><X size={16} /> 취소</button>
               </div>
             </div>
-            <ApprovalLineTableEditor
-              user={user}
-              employees={employees}
-              selectedIds={form.approverEmpIds}
-              slotCount={form.approvalSlotCount}
-              onSlotCountChange={(approvalSlotCount) => setForm((current) => ({ ...current, approvalSlotCount }))}
-              onChange={(approverEmpIds) => setForm((current) => ({ ...current, approverEmpIds }))}
-            />
-            <label>
-              결재 양식
-              <select value={form.templateCode} onChange={(event) => changeTemplate(event.target.value)}>
-                {templates.map((template) => (
-                  <option key={template.code} value={template.code}>{template.name}</option>
-                ))}
-              </select>
-            </label>
-            <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="제목" />
-            <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="내용" />
+            <div className="approval-form-grid">
+              <label>양식명<select value={form.templateCode} onChange={(event) => changeTemplate(event.target.value)}>{templates.map((template) => <option key={template.code} value={template.code}>{template.name}</option>)}</select></label>
+              <label>문서 중요도<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value as ApprovalForm["priority"] })}><option value="NORMAL">일반</option><option value="IMPORTANT">중요</option><option value="URGENT">긴급</option></select></label>
+              <label className="wide">문서 제목<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="문서 제목" /></label>
+              <label className="wide">문서 내용<textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="문서 내용을 입력하세요." /></label>
+            </div>
+            <div className="template-note"><strong>{selectedTemplate.name}</strong><span>{selectedTemplate.description}</span></div>
             <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
+            <div className="line-picker-grid">
+              <EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} />
+              <EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={form.approverEmpIds} disabledIds={[user.empId, ...form.agreementEmpIds, ...form.receiverEmpIds]} ordered onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} />
+              <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={[...form.agreementEmpIds, ...form.approverEmpIds]} onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} />
+              <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={[]} onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} />
+              <EmployeeMultiPicker title="연람자" user={user} employees={employees} selectedIds={form.readerEmpIds} disabledIds={[]} onChange={(readerEmpIds) => setForm({ ...form, readerEmpIds })} />
+            </div>
           </div>
         </DetailPage>
       )}
+      {templateModalOpen && <TemplateSelectModal templates={templates} selected={previewTemplate} onSelect={setPreviewTemplate} onCancel={() => setTemplateModalOpen(false)} onConfirm={confirmTemplate} />}
     </section>
   );
+}
+
+const APPROVAL_BOXES: { box: ApprovalBox; label: string }[] = [
+  { box: "agreement", label: "합의대기" },
+  { box: "pending", label: "결재대기" },
+  { box: "received", label: "수신문서" },
+  { box: "shared", label: "참조/연람" },
+  { box: "requested", label: "기안문서" },
+  { box: "processed", label: "처리문서" },
+  { box: "all", label: "전체문서" }
+];
+
+function TemplateSelectModal({ templates, selected, onSelect, onCancel, onConfirm }: {
+  templates: ApprovalTemplateOption[];
+  selected: ApprovalTemplateOption;
+  onSelect: (template: ApprovalTemplateOption) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="template-select-modal" role="dialog" aria-modal="true" aria-label="양식 선택">
+        <div className="modal-head">
+          <h3>양식 선택</h3>
+          <button type="button" className="icon-button" onClick={onCancel} title="닫기"><X size={18} /></button>
+        </div>
+        <div className="template-select-layout">
+          <div className="template-list">
+            <h3>결재 양식 카테고리</h3>
+            {templates.map((template) => (
+              <button type="button" key={template.code} className={selected.code === template.code ? "active" : ""} onClick={() => onSelect(template)}>
+                <strong>{template.name}</strong>
+                <span>{template.code} v{template.version ?? 1}</span>
+              </button>
+            ))}
+          </div>
+          <div className="template-preview">
+            <h3>양식 미리보기</h3>
+            <p>{selected.description || "등록된 설명이 없습니다."}</p>
+            <div className="paper-preview">
+              <h2>{selected.name} - 기안자명</h2>
+              <div className="preview-grid">
+                <strong>기안부서</strong><span>생산기술</span>
+                <strong>기안자</strong><span>기안자명</span>
+                <strong>문서번호</strong><span>상신 시 자동생성</span>
+                <strong>결재</strong><span>합의/결재선 표시</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="ghost" onClick={onCancel}>취소</button>
+          <button type="button" onClick={onConfirm}>확인</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApprovalListTable({ items, templates, onOpen }: { items: ApprovalSummary[]; templates: ApprovalTemplateOption[]; onOpen: (id: number) => void }) {
+  return (
+    <div className="table-wrap">
+      <table className="content-table approval-list-table">
+        <thead>
+          <tr>
+            <th>문서번호</th>
+            <th>중요도</th>
+            <th>양식</th>
+            <th>제목</th>
+            <th>기안자</th>
+            <th>현재 단계</th>
+            <th>문서 상태</th>
+            <th>작성일</th>
+            <th>완료일</th>
+            <th>진행률</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.approvalId}>
+              <td>{item.documentNo ?? "상신 전"}</td>
+              <td><span className={`priority priority-${item.priority.toLowerCase()}`}>{priorityLabel(item.priority)}</span></td>
+              <td>{templateName(templates, item.templateCode)}</td>
+              <td><button className="title-link" onClick={() => onOpen(item.approvalId)}>{item.title}</button></td>
+              <td>{item.requesterName}</td>
+              <td>{stageLabel(item.currentStage)}</td>
+              <td>{statusLabel(item.status)}</td>
+              <td>{formatDate(item.requestedAt)}</td>
+              <td>{item.completedAt ? formatDate(item.completedAt) : "-"}</td>
+              <td>{item.currentApproverName ? `결재 ${item.currentApproverName}` : stageLabel(item.currentStage)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ApprovalDetailView({ approval, templates }: { approval: Approval; templates: ApprovalTemplateOption[] }) {
+  return (
+    <article className="approval-detail">
+      <section className="approval-detail-section">
+        <h3>문서 기본정보</h3>
+        <dl className="approval-meta-grid">
+          <dt>문서번호</dt><dd>{approval.documentNo ?? "상신 시 자동 생성"}</dd>
+          <dt>양식</dt><dd>{templateName(templates, approval.templateCode)} v{approval.templateVersion ?? "-"}</dd>
+          <dt>중요도</dt><dd>{priorityLabel(approval.priority)}</dd>
+          <dt>현재 단계</dt><dd>{stageLabel(approval.currentStage)}</dd>
+          <dt>문서 상태</dt><dd>{statusLabel(approval.status)}</dd>
+          <dt>수신 상태</dt><dd>{receiverProgress(approval.lines)}</dd>
+          <dt>기안자</dt><dd>{approval.requesterName}</dd>
+          <dt>기안부서</dt><dd>{approval.draftDeptName ?? approval.requesterDeptName ?? "-"}</dd>
+          <dt>작성일</dt><dd>{formatDate(approval.requestedAt)}</dd>
+          <dt>상신일</dt><dd>{approval.lastSubmittedAt ? formatDate(approval.lastSubmittedAt) : "-"}</dd>
+          <dt>완료일</dt><dd>{approval.completedAt ? formatDate(approval.completedAt) : "-"}</dd>
+          <dt>진행률</dt><dd>{approvalProgress(approval.lines)}</dd>
+        </dl>
+      </section>
+      <section className="approval-detail-section">
+        <h3>문서 내용</h3>
+        <div className="detail-content">{approvalContent(approval) ? <RichContent content={approvalContent(approval)} /> : "내용이 없습니다."}</div>
+      </section>
+      <ApprovalLineSection title="합의자" lines={approval.lines.filter((line) => line.lineType === "AGREEMENT")} />
+      <ApprovalLineSection title="결재자" lines={approval.lines.filter((line) => line.lineType === "APPROVAL")} />
+      <ApprovalLineSection title="수신자" lines={approval.lines.filter((line) => line.lineType === "RECEIVER")} />
+      <ApprovalLineSection title="참조자" lines={approval.lines.filter((line) => line.lineType === "REFERENCE")} />
+      <ApprovalLineSection title="연람자" lines={approval.lines.filter((line) => line.lineType === "READER")} />
+      <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+      <section className="approval-detail-section">
+        <h3>감사 이력</h3>
+        <p className="muted-text">감사 로그는 관리자 감사 화면에서 문서 ID #{approval.approvalId} 기준으로 추적합니다.</p>
+      </section>
+    </article>
+  );
+}
+
+function ApprovalLineSection({ title, lines }: { title: string; lines: ApprovalLine[] }) {
+  return (
+    <section className="approval-detail-section">
+      <h3>{title}</h3>
+      {lines.length ? (
+        <div className="approval-lines compact">
+          {lines.slice().sort((a, b) => a.lineOrder - b.lineOrder).map((line, index) => (
+            <div className="approval-line" key={line.lineId}>
+              <strong>{index + 1}. {line.empNameSnapshot ?? line.approverName}</strong>
+              <span>{line.deptNameSnapshot ?? line.approverDeptName ?? "-"} · {line.positionSnapshot ?? line.approverPositionName ?? "-"} · {lineStatusLabel(line.status)}</span>
+              {line.comment && <p>{line.comment}</p>}
+            </div>
+          ))}
+        </div>
+      ) : <Empty text={`${title}가 없습니다.`} />}
+    </section>
+  );
+}
+
+function EmployeeMultiPicker({ title, user, employees, selectedIds, disabledIds, ordered = false, onChange }: {
+  title: string;
+  user: User;
+  employees: Employee[];
+  selectedIds: number[];
+  disabledIds: number[];
+  ordered?: boolean;
+  onChange: (ids: number[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [tree, setTree] = useState<DeptNode[]>([]);
+  const [activeDeptId, setActiveDeptId] = useState<number | null>(null);
+  const [keyword, setKeyword] = useState("");
+  const [candidates, setCandidates] = useState<Employee[]>(employees);
+  const [knownEmployees, setKnownEmployees] = useState<Employee[]>(employees);
+
+  useEffect(() => {
+    setCandidates(employees);
+    setKnownEmployees((prev) => mergeEmployees(prev, employees));
+  }, [employees]);
+
+  async function openPicker() {
+    setOpen(true);
+    if (!tree.length) setTree(await api<DeptNode[]>("/depts/tree"));
+    await search();
+  }
+
+  async function search(targetDeptId = activeDeptId) {
+    const params = new URLSearchParams({ page: "0", size: "80", status: "ACTIVE" });
+    if (keyword.trim()) params.set("keyword", keyword.trim());
+    if (targetDeptId) params.set("deptId", String(targetDeptId));
+    const page = await api<PageResponse<Employee>>(`/emps?${params.toString()}`);
+    setCandidates(page.content);
+    setKnownEmployees((prev) => mergeEmployees(prev, page.content));
+  }
+
+  async function selectDept(deptId: number) {
+    setActiveDeptId(deptId);
+    await search(deptId);
+  }
+
+  function add(employee: Employee) {
+    if (selectedIds.includes(employee.empId) || disabledIds.includes(employee.empId)) return;
+    setKnownEmployees((prev) => mergeEmployees(prev, [employee]));
+    onChange([...selectedIds, employee.empId]);
+  }
+
+  function remove(empId: number) {
+    onChange(selectedIds.filter((id) => id !== empId));
+  }
+
+  function move(empId: number, direction: -1 | 1) {
+    const index = selectedIds.indexOf(empId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= selectedIds.length) return;
+    const next = [...selectedIds];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    onChange(next);
+  }
+
+  return (
+    <div className="line-picker-card">
+      <div className="panel-head">
+        <h3>{title}</h3>
+        <button type="button" onClick={openPicker}><Building2 size={16} /> 선택</button>
+      </div>
+      {selectedIds.length ? selectedIds.map((id, index) => {
+        const employee = knownEmployees.find((item) => item.empId === id);
+        return (
+          <div className="selected-approver" key={id}>
+            <strong>{ordered ? `${index + 1}. ` : ""}{employee?.empName ?? id}</strong>
+            <span>{employee?.deptName ?? "-"} · {employee?.positionName ?? "-"}</span>
+            <div>
+              {ordered && <button type="button" onClick={() => move(id, -1)} disabled={index === 0}>위</button>}
+              {ordered && <button type="button" onClick={() => move(id, 1)} disabled={index === selectedIds.length - 1}>아래</button>}
+              <button type="button" onClick={() => remove(id)}>삭제</button>
+            </div>
+          </div>
+        );
+      }) : <Empty text={`${title}를 선택하세요.`} />}
+      {open && (
+        <div className="modal-backdrop" role="presentation">
+          <div className="org-picker-modal" role="dialog" aria-modal="true" aria-label={`${title} 선택`}>
+            <div className="modal-head">
+              <h3>{title} 선택</h3>
+              <button type="button" className="icon-button" onClick={() => setOpen(false)} title="닫기"><X size={18} /></button>
+            </div>
+            <div className="org-picker-layout">
+              <div className="org-picker-tree">{tree.map((node) => <DeptTree key={node.deptId} node={node} active={activeDeptId} onSelect={selectDept} />)}</div>
+              <div className="org-picker-results">
+                <div className="searchbar">
+                  <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="직원명, 아이디, 사번 검색" />
+                  <button type="button" onClick={() => search()}><Search size={16} /> 검색</button>
+                </div>
+                <div className="employee-result-list">
+                  {candidates.map((employee) => {
+                    const disabled = disabledIds.includes(employee.empId);
+                    const selfBlocked = (title === "합의자" || title === "결재자") && employee.empId === user.empId;
+                    return (
+                      <button key={employee.empId} type="button" disabled={disabled || selfBlocked} className={selectedIds.includes(employee.empId) ? "active" : ""} onClick={() => add(employee)}>
+                        <strong>{employee.empName}</strong>
+                        <span>{employee.deptName ?? "-"} · {employee.positionName ?? employee.jobTitle ?? employee.roleCode}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="org-picker-selected">
+                <h3>선택된 {title}</h3>
+                {selectedIds.length ? selectedIds.map((id, index) => {
+                  const employee = knownEmployees.find((item) => item.empId === id);
+                  return <div className="selected-approver" key={id}><strong>{ordered ? `${index + 1}. ` : ""}{employee?.empName ?? id}</strong><span>{employee?.deptName ?? "-"}</span></div>;
+                }) : <Empty text="선택된 직원이 없습니다." />}
+                <button type="button" className="primary" onClick={() => setOpen(false)}>적용</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+async function downloadApprovalPdf(approvalId: number, fileName: string) {
+  const response = await authenticatedFetch(`/approvals/${approvalId}/pdf`);
+  if (!response.ok) return;
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${fileName}.pdf`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function documentPrefix(templateCode: string | null | undefined) {
+  if (templateCode === "PURCHASE") return "PUR";
+  if (templateCode === "TRAINING_REQUEST" || templateCode === "TRAINING_REPORT") return "EDU";
+  return "APP";
+}
+
+function templateName(templates: ApprovalTemplateOption[], code: string | null) {
+  return templates.find((template) => template.code === code)?.name ?? code ?? "-";
+}
+
+function priorityLabel(priority: ApprovalSummary["priority"]) {
+  return priority === "URGENT" ? "긴급" : priority === "IMPORTANT" ? "중요" : "일반";
+}
+
+function statusLabel(status: ApprovalSummary["status"]) {
+  const labels: Record<ApprovalSummary["status"], string> = {
+    DRAFT: "임시저장",
+    PENDING: "진행중",
+    IN_PROGRESS: "진행중",
+    APPROVED: "승인",
+    REJECTED: "반려",
+    WITHDRAWN: "회수",
+    CANCELED: "취소"
+  };
+  return labels[status] ?? status;
+}
+
+function stageLabel(stage: ApprovalSummary["currentStage"]) {
+  const labels: Record<ApprovalSummary["currentStage"], string> = {
+    DRAFT: "임시저장",
+    AGREEMENT_PROGRESS: "합의 진행",
+    APPROVAL_PROGRESS: "결재 진행",
+    RECEIVER_PROGRESS: "수신 전달",
+    COMPLETED: "완료",
+    REJECTED: "반려",
+    WITHDRAWN: "회수",
+    CANCELED: "취소"
+  };
+  return labels[stage] ?? stage;
+}
+
+function lineStatusLabel(status: ApprovalLine["status"]) {
+  const labels: Record<ApprovalLine["status"], string> = {
+    WAITING: "대기",
+    PENDING: "처리대기",
+    APPROVED: "승인",
+    REJECTED: "반려",
+    SKIPPED: "건너뜀",
+    RECEIVED: "수신",
+    READ: "열람",
+    RECEIPT_COMPLETED: "접수완료"
+  };
+  return labels[status] ?? status;
+}
+
+function approvalProgress(lines: ApprovalLine[]) {
+  const agreements = lines.filter((line) => line.lineType === "AGREEMENT");
+  const approvals = lines.filter((line) => line.lineType === "APPROVAL");
+  const agreed = agreements.filter((line) => line.status === "APPROVED").length;
+  const approved = approvals.filter((line) => line.status === "APPROVED").length;
+  if (agreements.length && agreed < agreements.length) return `합의 ${agreed}/${agreements.length} 완료`;
+  if (approvals.length) return `결재 ${approved}/${approvals.length} 진행`;
+  return "-";
+}
+
+function receiverProgress(lines: ApprovalLine[]) {
+  const receivers = lines.filter((line) => line.lineType === "RECEIVER");
+  if (!receivers.length) return "-";
+  const completed = receivers.filter((line) => line.status === "RECEIPT_COMPLETED").length;
+  const read = receivers.filter((line) => line.status === "READ").length;
+  return completed ? `접수완료 ${completed}/${receivers.length}` : read ? `수신확인 ${read}/${receivers.length}` : "수신 미접수";
 }
 
 function ApproverPicker({ employees, selectedIds, onChange }: { employees: Employee[]; selectedIds: number[]; onChange: (ids: number[]) => void }) {
@@ -1339,7 +1776,7 @@ function ApprovalLineView({ lines }: { lines: Approval["lines"] }) {
   );
 }
 
-function NotificationPage() {
+function NotificationPage({ go }: { go: (route: Route) => void }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadOnly, setUnreadOnly] = useState(false);
 
@@ -1370,13 +1807,17 @@ function NotificationPage() {
           <div>
             <strong>{item.title}</strong>
             <p>{item.message}</p>
-            <span>{formatDate(item.createdAt)}</span>
+            <span>{item.readStatus === "READ" ? "읽음" : "미읽음"} · {formatDate(item.createdAt)}</span>
+            {item.notificationStatus === "FAILED" && <span className="error">알림 발송 실패: {item.lastErrorMessage ?? "원인 미상"}</span>}
           </div>
-          {!item.read && (
-            <button className="ghost" onClick={() => markRead(item.notificationId)}>
-              <Check size={16} /> 읽음
-            </button>
-          )}
+          <div className="actions">
+            {item.targetType === "APPROVAL" && item.targetId && <button className="ghost" onClick={() => go("approvals")}><ClipboardCheck size={16} /> 문서 바로가기</button>}
+            {!item.read && (
+              <button className="ghost" onClick={() => markRead(item.notificationId)}>
+                <Check size={16} /> 읽음
+              </button>
+            )}
+          </div>
         </div>
       )) : <Empty />}
     </div>
@@ -1792,7 +2233,7 @@ function CommentBox({ comments, onSubmit }: { comments: { commentId: number; wri
   );
 }
 
-function AttachmentBox({ targetType, targetId, readOnly = false }: { targetType: string; targetId: number; readOnly?: boolean }) {
+function AttachmentBox({ targetType, targetId, readOnly = false, canDownload = true }: { targetType: string; targetId: number; readOnly?: boolean; canDownload?: boolean }) {
   const [files, setFiles] = useState<AttachFile[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -1826,9 +2267,8 @@ function AttachmentBox({ targetType, targetId, readOnly = false }: { targetType:
   }
 
   async function download(file: AttachFile) {
-    const response = await fetch(`http://localhost:8080/api/v1/files/${file.fileId}/download`, {
-      headers: { Authorization: `Bearer ${getAccessToken() ?? ""}` }
-    });
+    if (!canDownload) return;
+    const response = await authenticatedFetch(`/files/${file.fileId}/download`);
     if (!response.ok) return;
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
@@ -1850,7 +2290,7 @@ function AttachmentBox({ targetType, targetId, readOnly = false }: { targetType:
       </div>
       {files.length ? files.map((file) => (
         <div className="file-row" key={file.fileId}>
-          <button className="file-link" onClick={() => download(file)}>{file.originalFileName}</button>
+          <button className="file-link" onClick={() => download(file)} disabled={!canDownload}>{file.originalFileName}</button>
           <span>{Math.ceil(file.fileSize / 1024)} KB · SHA-256</span>
           {!readOnly && <button className="danger ghost" onClick={() => remove(file.fileId)}><Trash2 size={15} /> 삭제</button>}
         </div>

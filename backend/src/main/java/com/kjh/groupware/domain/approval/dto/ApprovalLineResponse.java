@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 
 public record ApprovalLineResponse(
     Long lineId,
+    String lineType,
     Integer lineOrder,
     String status,
     String comment,
@@ -15,12 +16,22 @@ public record ApprovalLineResponse(
     Long approverEmpId,
     String approverName,
     String approverDeptName,
-    String approverPositionName
+    String approverPositionName,
+    Long assignedEmpId,
+    Long actedEmpId,
+    LocalDateTime readAt,
+    String empNoSnapshot,
+    String empNameSnapshot,
+    Long deptIdSnapshot,
+    String deptCodeSnapshot,
+    String deptNameSnapshot,
+    String positionSnapshot
 ) {
 
     public static ApprovalLineResponse from(ApprovalLine line) {
         return new ApprovalLineResponse(
             line.getLineId(),
+            line.getLineType(),
             line.getLineOrder(),
             line.getStatus(),
             line.getComment(),
@@ -31,7 +42,16 @@ public record ApprovalLineResponse(
             line.getApprover().getEmpId(),
             line.getApprover().getEmpName(),
             line.getApprover().getDept() == null ? null : line.getApprover().getDept().getDeptName(),
-            line.getApprover().getPositionName()
+            line.getApprover().getPositionName(),
+            line.getAssignedEmp() == null ? null : line.getAssignedEmp().getEmpId(),
+            line.getActedEmp() == null ? null : line.getActedEmp().getEmpId(),
+            line.getReadAt(),
+            line.getEmpNoSnapshot(),
+            line.getEmpNameSnapshot(),
+            line.getDeptIdSnapshot(),
+            line.getDeptCodeSnapshot(),
+            line.getDeptNameSnapshot(),
+            line.getPositionSnapshot()
         );
     }
 }

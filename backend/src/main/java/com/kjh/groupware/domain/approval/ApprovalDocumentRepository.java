@@ -1,12 +1,15 @@
 package com.kjh.groupware.domain.approval;
 
 import com.kjh.groupware.domain.emp.Emp;
+import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import java.time.LocalDateTime;
 
 public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocument, Long> {
 
@@ -21,6 +24,10 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
         """, nativeQuery = true)
     int findMaxDocumentSequence(@Param("prefixYear") String prefixYear);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select d from ApprovalDocument d where d.approvalId = :approvalId")
+    Optional<ApprovalDocument> findByIdForUpdate(@Param("approvalId") Long approvalId);
+
     @Query("""
         select d from ApprovalDocument d
         where d.deletedYn = 'N'
@@ -34,7 +41,7 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
             or exists (
               select 1 from ApprovalLine visibleLine
               where visibleLine.document = d
-                and visibleLine.approver = :currentEmp
+                and visibleLine.assignedEmp = :currentEmp
             )
           )
           and (:dateFrom is null or d.requestedAt >= :dateFrom)
@@ -57,7 +64,7 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
         select distinct d from ApprovalDocument d
         join ApprovalLine l on l.document = d
         where d.deletedYn = 'N'
-          and l.approver = :approver
+          and l.assignedEmp = :approver
         order by d.approvalId desc
         """)
     Page<ApprovalDocument> findVisibleToApprover(@Param("approver") Emp approver, Pageable pageable);

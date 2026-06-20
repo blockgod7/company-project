@@ -81,6 +81,10 @@ export type NotificationItem = {
   targetType: string | null;
   targetId: number | null;
   read: boolean;
+  readStatus: "UNREAD" | "READ";
+  notificationStatus: "PENDING" | "SENT" | "FAILED";
+  retryCount: number;
+  lastErrorMessage: string | null;
   readAt: string | null;
   createdAt: string;
 };
@@ -114,6 +118,8 @@ export type AuditLog = {
   actionType: string;
   targetTable: string;
   targetId: number | null;
+  reason: string | null;
+  success: boolean;
   ipAddress: string | null;
   userAgent: string | null;
   createdAt: string;
@@ -133,10 +139,12 @@ export type AttachFile = {
 
 export type ApprovalLine = {
   lineId: number;
+  lineType: "AGREEMENT" | "APPROVAL" | "RECEIVER" | "REFERENCE" | "READER";
   lineOrder: number;
-  status: "WAITING" | "PENDING" | "APPROVED" | "REJECTED" | "SKIPPED";
+  status: "WAITING" | "PENDING" | "APPROVED" | "REJECTED" | "SKIPPED" | "RECEIVED" | "READ" | "RECEIPT_COMPLETED";
   comment: string | null;
   actedAt: string | null;
+  readAt: string | null;
   signedAt: string | null;
   signatureSnapshotFileId: number | null;
   signatureSnapshotJson: string | null;
@@ -144,21 +152,47 @@ export type ApprovalLine = {
   approverName: string;
   approverDeptName: string | null;
   approverPositionName: string | null;
+  assignedEmpId: number | null;
+  actedEmpId: number | null;
+  empNoSnapshot: string | null;
+  empNameSnapshot: string | null;
+  deptIdSnapshot: number | null;
+  deptCodeSnapshot: string | null;
+  deptNameSnapshot: string | null;
+  positionSnapshot: string | null;
 };
 
 export type ApprovalSummary = {
   approvalId: number;
-  documentNo: string;
+  documentNo: string | null;
   title: string;
   templateCode: string | null;
   templateVersion: number | null;
   pdfStatus: "NONE" | "GENERATING" | "GENERATED" | "FAILED";
-  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "CANCELED";
+  status: "DRAFT" | "PENDING" | "IN_PROGRESS" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "CANCELED";
+  currentStage: "DRAFT" | "AGREEMENT_PROGRESS" | "APPROVAL_PROGRESS" | "RECEIVER_PROGRESS" | "COMPLETED" | "REJECTED" | "WITHDRAWN" | "CANCELED";
+  priority: "NORMAL" | "IMPORTANT" | "URGENT";
   requestedAt: string;
   completedAt: string | null;
   requesterEmpId: number;
   requesterName: string;
   currentApproverName: string | null;
+};
+
+export type ApprovalPermissions = {
+  canView: boolean;
+  canEditDraft: boolean;
+  canSubmit: boolean;
+  canApprove: boolean;
+  canReject: boolean;
+  canWithdraw: boolean;
+  canRedraft: boolean;
+  canCancel: boolean;
+  canReceive: boolean;
+  canCompleteReceipt: boolean;
+  canDownloadAttachment: boolean;
+  canPrintPdf: boolean;
+  canExport: boolean;
 };
 
 export type Approval = ApprovalSummary & {
@@ -169,9 +203,18 @@ export type Approval = ApprovalSummary & {
   pdfGeneratedAt: string | null;
   pdfErrorMessage: string | null;
   pdfHash: string | null;
+  firstSubmittedAt: string | null;
+  lastSubmittedAt: string | null;
+  submitCount: number;
+  withdrawnAt: string | null;
+  withdrawReason: string | null;
   requesterDeptName: string | null;
   requesterPositionName: string | null;
+  draftDeptId: number | null;
+  draftDeptCode: string | null;
+  draftDeptName: string | null;
   lines: ApprovalLine[];
+  permissions: ApprovalPermissions | null;
 };
 
 export type ApprovalTemplateApi = {

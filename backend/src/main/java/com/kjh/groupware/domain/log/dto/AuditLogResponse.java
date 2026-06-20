@@ -9,6 +9,8 @@ public record AuditLogResponse(
     String actionType,
     String targetTable,
     Long targetId,
+    String reason,
+    boolean success,
     String ipAddress,
     String userAgent,
     LocalDateTime createdAt
@@ -21,6 +23,8 @@ public record AuditLogResponse(
             auditLog.getActionType(),
             auditLog.getTargetTable(),
             auditLog.getTargetId(),
+            auditLog.getReason(),
+            !"N".equals(auditLog.getSuccessYn()),
             auditLog.getIpAddress(),
             auditLog.getUserAgent(),
             auditLog.getCreatedAt()

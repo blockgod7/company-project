@@ -10,6 +10,10 @@ public record NotificationResponse(
     String targetType,
     Long targetId,
     boolean read,
+    String readStatus,
+    String notificationStatus,
+    Integer retryCount,
+    String lastErrorMessage,
     LocalDateTime readAt,
     LocalDateTime createdAt
 ) {
@@ -22,6 +26,10 @@ public record NotificationResponse(
             notification.getTargetType(),
             notification.getTargetId(),
             "Y".equals(notification.getReadYn()),
+            "Y".equals(notification.getReadYn()) ? "READ" : "UNREAD",
+            notification.getNotificationStatus(),
+            notification.getRetryCount(),
+            notification.getLastErrorMessage(),
             notification.getReadAt(),
             notification.getCreatedAt()
         );

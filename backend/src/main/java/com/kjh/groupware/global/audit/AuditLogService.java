@@ -37,6 +37,22 @@ public class AuditLogService {
         String ipAddress,
         String userAgent
     ) {
+        record(empId, actionType, targetTable, targetId, beforeJson, afterJson, ipAddress, userAgent, null, true);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void record(
+        Long empId,
+        AuditActionType actionType,
+        String targetTable,
+        Long targetId,
+        JsonNode beforeJson,
+        JsonNode afterJson,
+        String ipAddress,
+        String userAgent,
+        String reason,
+        boolean success
+    ) {
         AuditLog auditLog = AuditLog.builder()
             .empId(empId)
             .actionType(actionType.name())
@@ -46,6 +62,8 @@ public class AuditLogService {
             .afterJson(afterJson)
             .ipAddress(ipAddress)
             .userAgent(userAgent)
+            .reason(reason)
+            .successYn(success ? "Y" : "N")
             .build();
 
         auditLogRepository.save(auditLog);

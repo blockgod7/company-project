@@ -1218,6 +1218,165 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 }
 .access-denied svg { color: var(--green); }
 
+.approval-tabs {
+  overflow-x: auto;
+  justify-content: flex-start;
+}
+.approval-list-table th,
+.approval-list-table td {
+  white-space: nowrap;
+}
+.priority {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  font-weight: 800;
+  font-size: 12px;
+}
+.priority-normal { background: #f8fafc; color: var(--muted); }
+.priority-important { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+.priority-urgent { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+.template-select-modal {
+  width: min(1180px, 100%);
+  max-height: min(780px, calc(100vh - 44px));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .26);
+}
+.template-select-layout {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) minmax(0, 1fr);
+}
+.template-list, .template-preview {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+}
+.template-list {
+  border-right: 1px solid var(--line);
+}
+.template-list h3,
+.template-preview h3 {
+  margin: 0 0 12px;
+  color: var(--navy);
+}
+.template-list button {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+  text-align: left;
+  margin-bottom: 8px;
+}
+.template-list button.active {
+  border-color: var(--green);
+  background: var(--blue-soft);
+  box-shadow: inset 4px 0 0 var(--green);
+}
+.template-list span, .template-preview p, .muted-text {
+  color: var(--muted);
+  font-size: 13px;
+}
+.paper-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 26px;
+  background: #fff;
+}
+.paper-preview h2 {
+  margin: 0 0 20px;
+  text-align: center;
+  color: var(--navy);
+}
+.preview-grid {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+.preview-grid > * {
+  min-height: 44px;
+  padding: 10px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.preview-grid strong {
+  background: var(--soft);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+.approval-form-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 12px;
+}
+.approval-form-grid .wide {
+  grid-column: 1 / -1;
+}
+.template-note {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--soft);
+}
+.template-note span {
+  color: var(--muted);
+}
+.line-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.line-picker-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+.approval-detail {
+  display: grid;
+  gap: 14px;
+}
+.approval-detail-section {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.approval-detail-section h3 {
+  margin: 0 0 10px;
+  color: var(--navy);
+}
+.approval-lines.compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+.approval-lines.compact .approval-line {
+  margin: 0;
+}
+.employee-result-list button:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  box-shadow: none;
+}
+
 @media (max-width: 1180px) {
   .portal-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .schedule-card, .board-card, .pending-card { grid-column: span 6; }
@@ -1236,7 +1395,8 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   .page-title, .detail-actions { flex-direction: column; }
   .two-pane, .org-layout, .login-card { grid-template-columns: 1fr; }
   .login-fields { justify-content: flex-start; }
-  .org-picker-layout { grid-template-columns: 1fr; }
+  .org-picker-layout, .template-select-layout, .line-picker-grid, .approval-form-grid { grid-template-columns: 1fr; }
+  .approval-form-grid .wide { grid-column: auto; }
   .org-picker-tree, .org-picker-results {
     border-right: 0;
     border-bottom: 1px solid var(--line);

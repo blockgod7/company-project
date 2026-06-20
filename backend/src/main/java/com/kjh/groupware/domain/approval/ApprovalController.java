@@ -68,8 +68,8 @@ public class ApprovalController {
     }
 
     @GetMapping("/{approvalId}")
-    public ApiResponse<ApprovalResponse> findOne(@PathVariable Long approvalId) {
-        return ApiResponse.ok(approvalService.findOne(approvalId));
+    public ApiResponse<ApprovalResponse> findOne(@PathVariable Long approvalId, HttpServletRequest httpRequest) {
+        return ApiResponse.ok(approvalService.findOne(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PutMapping("/{approvalId}/draft")
@@ -93,9 +93,18 @@ public class ApprovalController {
     @PostMapping("/{approvalId}/withdraw")
     public ApiResponse<ApprovalResponse> withdraw(
         @PathVariable Long approvalId,
+        @RequestBody(required = false) ApprovalActionRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.withdraw(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalService.withdraw(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
+    @PostMapping("/{approvalId}/cancel")
+    public ApiResponse<ApprovalResponse> cancel(
+        @PathVariable Long approvalId,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalService.cancel(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/redraft")
@@ -124,9 +133,26 @@ public class ApprovalController {
         return ApiResponse.ok(approvalService.reject(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
+    @PostMapping("/{approvalId}/receive")
+    public ApiResponse<ApprovalResponse> receive(
+        @PathVariable Long approvalId,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalService.receive(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
+    @PostMapping("/{approvalId}/complete-receipt")
+    public ApiResponse<ApprovalResponse> completeReceipt(
+        @PathVariable Long approvalId,
+        @RequestBody(required = false) ApprovalActionRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalService.completeReceipt(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
     @GetMapping("/{approvalId}/pdf")
-    public ResponseEntity<Resource> downloadPdf(@PathVariable Long approvalId) {
-        AttachFile file = pdfService.getGeneratedPdf(approvalId);
+    public ResponseEntity<Resource> downloadPdf(@PathVariable Long approvalId, HttpServletRequest httpRequest) {
+        AttachFile file = pdfService.getGeneratedPdf(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent"));
         Resource resource = fileService.loadResource(file);
         String encodedName = URLEncoder.encode(file.getOriginalFileName(), StandardCharsets.UTF_8).replace("+", "%20");
         return ResponseEntity.ok()

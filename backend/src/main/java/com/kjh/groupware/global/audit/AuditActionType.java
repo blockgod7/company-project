@@ -7,5 +7,17 @@ public enum AuditActionType {
     UPDATE,
     DELETE,
     READ,
-    DOWNLOAD
+    DOWNLOAD,
+    SUBMIT,
+    AGREE,
+    APPROVE,
+    REJECT,
+    WITHDRAW,
+    REDRAFT,
+    CANCEL,
+    RECEIVE,
+    COMPLETE_RECEIPT,
+    PRINT_PDF,
+    ACCESS_DENIED,
+    CHANGE_APPROVAL_LINE
 }

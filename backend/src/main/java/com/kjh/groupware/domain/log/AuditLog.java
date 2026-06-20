@@ -61,6 +61,12 @@ public class AuditLog {
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
+    @Column(name = "reason", columnDefinition = "text")
+    private String reason;
+
+    @Column(name = "success_yn", nullable = false, length = 1)
+    private String successYn;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -74,7 +80,9 @@ public class AuditLog {
         JsonNode beforeJson,
         JsonNode afterJson,
         String ipAddress,
-        String userAgent
+        String userAgent,
+        String reason,
+        String successYn
     ) {
         this.empId = empId;
         this.actionType = actionType;
@@ -84,5 +92,7 @@ public class AuditLog {
         this.afterJson = afterJson;
         this.ipAddress = ipAddress;
         this.userAgent = userAgent;
+        this.reason = reason;
+        this.successYn = successYn == null || successYn.isBlank() ? "Y" : successYn;
     }
 }

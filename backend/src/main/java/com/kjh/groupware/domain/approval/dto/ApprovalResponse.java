@@ -20,16 +20,31 @@ public record ApprovalResponse(
     String pdfErrorMessage,
     String pdfHash,
     String status,
+    String currentStage,
+    String priority,
     LocalDateTime requestedAt,
+    LocalDateTime firstSubmittedAt,
+    LocalDateTime lastSubmittedAt,
+    Integer submitCount,
     LocalDateTime completedAt,
+    LocalDateTime withdrawnAt,
+    String withdrawReason,
     Long requesterEmpId,
     String requesterName,
     String requesterDeptName,
     String requesterPositionName,
-    List<ApprovalLineResponse> lines
+    Long draftDeptId,
+    String draftDeptCode,
+    String draftDeptName,
+    List<ApprovalLineResponse> lines,
+    ApprovalPermissionResponse permissions
 ) {
 
     public static ApprovalResponse from(ApprovalDocument document, List<ApprovalLine> lines) {
+        return from(document, lines, null);
+    }
+
+    public static ApprovalResponse from(ApprovalDocument document, List<ApprovalLine> lines, ApprovalPermissionResponse permissions) {
         return new ApprovalResponse(
             document.getApprovalId(),
             document.getDocumentNo(),
@@ -45,13 +60,24 @@ public record ApprovalResponse(
             document.getPdfErrorMessage(),
             document.getPdfHash(),
             document.getStatus(),
+            document.getCurrentStage(),
+            document.getPriority(),
             document.getRequestedAt(),
+            document.getFirstSubmittedAt(),
+            document.getLastSubmittedAt(),
+            document.getSubmitCount(),
             document.getCompletedAt(),
+            document.getWithdrawnAt(),
+            document.getWithdrawReason(),
             document.getRequester().getEmpId(),
             document.getRequester().getEmpName(),
             document.getRequester().getDept() == null ? null : document.getRequester().getDept().getDeptName(),
             document.getRequester().getPositionName(),
-            lines.stream().map(ApprovalLineResponse::from).toList()
+            document.getDraftDeptId(),
+            document.getDraftDeptCode(),
+            document.getDraftDeptName(),
+            lines.stream().map(ApprovalLineResponse::from).toList(),
+            permissions
         );
     }
 }
