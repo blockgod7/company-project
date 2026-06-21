@@ -13,23 +13,17 @@ export function getAccessToken() {
   return localStorage.getItem("accessToken");
 }
 
-export function getRefreshToken() {
-  return localStorage.getItem("refreshToken");
-}
-
-export function setTokens(accessToken: string, refreshToken: string) {
+export function setTokens(accessToken: string) {
   localStorage.setItem("accessToken", accessToken);
-  localStorage.setItem("refreshToken", refreshToken);
 }
 
 export function clearTokens() {
   localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
 }
 
 type TokenResponse = {
   accessToken: string;
-  refreshToken: string;
+  refreshToken: string | null;
 };
 
 let refreshRequest: Promise<boolean> | null = null;
@@ -40,20 +34,16 @@ function notifySessionExpired() {
 }
 
 async function refreshAccessToken() {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
   refreshRequest ??= fetch(`${API_BASE}/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken })
+    credentials: "include"
   })
     .then(async (response) => {
       const payload = response.headers.get("content-type")?.includes("application/json")
         ? ((await response.json()) as ApiResponse<TokenResponse>)
         : null;
       if (!response.ok || !payload?.success || !payload.data) return false;
-      setTokens(payload.data.accessToken, payload.data.refreshToken);
+      setTokens(payload.data.accessToken);
       return true;
     })
     .catch(() => false)
@@ -65,7 +55,7 @@ async function refreshAccessToken() {
 }
 
 function shouldRefresh(path: string) {
-  return path !== "/auth/login" && path !== "/auth/refresh";
+  return path !== "/auth/login" && path !== "/auth/refresh" && path !== "/auth/logout";
 }
 
 export async function api<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
@@ -74,7 +64,7 @@ export async function api<T>(path: string, init: RequestInit = {}, retried = fal
   if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const response = await fetch(`${API_BASE}${path}`, { ...init, headers, credentials: "include" });
   const contentType = response.headers.get("content-type") ?? "";
   const payload = contentType.includes("application/json")
     ? ((await response.json()) as ApiResponse<T>)
@@ -99,7 +89,7 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}, r
   const token = getAccessToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const response = await fetch(`${API_BASE}${path}`, { ...init, headers, credentials: "include" });
   if (response.status === 401 && shouldRefresh(path) && !retried) {
     const refreshed = await refreshAccessToken();
     if (refreshed) return authenticatedFetch(path, init, true);

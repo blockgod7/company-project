@@ -1,7 +1,5 @@
 package com.kjh.groupware.domain.approval;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kjh.groupware.domain.approval.dto.ApprovalActionRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalBoxResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalDashboardResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
@@ -26,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class ApprovalService {
+public class ApprovalQueryService {
 
     private static final String BOX_REQUESTED = "requested";
     private static final String BOX_PENDING = "pending";
@@ -66,7 +64,6 @@ public class ApprovalService {
     private final AuditLogService auditLogService;
     private final ApprovalPermissionService permissionService;
     private final ApprovalDelegationService delegationService;
-    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<ApprovalBoxResponse> boxes() {
@@ -219,6 +216,33 @@ public class ApprovalService {
         return PageResponse.from(visible.map(this::summary));
     }
 
+    @Transactional
+    public ApprovalResponse findOne(Long approvalId, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        ApprovalDocument document = getActiveDocument(approvalId);
+        List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
+        try {
+            permissionService.assertCanView(currentEmp, document, lines);
+            auditApproval(currentEmp, AuditActionType.READ, document, "문서 조회", true, ipAddress, userAgent);
+            return response(document, lines, currentEmp);
+        } catch (BusinessException ex) {
+            auditApproval(currentEmp, AuditActionType.ACCESS_DENIED, document, "문서 조회 권한 없음", false, ipAddress, userAgent);
+            throw ex;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ApprovalSummaryResponse> deletedPage(int page, int size) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        if (!permissionService.canManageOperations(currentEmp)) {
+            throw BusinessException.forbidden("APPROVAL_DELETED_VIEW_FORBIDDEN", "전자결재 관리자만 보존삭제 문서를 조회할 수 있습니다.");
+        }
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        PageRequest pageRequest = PageRequest.of(safePage, safeSize, Sort.by(Sort.Order.desc("deletedAt"), Sort.Order.desc("approvalId")));
+        return PageResponse.from(documentRepository.findByDeletedYn("Y", pageRequest).map(this::summary));
+    }
+
     private PageResponse<ApprovalSummaryResponse> findDashboardPage(
         String dashboardFilter,
         Emp currentEmp,
@@ -274,67 +298,12 @@ public class ApprovalService {
         };
     }
 
-    @Transactional
-    public ApprovalResponse findOne(Long approvalId, String ipAddress, String userAgent) {
-        Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        ApprovalDocument document = getActiveDocument(approvalId);
-        List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
-        try {
-            permissionService.assertCanView(currentEmp, document, lines);
-            auditApproval(currentEmp, AuditActionType.READ, document, "문서 조회", true, ipAddress, userAgent);
-            return response(document, lines, currentEmp);
-        } catch (BusinessException ex) {
-            auditApproval(currentEmp, AuditActionType.ACCESS_DENIED, document, "문서 조회 권한 없음", false, ipAddress, userAgent);
-            throw ex;
-        }
-    }
-
-    @Transactional
-    public void deleteForRetention(Long approvalId, ApprovalActionRequest request, String ipAddress, String userAgent) {
-        Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
-        boolean requester = document.getRequester().getEmpId().equals(currentEmp.getEmpId());
-        boolean approvalAdmin = permissionService.canManageOperations(currentEmp);
-        if (!requester && !approvalAdmin) {
-            throw BusinessException.forbidden("APPROVAL_DELETE_FORBIDDEN", "문서 삭제 권한이 없습니다.");
-        }
-        if (ApprovalDocument.STATUS_IN_PROGRESS.equals(document.getStatus()) || ApprovalDocument.STATUS_APPROVED.equals(document.getStatus())) {
-            throw BusinessException.badRequest("APPROVAL_RETENTION_REQUIRED", "진행 중이거나 승인 완료된 문서는 보존 대상입니다.");
-        }
-        if (!approvalAdmin && ApprovalDocument.STATUS_REJECTED.equals(document.getStatus())) {
-            throw BusinessException.badRequest("APPROVAL_DELETE_ADMIN_REQUIRED", "반려 문서 보존삭제는 전자결재 관리자만 할 수 있습니다.");
-        }
-        document.delete(currentEmp);
-        auditApproval(currentEmp, AuditActionType.DELETE_APPROVAL, document, request == null ? "보존삭제" : request.comment(), true, ipAddress, userAgent);
-    }
-
-    @Transactional(readOnly = true)
-    public PageResponse<ApprovalSummaryResponse> deletedPage(int page, int size) {
-        Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        if (!permissionService.canManageOperations(currentEmp)) {
-            throw BusinessException.forbidden("APPROVAL_DELETED_VIEW_FORBIDDEN", "전자결재 관리자만 보존삭제 문서를 조회할 수 있습니다.");
-        }
-        int safePage = Math.max(page, 0);
-        int safeSize = Math.min(Math.max(size, 1), 100);
-        PageRequest pageRequest = PageRequest.of(safePage, safeSize, Sort.by(Sort.Order.desc("deletedAt"), Sort.Order.desc("approvalId")));
-        return PageResponse.from(documentRepository.findByDeletedYn("Y", pageRequest).map(this::summary));
-    }
-
-    @Transactional
-    public ApprovalResponse restore(Long approvalId, ApprovalActionRequest request, String ipAddress, String userAgent) {
-        Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        if (!permissionService.canManageOperations(currentEmp)) {
-            throw BusinessException.forbidden("APPROVAL_RESTORE_FORBIDDEN", "전자결재 관리자만 보존삭제 문서를 복구할 수 있습니다.");
-        }
-        ApprovalDocument document = getDeletedDocumentForUpdate(approvalId);
-        document.restore();
-        List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
-        auditApproval(currentEmp, AuditActionType.RESTORE_APPROVAL, document, request == null ? "보존삭제 복구" : request.comment(), true, ipAddress, userAgent);
-        return response(document, lines, currentEmp);
-    }
-
     private ApprovalSummaryResponse summary(ApprovalDocument document) {
         return ApprovalSummaryResponse.from(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
+    }
+
+    private ApprovalResponse response(ApprovalDocument document, List<ApprovalLine> lines, Emp currentEmp) {
+        return ApprovalResponse.from(document, lines, permissionService.permissions(currentEmp, document, lines));
     }
 
     private void validateBox(String box, Emp currentEmp) {
@@ -346,8 +315,13 @@ public class ApprovalService {
         }
     }
 
-    private ApprovalResponse response(ApprovalDocument document, List<ApprovalLine> lines, Emp currentEmp) {
-        return ApprovalResponse.from(document, lines, permissionService.permissions(currentEmp, document, lines));
+    private ApprovalDocument getActiveDocument(Long approvalId) {
+        ApprovalDocument document = documentRepository.findById(approvalId)
+            .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
+        if ("Y".equals(document.getDeletedYn())) {
+            throw BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found");
+        }
+        return document;
     }
 
     private void auditApproval(
@@ -359,52 +333,18 @@ public class ApprovalService {
         String ipAddress,
         String userAgent
     ) {
-        Map<String, Object> payload = new java.util.LinkedHashMap<>();
-        payload.put("approvalId", document.getApprovalId());
-        payload.put("documentNo", document.getDocumentNo());
-        payload.put("userId", emp == null ? null : emp.getEmpId());
-        payload.put("userName", emp == null ? null : emp.getEmpName());
-        payload.put("status", document.getStatus());
-        payload.put("currentStage", document.getCurrentStage());
         auditLogService.record(
             emp == null ? null : emp.getEmpId(),
             actionType,
             "approval_document",
             document.getApprovalId(),
             null,
-            objectMapper.valueToTree(payload),
+            null,
             ipAddress,
             userAgent,
             reason,
             success
         );
-    }
-
-    private ApprovalDocument getActiveDocument(Long approvalId) {
-        ApprovalDocument document = documentRepository.findById(approvalId)
-            .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
-        if ("Y".equals(document.getDeletedYn())) {
-            throw BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found");
-        }
-        return document;
-    }
-
-    private ApprovalDocument getActiveDocumentForUpdate(Long approvalId) {
-        ApprovalDocument document = documentRepository.findByIdForUpdate(approvalId)
-            .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
-        if ("Y".equals(document.getDeletedYn())) {
-            throw BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found");
-        }
-        return document;
-    }
-
-    private ApprovalDocument getDeletedDocumentForUpdate(Long approvalId) {
-        ApprovalDocument document = documentRepository.findByIdForUpdate(approvalId)
-            .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
-        if (!"Y".equals(document.getDeletedYn())) {
-            throw BusinessException.badRequest("APPROVAL_NOT_DELETED", "보존삭제 문서가 아닙니다.");
-        }
-        return document;
     }
 
     private boolean hasSearch(String keyword, String templateCode, String status, Long requesterEmpId, LocalDate dateFrom, LocalDate dateTo) {
@@ -418,5 +358,4 @@ public class ApprovalService {
     private String blankToNull(String value) {
         return hasText(value) ? value.trim() : null;
     }
-
 }

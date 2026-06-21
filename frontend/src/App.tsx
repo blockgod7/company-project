@@ -347,6 +347,7 @@ function App() {
   }, []);
 
   function logout() {
+    void api<void>("/auth/logout", { method: "POST" }).catch(() => undefined);
     clearTokens();
     setUser(null);
     setRoute("dashboard");
@@ -369,7 +370,7 @@ function App() {
     return (
       <LoginPage
         onLogin={(login) => {
-          setTokens(login.accessToken, login.refreshToken);
+          setTokens(login.accessToken);
           setUser(login);
           setMessage("");
         }}

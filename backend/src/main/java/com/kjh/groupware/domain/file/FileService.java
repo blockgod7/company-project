@@ -20,6 +20,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,6 +49,9 @@ public class FileService {
     @Value("${app.file.storage-path:uploads}")
     private String storagePath;
 
+    @Value("${app.file.allowed-extensions:pdf,png,jpg,jpeg,gif,webp,txt,csv,xlsx,xls,doc,docx,ppt,pptx,hwp,hwpx,zip}")
+    private String allowedExtensions;
+
     @Transactional
     public AttachFileResponse upload(
         String targetType,
@@ -67,6 +72,7 @@ public class FileService {
             ? "file"
             : multipartFile.getOriginalFilename());
         String fileExt = extractExtension(originalFileName);
+        validateAllowedExtension(fileExt);
         String storedFileName = UUID.randomUUID() + (fileExt == null ? "" : "." + fileExt);
         Path uploadDir = Path.of(storagePath).toAbsolutePath().normalize();
         Path destination = uploadDir.resolve(storedFileName).normalize();
@@ -180,7 +186,11 @@ public class FileService {
     }
 
     public MediaType mediaType(AttachFile file) {
-        return file.getMimeType() == null ? MediaType.APPLICATION_OCTET_STREAM : MediaType.parseMediaType(file.getMimeType());
+        try {
+            return file.getMimeType() == null ? MediaType.APPLICATION_OCTET_STREAM : MediaType.parseMediaType(file.getMimeType());
+        } catch (RuntimeException ex) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
     }
 
     private String extractExtension(String fileName) {
@@ -189,6 +199,24 @@ public class FileService {
             return null;
         }
         return fileName.substring(dotIndex + 1).toLowerCase();
+    }
+
+    private void validateAllowedExtension(String fileExt) {
+        if (fileExt == null || fileExt.isBlank()) {
+            throw BusinessException.badRequest("FILE_EXTENSION_REQUIRED", "확장자가 있는 파일만 업로드할 수 있습니다.");
+        }
+        Set<String> allowed = allowedExtensionSet();
+        if (!allowed.contains(fileExt.toLowerCase())) {
+            throw BusinessException.badRequest("FILE_EXTENSION_NOT_ALLOWED", "허용되지 않은 파일 형식입니다: " + fileExt);
+        }
+    }
+
+    private Set<String> allowedExtensionSet() {
+        return java.util.Arrays.stream(allowedExtensions.split(","))
+            .map(String::trim)
+            .map(String::toLowerCase)
+            .filter(value -> !value.isBlank())
+            .collect(Collectors.toSet());
     }
 
     public String sha256(Path path) {

@@ -43,7 +43,7 @@ Set-Location '$backend'
 
 $frontendCommand = @"
 Set-Location '$frontend'
-& '$npm' run dev -- --host 127.0.0.1 *> '$frontendLog'
+& '$npm' run dev -- --host localhost *> '$frontendLog'
 "@
 
 Write-Host "Starting Groupware backend on http://localhost:8080"
@@ -51,7 +51,7 @@ Start-Process -FilePath $powershell -WindowStyle Hidden -ArgumentList "-NoProfil
 
 Start-Sleep -Seconds 2
 
-Write-Host "Starting Groupware frontend on http://127.0.0.1:5173"
+Write-Host "Starting Groupware frontend on http://localhost:5173"
 Start-Process -FilePath $powershell -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $frontendCommand
 
 function Wait-Http($Url, $Name, $Seconds) {
@@ -70,11 +70,11 @@ function Wait-Http($Url, $Name, $Seconds) {
     return $false
 }
 
-$frontendReady = Wait-Http "http://127.0.0.1:5173/" "Frontend" 30
+$frontendReady = Wait-Http "http://localhost:5173/" "Frontend" 30
 $backendReady = Wait-Http "http://localhost:8080/api/v1/health" "Backend" 45
 
 if ($frontendReady) {
-    Start-Process "http://127.0.0.1:5173/"
+    Start-Process "http://localhost:5173/"
 } else {
     Write-Host "Frontend log: $frontendLog"
 }

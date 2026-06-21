@@ -68,6 +68,8 @@ class ApprovalServiceWorkflowTest {
     private final List<ApprovalLine> lines = new ArrayList<>();
 
     private ApprovalService service;
+    private ApprovalDraftService draftService;
+    private ApprovalWorkflowService workflowService;
 
     @BeforeEach
     void setUp() {
@@ -182,21 +184,47 @@ class ApprovalServiceWorkflowTest {
         when(signatureService.activeSignatureFile(any())).thenReturn(null);
         when(reminderService.decisionDueAt()).thenReturn(LocalDateTime.of(2026, 6, 23, 9, 0));
         when(notificationService.notifyEmp(any(), anyString(), anyString(), anyString(), any())).thenReturn(mock(Notification.class));
-
-        service = new ApprovalService(
+        ApprovalLinePolicyService linePolicyService = new ApprovalLinePolicyService(
+            lineRepository,
+            empRepository,
+            delegationService,
+            reminderService
+        );
+        draftService = new ApprovalDraftService(
             documentRepository,
             lineRepository,
             templateRepository,
-            empRepository,
+            currentEmpProvider,
+            auditLogService,
+            notificationService,
+            permissionService,
+            linePolicyService,
+            jdbcTemplate,
+            new ObjectMapper()
+        );
+        workflowService = new ApprovalWorkflowService(
+            documentRepository,
+            lineRepository,
+            templateRepository,
             currentEmpProvider,
             auditLogService,
             notificationService,
             signatureService,
             pdfService,
             permissionService,
-            delegationService,
             reminderService,
-            jdbcTemplate,
+            linePolicyService,
+            new ObjectMapper()
+        );
+
+        service = new ApprovalService(
+            documentRepository,
+            lineRepository,
+            empRepository,
+            currentEmpProvider,
+            auditLogService,
+            permissionService,
+            delegationService,
             new ObjectMapper()
         );
     }
@@ -204,7 +232,7 @@ class ApprovalServiceWorkflowTest {
     @Test
     void agreementApprovalReceiptAndShareFlow() {
         currentEmp.set(emps.get(1L));
-        Long approvalId = service.create(request(
+        Long approvalId = draftService.create(request(
             List.of(2L, 3L),
             List.of(4L, 5L),
             List.of(6L),
@@ -228,12 +256,12 @@ class ApprovalServiceWorkflowTest {
             .containsExactly((LocalDateTime) null, null);
 
         currentEmp.set(emps.get(2L));
-        service.approve(document.getApprovalId(), new ApprovalActionRequest("agree"), "127.0.0.1", "test");
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("agree"), "127.0.0.1", "test");
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_WAITING, ApprovalLine.STATUS_WAITING);
 
         currentEmp.set(emps.get(3L));
-        service.approve(document.getApprovalId(), new ApprovalActionRequest("agree"), "127.0.0.1", "test");
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("agree"), "127.0.0.1", "test");
         assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_APPROVAL_PROGRESS);
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_PENDING, ApprovalLine.STATUS_WAITING);
@@ -241,8 +269,8 @@ class ApprovalServiceWorkflowTest {
             .containsExactly(LocalDateTime.of(2026, 6, 23, 9, 0), null);
 
         currentEmp.set(emps.get(4L));
-        service.approve(document.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
-        assertThatThrownBy(() -> service.approve(document.getApprovalId(), new ApprovalActionRequest("again"), "127.0.0.1", "test"))
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
+        assertThatThrownBy(() -> workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("again"), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_APPROVED, ApprovalLine.STATUS_PENDING);
@@ -250,7 +278,7 @@ class ApprovalServiceWorkflowTest {
             .containsExactly(LocalDateTime.of(2026, 6, 23, 9, 0), LocalDateTime.of(2026, 6, 23, 9, 0));
 
         currentEmp.set(emps.get(5L));
-        service.approve(document.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
         assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_COMPLETED);
         verify(pdfService).generateForFinalApproval(document);
@@ -284,21 +312,21 @@ class ApprovalServiceWorkflowTest {
         );
 
         currentEmp.set(emps.get(6L));
-        service.receive(document.getApprovalId(), "127.0.0.1", "test");
-        assertThatThrownBy(() -> service.receive(document.getApprovalId(), "127.0.0.1", "test"))
+        workflowService.receive(document.getApprovalId(), "127.0.0.1", "test");
+        assertThatThrownBy(() -> workflowService.receive(document.getApprovalId(), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
-        service.completeReceipt(document.getApprovalId(), new ApprovalActionRequest("done"), "127.0.0.1", "test");
+        workflowService.completeReceipt(document.getApprovalId(), new ApprovalActionRequest("done"), "127.0.0.1", "test");
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isReceiver).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_RECEIPT_COMPLETED);
-        assertThatThrownBy(() -> service.completeReceipt(document.getApprovalId(), new ApprovalActionRequest("again"), "127.0.0.1", "test"))
+        assertThatThrownBy(() -> workflowService.completeReceipt(document.getApprovalId(), new ApprovalActionRequest("again"), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void noAgreementStartsFirstApproverAndRejectSkipsFutureLines() {
         currentEmp.set(emps.get(1L));
-        ApprovalDocument document = createdDocument(service.create(request(
+        ApprovalDocument document = createdDocument(draftService.create(request(
             List.of(),
             List.of(4L, 5L),
             List.of(6L),
@@ -312,9 +340,9 @@ class ApprovalServiceWorkflowTest {
             .containsExactly(ApprovalLine.STATUS_PENDING, ApprovalLine.STATUS_WAITING);
 
         currentEmp.set(emps.get(4L));
-        assertThatThrownBy(() -> service.reject(document.getApprovalId(), new ApprovalActionRequest(" "), "127.0.0.1", "test"))
+        assertThatThrownBy(() -> workflowService.reject(document.getApprovalId(), new ApprovalActionRequest(" "), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
-        service.reject(document.getApprovalId(), new ApprovalActionRequest("not acceptable"), "127.0.0.1", "test");
+        workflowService.reject(document.getApprovalId(), new ApprovalActionRequest("not acceptable"), "127.0.0.1", "test");
 
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_REJECTED);
         assertThat(orderedLines(document)).extracting(ApprovalLine::getStatus)
@@ -325,7 +353,7 @@ class ApprovalServiceWorkflowTest {
                 ApprovalLine.STATUS_SKIPPED,
                 ApprovalLine.STATUS_SKIPPED
             );
-        assertThatThrownBy(() -> service.approve(document.getApprovalId(), new ApprovalActionRequest("late"), "127.0.0.1", "test"))
+        assertThatThrownBy(() -> workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("late"), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
     }
 
@@ -337,7 +365,7 @@ class ApprovalServiceWorkflowTest {
             .isInstanceOf(BusinessException.class)
             .hasMessageContaining("문서함");
 
-        ApprovalDocument document = createdDocument(service.create(request(
+        ApprovalDocument document = createdDocument(draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),
@@ -347,16 +375,16 @@ class ApprovalServiceWorkflowTest {
         ), "127.0.0.1", "test").approvalId());
 
         currentEmp.set(emps.get(4L));
-        ApprovalResponse approved = service.act(document.getApprovalId(), "approve", new ApprovalActionRequest("ok"), "127.0.0.1", "test");
+        ApprovalResponse approved = workflowService.act(document.getApprovalId(), "approve", new ApprovalActionRequest("ok"), "127.0.0.1", "test");
         assertThat(approved.status()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
-        assertThatThrownBy(() -> service.act(document.getApprovalId(), "unknown", null, "127.0.0.1", "test"))
+        assertThatThrownBy(() -> workflowService.act(document.getApprovalId(), "unknown", null, "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void delegatedApproverCanApprovePendingLineAndIsRecordedAsActor() {
         currentEmp.set(emps.get(1L));
-        ApprovalDocument document = createdDocument(service.create(request(
+        ApprovalDocument document = createdDocument(draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),
@@ -371,7 +399,7 @@ class ApprovalServiceWorkflowTest {
         when(delegationService.canActFor(emps.get(9L), emps.get(4L))).thenReturn(true);
 
         currentEmp.set(emps.get(9L));
-        service.approve(document.getApprovalId(), new ApprovalActionRequest("delegated"), "127.0.0.1", "test");
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("delegated"), "127.0.0.1", "test");
 
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
         assertThat(approvalLine.getAssignedEmp().getEmpId()).isEqualTo(4L);
@@ -382,7 +410,7 @@ class ApprovalServiceWorkflowTest {
     @Test
     void withdrawResubmitRedraftAndSelectionValidation() {
         currentEmp.set(emps.get(1L));
-        ApprovalDocument document = createdDocument(service.create(request(
+        ApprovalDocument document = createdDocument(draftService.create(request(
             List.of(),
             List.of(4L, 5L),
             List.of(),
@@ -392,32 +420,32 @@ class ApprovalServiceWorkflowTest {
         ), "127.0.0.1", "test").approvalId());
         String originalDocumentNo = document.getDocumentNo();
 
-        service.withdraw(document.getApprovalId(), new ApprovalActionRequest("fix"), "127.0.0.1", "test");
+        workflowService.withdraw(document.getApprovalId(), new ApprovalActionRequest("fix"), "127.0.0.1", "test");
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_WITHDRAWN);
-        service.submit(document.getApprovalId(), request(List.of(), List.of(4L, 5L), List.of(), List.of(), List.of(), false), "127.0.0.1", "test");
+        draftService.submit(document.getApprovalId(), request(List.of(), List.of(4L, 5L), List.of(), List.of(), List.of(), false), "127.0.0.1", "test");
         assertThat(document.getDocumentNo()).isEqualTo(originalDocumentNo);
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_IN_PROGRESS);
 
         currentEmp.set(emps.get(4L));
-        service.approve(document.getApprovalId(), new ApprovalActionRequest("ok"), "127.0.0.1", "test");
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("ok"), "127.0.0.1", "test");
         currentEmp.set(emps.get(1L));
-        assertThatThrownBy(() -> service.withdraw(document.getApprovalId(), new ApprovalActionRequest("too late"), "127.0.0.1", "test"))
+        assertThatThrownBy(() -> workflowService.withdraw(document.getApprovalId(), new ApprovalActionRequest("too late"), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
 
         currentEmp.set(emps.get(5L));
-        service.reject(document.getApprovalId(), new ApprovalActionRequest("reject"), "127.0.0.1", "test");
+        workflowService.reject(document.getApprovalId(), new ApprovalActionRequest("reject"), "127.0.0.1", "test");
         currentEmp.set(emps.get(1L));
-        ApprovalDocument copied = createdDocument(service.redraft(document.getApprovalId(), "127.0.0.1", "test").approvalId());
+        ApprovalDocument copied = createdDocument(workflowService.redraft(document.getApprovalId(), "127.0.0.1", "test").approvalId());
         assertThat(copied.getStatus()).isEqualTo(ApprovalDocument.STATUS_DRAFT);
         assertThat(copied.getDocumentNo()).isNull();
-        service.submit(copied.getApprovalId(), request(List.of(), List.of(4L), List.of(), List.of(), List.of(), false), "127.0.0.1", "test");
+        draftService.submit(copied.getApprovalId(), request(List.of(), List.of(4L), List.of(), List.of(), List.of(), false), "127.0.0.1", "test");
         assertThat(copied.getDocumentNo()).isNotEqualTo(originalDocumentNo);
 
-        assertThatThrownBy(() -> service.create(request(List.of(1L), List.of(4L), List.of(), List.of(), List.of(), false), "127.0.0.1", "test"))
+        assertThatThrownBy(() -> draftService.create(request(List.of(1L), List.of(4L), List.of(), List.of(), List.of(), false), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> service.create(request(List.of(4L), List.of(4L), List.of(), List.of(), List.of(), false), "127.0.0.1", "test"))
+        assertThatThrownBy(() -> draftService.create(request(List.of(4L), List.of(4L), List.of(), List.of(), List.of(), false), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> service.create(request(List.of(), List.of(4L), List.of(4L), List.of(), List.of(), false), "127.0.0.1", "test"))
+        assertThatThrownBy(() -> draftService.create(request(List.of(), List.of(4L), List.of(4L), List.of(), List.of(), false), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
     }
 
@@ -426,7 +454,7 @@ class ApprovalServiceWorkflowTest {
         currentEmp.set(emps.get(1L));
         ReflectionTestUtils.setField(emps.get(4L), "status", "LEAVE");
 
-        assertThatThrownBy(() -> service.create(request(
+        assertThatThrownBy(() -> draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),
@@ -440,7 +468,7 @@ class ApprovalServiceWorkflowTest {
         ReflectionTestUtils.setField(emps.get(4L), "status", "ACTIVE");
         ReflectionTestUtils.setField(emps.get(5L), "useYn", "N");
 
-        assertThatThrownBy(() -> service.create(request(
+        assertThatThrownBy(() -> draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),
@@ -455,7 +483,7 @@ class ApprovalServiceWorkflowTest {
     @Test
     void dueReminderNotifiesAssigneeAndActiveDelegateOnce() {
         currentEmp.set(emps.get(1L));
-        ApprovalDocument document = createdDocument(service.create(request(
+        ApprovalDocument document = createdDocument(draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),
@@ -493,7 +521,7 @@ class ApprovalServiceWorkflowTest {
     @Test
     void dashboardCountsDirectDelegatedOverdueAndRequesterDocuments() {
         currentEmp.set(emps.get(1L));
-        ApprovalDocument document = createdDocument(service.create(request(
+        ApprovalDocument document = createdDocument(draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),
@@ -524,7 +552,7 @@ class ApprovalServiceWorkflowTest {
     @Test
     void adminDeleteUsesRetentionPolicyAndStatusCorrectionRestoresStage() {
         currentEmp.set(emps.get(1L));
-        ApprovalDocument document = createdDocument(service.create(request(
+        ApprovalDocument document = createdDocument(draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),
@@ -540,7 +568,7 @@ class ApprovalServiceWorkflowTest {
             .hasMessageContaining("보존 대상");
 
         currentEmp.set(emps.get(4L));
-        service.reject(document.getApprovalId(), new ApprovalActionRequest("reject"), "127.0.0.1", "test");
+        workflowService.reject(document.getApprovalId(), new ApprovalActionRequest("reject"), "127.0.0.1", "test");
 
         currentEmp.set(emps.get(1L));
         assertThatThrownBy(() -> service.deleteForRetention(document.getApprovalId(), new ApprovalActionRequest("requester delete"), "127.0.0.1", "test"))
@@ -549,7 +577,7 @@ class ApprovalServiceWorkflowTest {
 
         ReflectionTestUtils.setField(document, "currentStage", ApprovalDocument.STAGE_APPROVAL_PROGRESS);
         currentEmp.set(emps.get(9L));
-        ApprovalResponse corrected = service.correctStatus(document.getApprovalId(), new ApprovalActionRequest("fix stage"), "127.0.0.1", "test");
+        ApprovalResponse corrected = workflowService.correctStatus(document.getApprovalId(), new ApprovalActionRequest("fix stage"), "127.0.0.1", "test");
         assertThat(corrected.currentStage()).isEqualTo(ApprovalDocument.STAGE_REJECTED);
 
         service.deleteForRetention(document.getApprovalId(), new ApprovalActionRequest("archive rejected"), "127.0.0.1", "test");
@@ -569,7 +597,7 @@ class ApprovalServiceWorkflowTest {
         when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("PURCHASE"), eq("Y"))).thenReturn(Optional.of(template));
 
         currentEmp.set(emps.get(1L));
-        ApprovalDocument draft = createdDocument(service.create(request(
+        ApprovalDocument draft = createdDocument(draftService.create(request(
             List.of(),
             List.of(),
             List.of(),
@@ -580,7 +608,7 @@ class ApprovalServiceWorkflowTest {
         ), "127.0.0.1", "test").approvalId());
         assertThat(draft.getStatus()).isEqualTo(ApprovalDocument.STATUS_DRAFT);
 
-        assertThatThrownBy(() -> service.create(request(
+        assertThatThrownBy(() -> draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),
@@ -592,7 +620,7 @@ class ApprovalServiceWorkflowTest {
             .isInstanceOf(BusinessException.class)
             .hasMessageContaining("기안 목적");
 
-        ApprovalDocument submitted = createdDocument(service.create(request(
+        ApprovalDocument submitted = createdDocument(draftService.create(request(
             List.of(),
             List.of(4L),
             List.of(),

@@ -36,17 +36,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class ApprovalController {
 
     private final ApprovalService approvalService;
+    private final ApprovalDraftService approvalDraftService;
+    private final ApprovalWorkflowService approvalWorkflowService;
+    private final ApprovalQueryService approvalQueryService;
     private final ApprovalPdfService pdfService;
     private final FileService fileService;
 
     @GetMapping("/boxes")
     public ApiResponse<java.util.List<ApprovalBoxResponse>> boxes() {
-        return ApiResponse.ok(approvalService.boxes());
+        return ApiResponse.ok(approvalQueryService.boxes());
     }
 
     @GetMapping("/dashboard")
     public ApiResponse<ApprovalDashboardResponse> dashboard() {
-        return ApiResponse.ok(approvalService.dashboard());
+        return ApiResponse.ok(approvalQueryService.dashboard());
     }
 
     @GetMapping("/deleted")
@@ -54,7 +57,7 @@ public class ApprovalController {
         @RequestParam(required = false, defaultValue = "0") int page,
         @RequestParam(required = false, defaultValue = "20") int size
     ) {
-        return ApiResponse.ok(approvalService.deletedPage(page, size));
+        return ApiResponse.ok(approvalQueryService.deletedPage(page, size));
     }
 
     @GetMapping
@@ -70,7 +73,7 @@ public class ApprovalController {
         @RequestParam(required = false) LocalDate dateTo,
         @RequestParam(required = false) String dashboardFilter
     ) {
-        return ApiResponse.ok(approvalService.findPage(box, page, size, keyword, templateCode, status, requesterEmpId, dateFrom, dateTo, dashboardFilter));
+        return ApiResponse.ok(approvalQueryService.findPage(box, page, size, keyword, templateCode, status, requesterEmpId, dateFrom, dateTo, dashboardFilter));
     }
 
     @PostMapping
@@ -78,7 +81,7 @@ public class ApprovalController {
         @Valid @RequestBody ApprovalRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.create(request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalDraftService.create(request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/drafts")
@@ -86,12 +89,12 @@ public class ApprovalController {
         @Valid @RequestBody ApprovalRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.createDraft(request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalDraftService.createDraft(request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @GetMapping("/{approvalId}")
     public ApiResponse<ApprovalResponse> findOne(@PathVariable Long approvalId, HttpServletRequest httpRequest) {
-        return ApiResponse.ok(approvalService.findOne(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalQueryService.findOne(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PutMapping("/{approvalId}/draft")
@@ -100,7 +103,7 @@ public class ApprovalController {
         @Valid @RequestBody ApprovalRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.updateDraft(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalDraftService.updateDraft(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/submit")
@@ -109,7 +112,7 @@ public class ApprovalController {
         @Valid @RequestBody ApprovalRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.submit(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalDraftService.submit(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/withdraw")
@@ -118,7 +121,7 @@ public class ApprovalController {
         @RequestBody(required = false) ApprovalActionRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.withdraw(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.withdraw(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/cancel")
@@ -126,7 +129,7 @@ public class ApprovalController {
         @PathVariable Long approvalId,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.cancel(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.cancel(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/redraft")
@@ -134,7 +137,7 @@ public class ApprovalController {
         @PathVariable Long approvalId,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.redraft(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.redraft(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/approve")
@@ -143,7 +146,7 @@ public class ApprovalController {
         @RequestBody(required = false) ApprovalActionRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.approve(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.approve(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/actions/{action}")
@@ -153,7 +156,7 @@ public class ApprovalController {
         @RequestBody(required = false) ApprovalActionRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.act(approvalId, action, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.act(approvalId, action, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/reject")
@@ -162,7 +165,7 @@ public class ApprovalController {
         @RequestBody(required = false) ApprovalActionRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.reject(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.reject(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/receive")
@@ -170,7 +173,7 @@ public class ApprovalController {
         @PathVariable Long approvalId,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.receive(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.receive(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @PostMapping("/{approvalId}/complete-receipt")
@@ -179,7 +182,7 @@ public class ApprovalController {
         @RequestBody(required = false) ApprovalActionRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.completeReceipt(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.completeReceipt(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @GetMapping("/{approvalId}/pdf")
@@ -198,7 +201,7 @@ public class ApprovalController {
         @PathVariable Long approvalId,
         @RequestBody(required = false) ApprovalActionRequest request
     ) {
-        return ApiResponse.ok(approvalService.regeneratePdf(approvalId, request));
+        return ApiResponse.ok(approvalWorkflowService.regeneratePdf(approvalId, request));
     }
 
     @DeleteMapping("/{approvalId}")
@@ -226,6 +229,6 @@ public class ApprovalController {
         @RequestBody(required = false) ApprovalActionRequest request,
         HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(approvalService.correctStatus(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+        return ApiResponse.ok(approvalWorkflowService.correctStatus(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 }

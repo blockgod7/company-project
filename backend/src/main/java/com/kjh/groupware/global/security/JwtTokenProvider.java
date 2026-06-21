@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -49,6 +50,7 @@ public class JwtTokenProvider {
     private String createToken(Long empId, String loginId, String roleCode, String tokenType, long validitySeconds) {
         Instant now = Instant.now();
         return Jwts.builder()
+            .id(UUID.randomUUID().toString())
             .subject(loginId)
             .claim("emp_id", empId)
             .claim("role_code", roleCode)
@@ -57,6 +59,10 @@ public class JwtTokenProvider {
             .expiration(Date.from(now.plusSeconds(validitySeconds)))
             .signWith(secretKey)
             .compact();
+    }
+
+    public long getRefreshTokenValiditySeconds() {
+        return refreshTokenValiditySeconds;
     }
 
     public Optional<String> resolveToken(HttpServletRequest request) {

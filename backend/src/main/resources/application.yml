@@ -19,8 +19,19 @@ app:
     secret: ${JWT_SECRET:change-this-secret-to-a-long-random-value-for-local-development}
     access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:1800}
     refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:1209600}
+  auth:
+    refresh-cookie:
+      name: ${REFRESH_TOKEN_COOKIE_NAME:refreshToken}
+      path: ${REFRESH_TOKEN_COOKIE_PATH:/api/v1/auth}
+      secure: ${REFRESH_TOKEN_COOKIE_SECURE:false}
+      same-site: ${REFRESH_TOKEN_COOKIE_SAME_SITE:Lax}
+  security:
+    login-rate-limit:
+      max-attempts: ${LOGIN_RATE_LIMIT_MAX_ATTEMPTS:10}
+      window-seconds: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:300}
   file:
     storage-path: ${FILE_STORAGE_PATH:uploads}
+    allowed-extensions: ${FILE_ALLOWED_EXTENSIONS:pdf,png,jpg,jpeg,gif,webp,txt,csv,xlsx,xls,doc,docx,ppt,pptx,hwp,hwpx,zip}
   approval:
     decision-due-hours: ${APPROVAL_DECISION_DUE_HOURS:72}
     reminder-fixed-delay-ms: ${APPROVAL_REMINDER_FIXED_DELAY_MS:300000}
