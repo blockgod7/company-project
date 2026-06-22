@@ -190,6 +190,41 @@ function approvalContent(approval: Approval) {
   return approval.content === "{content=}" ? draftData.content : approval.content;
 }
 
+function isDraftTemplateCode(templateCode: string | null | undefined) {
+  return templateCode === "DRAFT";
+}
+
+function employeeDisplay(employee?: Employee) {
+  if (!employee) return "-";
+  return `${employee.deptName ?? "-"} ${employee.empName}`;
+}
+
+function employeesByIds(employees: Employee[], ids: number[]) {
+  return ids.map((id) => employees.find((employee) => employee.empId === id)).filter((employee): employee is Employee => !!employee);
+}
+
+function formatEmployeeList(employees: Employee[], ids: number[]) {
+  const selected = employeesByIds(employees, ids);
+  return selected.length ? selected.map(employeeDisplay).join(", ") : "-";
+}
+
+function approvalLinePerson(line: ApprovalLine) {
+  const dept = line.deptNameSnapshot ?? line.approverDeptName ?? "-";
+  const name = line.empNameSnapshot ?? line.approverName;
+  return `${dept} ${name}`;
+}
+
+function formatApprovalLines(lines: ApprovalLine[], lineType: ApprovalLine["lineType"]) {
+  const selected = lines.filter((line) => line.lineType === lineType).sort((a, b) => a.lineOrder - b.lineOrder);
+  return selected.length ? selected.map(approvalLinePerson).join(", ") : "-";
+}
+
+function approvalOpinionLines(lines: ApprovalLine[]) {
+  return lines
+    .filter((line) => (line.lineType === "AGREEMENT" || line.lineType === "APPROVAL") && line.comment?.trim())
+    .sort((a, b) => a.lineOrder - b.lineOrder);
+}
+
 function defaultLineIds(steps: ApprovalDefaultLineStepApi[], lineType: ApprovalDefaultLineStepApi["lineType"]) {
   return steps
     .filter((step) => step.lineType === lineType)
@@ -1582,6 +1617,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   }
 
   const selectedTemplate = templates.find((item) => item.code === form.templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
+  const isClassicDraftForm = isDraftTemplateCode(selectedTemplate.code);
   const restrictedIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
   const permissions = selected?.permissions;
 
@@ -1791,6 +1827,9 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
               </div>
             </div>
             {defaultLineMessage && <p className="template-note"><span>{defaultLineMessage}</span></p>}
+            {isClassicDraftForm && <ClassicDraftEditor user={user} employees={employees} form={form} onChange={setForm} />}
+            {!isClassicDraftForm && (
+              <>
             <div className="approval-form-grid">
               <label>양식명<select value={form.templateCode} onChange={(event) => changeTemplate(event.target.value)}>{templates.map((template) => <option key={template.code} value={template.code}>{template.name}</option>)}</select></label>
               <label>문서 중요도<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value as ApprovalForm["priority"] })}><option value="NORMAL">일반</option><option value="IMPORTANT">중요</option><option value="URGENT">긴급</option></select></label>
@@ -1803,9 +1842,11 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
               values={form.fieldValues}
               onChange={(name, value) => setForm({ ...form, fieldValues: { ...form.fieldValues, [name]: value } })}
             />
+              </>
+            )}
             <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
             <div className="line-picker-grid">
-              <EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} />
+              <EmployeeMultiPicker title={isClassicDraftForm ? "경유/협조" : "합의자"} user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} />
               <EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={form.approverEmpIds} disabledIds={[user.empId, ...form.agreementEmpIds, ...form.receiverEmpIds]} ordered onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} />
               <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={[...form.agreementEmpIds, ...form.approverEmpIds]} onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} />
               <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={[]} onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} />
@@ -2038,6 +2079,10 @@ function ApprovalRetentionAuditTable({ items }: { items: AuditLog[] }) {
 }
 
 function ApprovalDetailView({ approval, templates }: { approval: Approval; templates: ApprovalTemplateOption[] }) {
+  if (isDraftTemplateCode(approval.templateCode)) {
+    return <ClassicDraftDetailView approval={approval} templates={templates} />;
+  }
+
   return (
     <article className="approval-detail">
       <section className="approval-detail-section">
@@ -2100,6 +2145,138 @@ function ApprovalLineSection({ title, lines }: { title: string; lines: ApprovalL
   );
 }
 
+function ClassicDraftEditor({
+  user,
+  employees,
+  form,
+  onChange
+}: {
+  user: User;
+  employees: Employee[];
+  form: ApprovalForm;
+  onChange: (form: ApprovalForm) => void;
+}) {
+  const approvers = employeesByIds(employees, form.approverEmpIds);
+  const agreementText = formatEmployeeList(employees, form.agreementEmpIds);
+  const draftDept = user.deptName ?? "소속 미지정";
+  const expectedNo = `${documentPrefix(form.templateCode)}-${new Date().getFullYear()}-자동생성`;
+
+  return (
+    <div className="classic-draft-editor">
+      <div className="classic-draft-paper">
+        <div className="classic-draft-logo-wrap">
+          <img src={schunkLogo} alt="SCHUNK" />
+        </div>
+        <h2>기 안 서</h2>
+        <div className="classic-draft-head">
+          <table className="classic-draft-info">
+            <tbody>
+              <tr><th>문서번호</th><td>{expectedNo}</td></tr>
+              <tr><th>기안부서(자)</th><td>{draftDept} / {user.empName}</td></tr>
+              <tr><th>기안일자</th><td>{todayDate()}</td></tr>
+              <tr><th>경유 / 협조</th><td>{agreementText}</td></tr>
+              <tr>
+                <th>제목</th>
+                <td><input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="기안 제목" /></td>
+              </tr>
+            </tbody>
+          </table>
+          <div className="classic-approval-box">
+            <div className="classic-approval-title">위 임 전 결 규 정<br /><span>(대표이사) 전결</span></div>
+            <div className={`classic-approval-grid ${approvers.length >= 4 ? "many" : ""}`} style={{ gridTemplateColumns: `repeat(${Math.max(2, approvers.length + 1)}, minmax(0, 1fr))` }}>
+              <div className="classic-approval-cell header">기안</div>
+              {approvers.map((employee, index) => <div className="classic-approval-cell header" key={employee.empId}>{index + 1}</div>)}
+              <div className="classic-approval-cell signer">기안자<strong>{user.empName}</strong></div>
+              {approvers.map((employee) => (
+                <div className="classic-approval-cell signer" key={employee.empId}>
+                  {employee.positionName ?? employee.jobTitle ?? "결재자"}
+                  <strong>{employee.empName}</strong>
+                </div>
+              ))}
+              <div className="classic-approval-cell date">{todayDate()}</div>
+              {approvers.map((employee) => <div className="classic-approval-cell date" key={employee.empId}>상신 후 처리</div>)}
+            </div>
+            <div className="classic-opinion-preview">
+              <strong>지시사항(의견)</strong>
+              <span>승인/반려 의견은 결재 후 자동 표시됩니다.</span>
+            </div>
+          </div>
+        </div>
+        <label className="classic-draft-body">본문
+          <textarea value={form.content} onChange={(event) => onChange({ ...form, content: event.target.value })} placeholder="기안 내용을 입력하세요." />
+        </label>
+      </div>
+      <p className="muted-text">경유/협조는 합의 라인에서 자동 생성됩니다. 결재선 선택을 변경하면 이 미리보기도 함께 갱신됩니다.</p>
+    </div>
+  );
+}
+
+function ClassicDraftDetailView({ approval, templates }: { approval: Approval; templates: ApprovalTemplateOption[] }) {
+  const approvers = approval.lines.filter((line) => line.lineType === "APPROVAL").sort((a, b) => a.lineOrder - b.lineOrder);
+  const opinions = approvalOpinionLines(approval.lines);
+  const approvalColumns = Math.max(2, approvers.length + 1);
+
+  return (
+    <article className="classic-draft-detail">
+      <div className="classic-draft-paper">
+        <div className="classic-draft-logo-wrap">
+          <img src={schunkLogo} alt="SCHUNK" />
+        </div>
+        <h2>기 안 서</h2>
+        <div className="classic-draft-head">
+          <table className="classic-draft-info">
+            <tbody>
+              <tr><th>문서번호</th><td>{approval.documentNo ?? "상신 시 자동생성"}</td></tr>
+              <tr><th>기안부서(자)</th><td>{approval.draftDeptName ?? approval.requesterDeptName ?? "-"} / {approval.requesterName}</td></tr>
+              <tr><th>기안일자</th><td>{formatDate(approval.requestedAt)}</td></tr>
+              <tr><th>경유 / 협조</th><td>{formatApprovalLines(approval.lines, "AGREEMENT")}</td></tr>
+              <tr><th>제목</th><td>{approval.title}</td></tr>
+            </tbody>
+          </table>
+          <div className="classic-approval-box">
+            <div className="classic-approval-title">위 임 전 결 규 정<br /><span>(대표이사) 전결</span></div>
+            <div className={`classic-approval-grid ${approvers.length >= 4 ? "many" : ""}`} style={{ gridTemplateColumns: `repeat(${approvalColumns}, minmax(0, 1fr))` }}>
+              <div className="classic-approval-cell header">기안</div>
+              {approvers.map((line, index) => <div className="classic-approval-cell header" key={line.lineId}>{index + 1}</div>)}
+              <div className="classic-approval-cell signer">{approval.requesterPositionName ?? "기안자"}<strong>{approval.requesterName}</strong></div>
+              {approvers.map((line) => (
+                <div className="classic-approval-cell signer" key={line.lineId}>
+                  {line.positionSnapshot ?? line.approverPositionName ?? "결재자"}
+                  <strong>{lineStatusLabel(line.status)}</strong>
+                  <span>{line.empNameSnapshot ?? line.approverName}</span>
+                  {isDelegatedAction(line) && (
+                    <span className="stamp-delegate">대리결재 · {lineActedName(line)}</span>
+                  )}
+                </div>
+              ))}
+              <div className="classic-approval-cell date">{formatDate(approval.requestedAt)}</div>
+              {approvers.map((line) => <div className="classic-approval-cell date" key={line.lineId}>{line.signedAt ? formatDate(line.signedAt) : "-"}</div>)}
+            </div>
+            <div className="classic-opinion-preview">
+              <strong>지시사항(의견)</strong>
+              {opinions.length ? opinions.map((line) => (
+                <p key={line.lineId}>{line.empNameSnapshot ?? line.approverName}: {line.comment}</p>
+              )) : <span>등록된 결재 의견이 없습니다.</span>}
+            </div>
+          </div>
+        </div>
+        <section className="classic-draft-body-read">
+          <h3>본문</h3>
+          <div className="detail-content">{approvalContent(approval) ? <RichContent content={approvalContent(approval)} /> : "내용이 없습니다."}</div>
+        </section>
+        <div className="classic-draft-footer-grid">
+          <div><strong>수신</strong><span>{formatApprovalLines(approval.lines, "RECEIVER")}</span></div>
+          <div><strong>참조</strong><span>{formatApprovalLines(approval.lines, "REFERENCE")}</span></div>
+          <div><strong>연람</strong><span>{formatApprovalLines(approval.lines, "READER")}</span></div>
+          <div><strong>상태</strong><span>{statusLabel(approval.status)} · {stageLabel(approval.currentStage)}</span></div>
+          <div><strong>양식</strong><span>{templateName(templates, approval.templateCode)} v{approval.templateVersion ?? "-"}</span></div>
+          <div><strong>완료일</strong><span>{approval.completedAt ? formatDate(approval.completedAt) : "-"}</span></div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function EmployeeMultiPicker({ title, user, employees, selectedIds, disabledIds, ordered = false, onChange }: {
   title: string;
   user: User;
@@ -2142,7 +2319,11 @@ function EmployeeMultiPicker({ title, user, employees, selectedIds, disabledIds,
   }
 
   function add(employee: Employee) {
-    if (selectedIds.includes(employee.empId) || disabledIds.includes(employee.empId)) return;
+    if (selectedIds.includes(employee.empId)) {
+      remove(employee.empId);
+      return;
+    }
+    if (disabledIds.includes(employee.empId)) return;
     setKnownEmployees((prev) => mergeEmployees(prev, [employee]));
     onChange([...selectedIds, employee.empId]);
   }
@@ -2197,7 +2378,7 @@ function EmployeeMultiPicker({ title, user, employees, selectedIds, disabledIds,
                 <div className="employee-result-list">
                   {candidates.map((employee) => {
                     const disabled = disabledIds.includes(employee.empId);
-                    const selfBlocked = (title === "합의자" || title === "결재자") && employee.empId === user.empId;
+                    const selfBlocked = (title === "합의자" || title === "경유/협조" || title === "결재자") && employee.empId === user.empId;
                     return (
                       <button key={employee.empId} type="button" disabled={disabled || selfBlocked} className={selectedIds.includes(employee.empId) ? "active" : ""} onClick={() => add(employee)}>
                         <strong>{employee.empName}</strong>
@@ -2376,7 +2557,10 @@ function ApproverPicker({ employees, selectedIds, onChange }: { employees: Emplo
   }
 
   function add(employee: Employee) {
-    if (selectedIds.includes(employee.empId)) return;
+    if (selectedIds.includes(employee.empId)) {
+      remove(employee.empId);
+      return;
+    }
     setKnownEmployees((prev) => mergeEmployees(prev, [employee]));
     onChange([...selectedIds, employee.empId]);
   }
@@ -2527,6 +2711,11 @@ function ApprovalLineTableEditor({
 
   function assign(employee: Employee) {
     if (openSlot === null) return;
+    if (selectedIds[openSlot] === employee.empId) {
+      clearSlot(openSlot);
+      setOpenSlot(null);
+      return;
+    }
     const next = selectedIds.filter((id, index) => id !== employee.empId || index === openSlot);
     next[openSlot] = employee.empId;
     setKnownEmployees((prev) => mergeEmployees(prev, [employee]));

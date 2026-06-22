@@ -2,6 +2,7 @@ package com.kjh.groupware.domain.approval;
 
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.file.AttachFile;
+import com.kjh.groupware.domain.file.AttachFileRepository;
 import com.kjh.groupware.domain.file.FileService;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
@@ -26,6 +27,7 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,7 @@ public class ApprovalPdfService {
     private final ApprovalDocumentRepository documentRepository;
     private final ApprovalLineRepository lineRepository;
     private final ApprovalPdfHistoryRepository historyRepository;
+    private final AttachFileRepository attachFileRepository;
     private final FileService fileService;
     private final CurrentEmpProvider currentEmpProvider;
     private final ApprovalPermissionService permissionService;
@@ -134,6 +137,9 @@ public class ApprovalPdfService {
     }
 
     private GeneratedPdf render(ApprovalDocument document, List<ApprovalLine> lines) {
+        if ("DRAFT".equals(document.getTemplateCode())) {
+            return renderClassicDraft(document, lines);
+        }
         try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PDPage page = new PDPage(PDRectangle.A4);
             pdf.addPage(page);
@@ -177,6 +183,214 @@ public class ApprovalPdfService {
             return new GeneratedPdf(bytes, sha256(bytes));
         } catch (IOException ex) {
             throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate PDF");
+        }
+    }
+
+    private GeneratedPdf renderClassicDraft(ApprovalDocument document, List<ApprovalLine> lines) {
+        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+            PDFont font = loadFont(pdf);
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+                drawClassicLogo(pdf, content);
+                drawCenteredText(content, font, "기 안 서", 0, 735, 595, 18, 20);
+                drawClassicDraftInfo(content, font, document, lines);
+                drawClassicApprovalBox(content, font, document, lines);
+                drawClassicBody(content, font, document);
+                drawClassicFooter(content, font, document, lines);
+            }
+            pdf.save(output);
+            byte[] bytes = output.toByteArray();
+            return new GeneratedPdf(bytes, sha256(bytes));
+        } catch (IOException ex) {
+            throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate classic draft PDF");
+        }
+    }
+
+    private void drawClassicLogo(PDDocument pdf, PDPageContentStream content) throws IOException {
+        Path logoPath = Path.of("..", "frontend", "src", "assets", "schunk-carbon-logo.png").toAbsolutePath().normalize();
+        if (Files.exists(logoPath)) {
+            PDImageXObject logo = PDImageXObject.createFromFileByContent(logoPath.toFile(), pdf);
+            content.drawImage(logo, 68, 705, 148, 78);
+            return;
+        }
+        drawBox(content, 68, 720, 148, 48);
+    }
+
+    private void drawClassicDraftInfo(PDPageContentStream content, PDFont font, ApprovalDocument document, List<ApprovalLine> lines) throws IOException {
+        float x = 62;
+        float y = 526;
+        float labelWidth = 82;
+        float valueWidth = 236;
+        float rowHeight = 34;
+        drawInfoRow(content, font, x, y + rowHeight * 4, labelWidth, valueWidth, rowHeight, "문서번호", safe(document.getDocumentNo()));
+        drawInfoRow(content, font, x, y + rowHeight * 3, labelWidth, valueWidth, rowHeight, "기안부서(자)", safe(document.getDraftDeptName()) + " / " + safe(document.getRequester().getEmpName()));
+        drawInfoRow(content, font, x, y + rowHeight * 2, labelWidth, valueWidth, rowHeight, "기안일자", dateText(document.getRequestedAt()));
+        drawInfoRow(content, font, x, y + rowHeight, labelWidth, valueWidth, rowHeight, "경유 / 협조", lineSummary(lines, ApprovalLine.TYPE_AGREEMENT));
+        drawInfoRow(content, font, x, y, labelWidth, valueWidth, rowHeight, "제목", safe(document.getTitle()));
+    }
+
+    private void drawInfoRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value) throws IOException {
+        drawBox(content, x, y, labelWidth, height);
+        drawBox(content, x + labelWidth, y, valueWidth, height);
+        drawCenteredText(content, font, label, x, y + 12, labelWidth, 9, 12);
+        drawText(content, font, value, x + labelWidth + 8, y + 12, 9);
+    }
+
+    private void drawClassicApprovalBox(PDPageContentStream content, PDFont font, ApprovalDocument document, List<ApprovalLine> lines) throws IOException {
+        List<ApprovalLine> approvals = linesOfType(lines, ApprovalLine.TYPE_APPROVAL);
+        int columns = Math.max(2, approvals.size() + 1);
+        float x = 326;
+        float y = 524;
+        float width = 214;
+        float titleHeight = 42;
+        float rowHeight = 28;
+        float signHeight = 64;
+        float colWidth = width / columns;
+        drawBox(content, x, y + rowHeight * 2 + signHeight, width, titleHeight);
+        drawCenteredText(content, font, "위 임 전 결 규 정", x, y + rowHeight * 2 + signHeight + 24, width, 9, 20);
+        drawCenteredText(content, font, "(대표이사) 전결", x, y + rowHeight * 2 + signHeight + 9, width, 9, 20);
+        for (int col = 0; col < columns; col++) {
+            float cx = x + col * colWidth;
+            drawBox(content, cx, y + rowHeight + signHeight, colWidth, rowHeight);
+            drawBox(content, cx, y + rowHeight, colWidth, signHeight);
+            drawBox(content, cx, y, colWidth, rowHeight);
+        }
+        drawCenteredText(content, font, "기안", x, y + rowHeight + signHeight + 9, colWidth, 8, 8);
+        drawCenteredText(content, font, safe(document.getRequester().getPositionName()), x, y + rowHeight + 38, colWidth, 8, 8);
+        drawCenteredText(content, font, safe(document.getRequester().getEmpName()), x, y + rowHeight + 20, colWidth, 9, 8);
+        drawCenteredText(content, font, dateText(document.getRequestedAt()), x, y + 9, colWidth, 7, 10);
+        for (int i = 0; i < approvals.size(); i++) {
+            ApprovalLine line = approvals.get(i);
+            float cx = x + (i + 1) * colWidth;
+            boolean delegated = isDelegatedAction(line);
+            drawCenteredText(content, font, String.valueOf(i + 1), cx, y + rowHeight + signHeight + 9, colWidth, 8, 8);
+            drawCenteredText(content, font, safe(line.getPositionSnapshot() == null ? line.getApprover().getPositionName() : line.getPositionSnapshot()), cx, y + rowHeight + 40, colWidth, 8, 8);
+            drawCenteredText(content, font, delegated ? "대리결재" : approvalStatusForPdf(line), cx, y + rowHeight + 24, colWidth, 8, 8);
+            drawCenteredText(content, font, safe(line.getEmpNameSnapshot() == null ? line.getApprover().getEmpName() : line.getEmpNameSnapshot()), cx, y + rowHeight + (delegated ? 13 : 9), colWidth, 8, 8);
+            if (delegated) {
+                drawCenteredText(content, font, "처리 " + safe(actedName(line)), cx, y + rowHeight + 3, colWidth, 7, 8);
+            }
+            drawCenteredText(content, font, dateText(line.getSignedAt() == null ? line.getActedAt() : line.getSignedAt()), cx, y + 9, colWidth, 7, 10);
+        }
+        drawClassicOpinionBox(content, font, lines, x, 374, width, 150);
+    }
+
+    private void drawClassicOpinionBox(PDPageContentStream content, PDFont font, List<ApprovalLine> lines, float x, float y, float width, float height) throws IOException {
+        float labelWidth = 58;
+        drawBox(content, x, y, labelWidth, height);
+        drawBox(content, x + labelWidth, y, width - labelWidth, height);
+        drawCenteredText(content, font, "지시", x, y + 94, labelWidth, 9, 8);
+        drawCenteredText(content, font, "사항", x, y + 72, labelWidth, 9, 8);
+        drawCenteredText(content, font, "(의견)", x, y + 50, labelWidth, 9, 8);
+        List<String> opinions = lines.stream()
+            .filter(ApprovalLine::isDecisionLine)
+            .filter(line -> line.getComment() != null && !line.getComment().isBlank())
+            .map(line -> safe(line.getEmpNameSnapshot() == null ? line.getApprover().getEmpName() : line.getEmpNameSnapshot()) + ": " + safe(line.getComment()))
+            .toList();
+        drawWrappedText(content, font, opinions.isEmpty() ? "-" : String.join("\n", opinions), x + labelWidth + 8, y + height - 18, width - labelWidth - 16, 9, 9);
+    }
+
+    private void drawClassicBody(PDPageContentStream content, PDFont font, ApprovalDocument document) throws IOException {
+        float x = 62;
+        float y = 186;
+        float width = 478;
+        float height = 170;
+        content.setLineWidth(2.0f);
+        content.moveTo(x, y + height + 8);
+        content.lineTo(x + width, y + height + 8);
+        content.stroke();
+        content.setLineWidth(0.7f);
+        drawBox(content, x, y, width, height);
+        drawWrappedText(content, font, safe(document.getContent()), x + 10, y + height - 18, width - 20, 10, 12);
+    }
+
+    private void drawClassicFooter(PDPageContentStream content, PDFont font, ApprovalDocument document, List<ApprovalLine> lines) throws IOException {
+        float x = 62;
+        float y = 70;
+        float width = 478;
+        float rowHeight = 24;
+        drawInfoRow(content, font, x, y + rowHeight * 3, 68, width - 68, rowHeight, "수신", lineSummary(lines, ApprovalLine.TYPE_RECEIVER));
+        drawInfoRow(content, font, x, y + rowHeight * 2, 68, width - 68, rowHeight, "참조", lineSummary(lines, ApprovalLine.TYPE_REFERENCE));
+        drawInfoRow(content, font, x, y + rowHeight, 68, width - 68, rowHeight, "연람", lineSummary(lines, ApprovalLine.TYPE_READER));
+        String attachments = attachFileRepository.findByTargetTypeAndTargetIdAndDeletedYnOrderByFileIdAsc("APPROVAL_DOCUMENT", document.getApprovalId(), "N").stream()
+            .map(AttachFile::getOriginalFileName)
+            .toList()
+            .stream()
+            .reduce((left, right) -> left + ", " + right)
+            .orElse("-");
+        drawInfoRow(content, font, x, y, 68, width - 68, rowHeight, "첨부", attachments);
+    }
+
+    private List<ApprovalLine> linesOfType(List<ApprovalLine> lines, String type) {
+        return lines.stream()
+            .filter(line -> type.equals(line.getLineType()))
+            .sorted(java.util.Comparator.comparing(ApprovalLine::getLineOrder))
+            .toList();
+    }
+
+    private String lineSummary(List<ApprovalLine> lines, String type) {
+        List<ApprovalLine> selected = linesOfType(lines, type);
+        if (selected.isEmpty()) {
+            return "-";
+        }
+        return selected.stream()
+            .map(line -> safe(line.getDeptNameSnapshot() == null ? (line.getApprover().getDept() == null ? null : line.getApprover().getDept().getDeptName()) : line.getDeptNameSnapshot())
+                + " " + safe(line.getEmpNameSnapshot() == null ? line.getApprover().getEmpName() : line.getEmpNameSnapshot()))
+            .reduce((left, right) -> left + ", " + right)
+            .orElse("-");
+    }
+
+    private String approvalStatusForPdf(ApprovalLine line) {
+        if (ApprovalLine.STATUS_APPROVED.equals(line.getStatus())) return "승인";
+        if (ApprovalLine.STATUS_REJECTED.equals(line.getStatus())) return "반려";
+        if (ApprovalLine.STATUS_PENDING.equals(line.getStatus())) return "대기";
+        if (ApprovalLine.STATUS_WAITING.equals(line.getStatus())) return "예정";
+        return safe(line.getStatus());
+    }
+
+    private boolean isDelegatedAction(ApprovalLine line) {
+        if (line.getActedEmp() == null || line.getAssignedEmp() == null) {
+            return false;
+        }
+        if (line.getActedEmp().getEmpId().equals(line.getAssignedEmp().getEmpId())) {
+            return false;
+        }
+        return ApprovalLine.STATUS_APPROVED.equals(line.getStatus())
+            || ApprovalLine.STATUS_REJECTED.equals(line.getStatus())
+            || ApprovalLine.STATUS_RECEIPT_COMPLETED.equals(line.getStatus());
+    }
+
+    private String actedName(ApprovalLine line) {
+        return line.getActedEmp() == null ? "" : line.getActedEmp().getEmpName();
+    }
+
+    private void drawBox(PDPageContentStream content, float x, float y, float width, float height) throws IOException {
+        content.addRect(x, y, width, height);
+        content.stroke();
+    }
+
+    private void drawText(PDPageContentStream content, PDFont font, String text, float x, float y, float fontSize) throws IOException {
+        content.beginText();
+        content.setFont(font, fontSize);
+        content.newLineAtOffset(x, y);
+        content.showText(safe(text));
+        content.endText();
+    }
+
+    private void drawWrappedText(PDPageContentStream content, PDFont font, String text, float x, float startY, float width, float fontSize, int maxLines) throws IOException {
+        float y = startY;
+        int lines = 0;
+        int maxChars = Math.max(12, (int) (width / (fontSize * 0.72f)));
+        String printable = text == null ? "-" : text.replace("\r\n", "\n").replace('\r', '\n');
+        for (String sourceLine : printable.split("\\n")) {
+            for (String wrapped : wrap(safe(sourceLine), maxChars)) {
+                if (lines++ >= maxLines) {
+                    return;
+                }
+                drawText(content, font, wrapped, x, y, fontSize);
+                y -= fontSize + 5;
+            }
         }
     }
 

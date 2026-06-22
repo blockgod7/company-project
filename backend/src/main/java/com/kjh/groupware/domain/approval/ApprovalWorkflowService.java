@@ -148,8 +148,25 @@ public class ApprovalWorkflowService {
             .requester(requester)
             .build());
         copy.saveAsDraft();
+        List<ApprovalLine> copiedLines = copyLinesForRedraft(source, copy);
         auditApproval(requester, AuditActionType.REDRAFT, copy, "반려 문서 재상신 초안 생성", true, ipAddress, userAgent);
-        return response(copy, List.of(), requester);
+        return response(copy, copiedLines, requester);
+    }
+
+    private List<ApprovalLine> copyLinesForRedraft(ApprovalDocument source, ApprovalDocument copy) {
+        return lineRepository.findByDocumentOrderByLineOrderAsc(source).stream()
+            .map(sourceLine -> {
+                Emp assignee = sourceLine.getAssignedEmp() == null ? sourceLine.getApprover() : sourceLine.getAssignedEmp();
+                ApprovalLine copiedLine = ApprovalLine.builder()
+                    .document(copy)
+                    .approver(assignee)
+                    .lineType(sourceLine.getLineType())
+                    .lineOrder(sourceLine.getLineOrder())
+                    .first(false)
+                    .build();
+                return lineRepository.save(copiedLine);
+            })
+            .toList();
     }
 
     @Transactional
