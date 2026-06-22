@@ -39,6 +39,7 @@ public class ApprovalPdfService {
 
     private final ApprovalDocumentRepository documentRepository;
     private final ApprovalLineRepository lineRepository;
+    private final ApprovalEquipmentProposalRepository equipmentProposalRepository;
     private final ApprovalPdfHistoryRepository historyRepository;
     private final AttachFileRepository attachFileRepository;
     private final FileService fileService;
@@ -140,6 +141,9 @@ public class ApprovalPdfService {
         if ("DRAFT".equals(document.getTemplateCode())) {
             return renderClassicDraft(document, lines);
         }
+        if (ApprovalEquipmentProposal.TEMPLATE_CODE.equals(document.getTemplateCode())) {
+            return renderEquipmentProposal(document, lines);
+        }
         try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PDPage page = new PDPage(PDRectangle.A4);
             pdf.addPage(page);
@@ -205,6 +209,98 @@ public class ApprovalPdfService {
         } catch (IOException ex) {
             throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate classic draft PDF");
         }
+    }
+
+    private GeneratedPdf renderEquipmentProposal(ApprovalDocument document, List<ApprovalLine> lines) {
+        ApprovalEquipmentProposal proposal = equipmentProposalRepository.findByApprovalApprovalId(document.getApprovalId())
+            .orElseThrow(() -> BusinessException.notFound("EQUIPMENT_PROPOSAL_NOT_FOUND", "Equipment proposal was not found"));
+        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+            PDFont font = loadFont(pdf);
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+                content.setLineWidth(1.0f);
+                drawCenteredText(content, font, "설 비 품 의 서", 0, 776, 595, 18, 20);
+                drawDepartmentStamp(content, font, 42, 704, "사용부서", document.getRequester(), linesOfType(lines, ApprovalLine.TYPE_APPROVAL));
+                drawDepartmentStamp(content, font, 392, 704, "주관부서", proposal.getPeAssignee(), List.of());
+                drawInfoRow(content, font, 42, 672, 82, 170, 24, "요청부서", safe(proposal.getRequestDeptName()));
+                drawInfoRow(content, font, 294, 672, 82, 170, 24, "완료요구일", safe(proposal.getRequiredCompletionDate()));
+                drawInfoRow(content, font, 42, 648, 82, 170, 24, "설비명", safe(proposal.getEquipmentName()));
+                drawInfoRow(content, font, 294, 648, 82, 170, 24, "설비용량", safe(proposal.getEquipmentCapacity()));
+                drawInfoRow(content, font, 42, 624, 82, 422, 24, "구분", safe(proposal.getRequestType()));
+
+                drawLabeledBox(content, font, 42, 468, 252, 156, "현상", proposal.getCurrentState(), 8);
+                drawLabeledBox(content, font, 294, 468, 252, 156, "주관부서(PE) 의견", proposal.getPeOpinion(), 8);
+                drawLabeledBox(content, font, 42, 312, 252, 156, "요구사항", proposal.getRequirements(), 8);
+                drawLabeledBox(content, font, 294, 390, 252, 78, "설계 의견", proposal.getDesignOpinion(), 4);
+                drawLabeledBox(content, font, 294, 312, 252, 78, "구매 의견", proposal.getPurchaseOpinion(), 4);
+                drawLabeledBox(content, font, 42, 218, 252, 94, "지시 사항", proposal.getInstructions(), 5);
+
+                drawCenteredText(content, font, "경제성 검토", 42, 196, 504, 11, 14);
+                drawBox(content, 42, 184, 504, 28);
+                drawLabeledBox(content, font, 42, 104, 252, 80, "사용부서", proposal.getUserEconomicReview(), 4);
+                drawLabeledBox(content, font, 294, 104, 252, 80, "주관 부서", proposal.getPeEconomicReview(), 4);
+
+                drawPurchaseBox(content, font, proposal);
+                drawText(content, font, "첨부: " + equipmentAttachmentText(proposal), 42, 84, 8);
+                drawCenteredText(content, font, "SCTQE-PS-07-02-06(2023.01.05)", 42, 22, 180, 8, 34);
+                drawCenteredText(content, font, "슝크카본테크놀로지 (유)", 210, 22, 180, 8, 24);
+                drawCenteredText(content, font, "A4(210x297)", 460, 22, 90, 8, 12);
+            }
+            pdf.save(output);
+            byte[] bytes = output.toByteArray();
+            return new GeneratedPdf(bytes, sha256(bytes));
+        } catch (IOException ex) {
+            throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate equipment proposal PDF");
+        }
+    }
+
+    private void drawDepartmentStamp(PDPageContentStream content, PDFont font, float x, float y, String label, Emp writer, List<ApprovalLine> approvals) throws IOException {
+        drawBox(content, x, y, 154, 72);
+        drawCenteredText(content, font, label, x, y + 42, 28, 9, 6);
+        float colWidth = 42;
+        String[] headers = {"작성", "검토", "승인"};
+        for (int i = 0; i < headers.length; i++) {
+            float cx = x + 28 + colWidth * i;
+            drawBox(content, cx, y + 48, colWidth, 24);
+            drawBox(content, cx, y, colWidth, 48);
+            drawCenteredText(content, font, headers[i], cx, y + 57, colWidth, 9, 4);
+        }
+        drawCenteredText(content, font, writer == null ? "" : writer.getEmpName(), x + 30, y + 20, colWidth, 8, 8);
+        for (int i = 0; i < Math.min(2, approvals.size()); i++) {
+            ApprovalLine line = approvals.get(i);
+            drawCenteredText(content, font, signatureDisplayName(line), x + 30 + colWidth * (i + 1), y + 20, colWidth, 8, 8);
+        }
+    }
+
+    private void drawLabeledBox(PDPageContentStream content, PDFont font, float x, float y, float width, float height, String label, String value, int maxLines) throws IOException {
+        drawBox(content, x, y, width, height);
+        drawText(content, font, label, x + 8, y + height - 15, 10);
+        drawWrappedText(content, font, safe(value), x + 8, y + height - 32, width - 16, 8, maxLines);
+    }
+
+    private void drawPurchaseBox(PDPageContentStream content, PDFont font, ApprovalEquipmentProposal proposal) throws IOException {
+        float x = 42;
+        float y = 34;
+        float w = 504;
+        float row = 18;
+        drawBox(content, x, y, w, row * 3);
+        drawInfoRow(content, font, x, y + row * 2, 86, 166, row, "제작업체", safe(proposal.getVendorName()));
+        drawInfoRow(content, font, x + 252, y + row * 2, 86, 166, row, "납기", safe(proposal.getDeliveryDueDate()));
+        drawInfoRow(content, font, x, y + row, 86, 166, row, "설비/부품명", safe(proposal.getPurchaseItemName()));
+        drawInfoRow(content, font, x + 252, y + row, 86, 166, row, "용도", safe(proposal.getPurchaseUsage()));
+        drawInfoRow(content, font, x, y, 86, 166, row, "수량/가격", safe(proposal.getQuantity()) + " / " + safe(proposal.getPrice()));
+        drawInfoRow(content, font, x + 252, y, 86, 166, row, "비고", safe(proposal.getPurchaseNote()));
+    }
+
+    private String equipmentAttachmentText(ApprovalEquipmentProposal proposal) {
+        java.util.ArrayList<String> labels = new java.util.ArrayList<>();
+        if ("Y".equals(proposal.getAttachmentContractYn())) labels.add("계약서");
+        if ("Y".equals(proposal.getAttachmentQuoteYn())) labels.add("견적서");
+        if ("Y".equals(proposal.getAttachmentDrawingYn())) labels.add("도면");
+        if ("Y".equals(proposal.getAttachmentSpecYn())) labels.add("설비사양서");
+        if (proposal.getAttachmentEtc() != null && !proposal.getAttachmentEtc().isBlank()) labels.add("기타(" + proposal.getAttachmentEtc() + ")");
+        return labels.isEmpty() ? "-" : String.join(", ", labels);
     }
 
     private void drawClassicLogo(PDDocument pdf, PDPageContentStream content) throws IOException {

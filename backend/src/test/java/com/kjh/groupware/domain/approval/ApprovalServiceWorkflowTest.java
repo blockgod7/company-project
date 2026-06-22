@@ -55,6 +55,7 @@ class ApprovalServiceWorkflowTest {
     private final NotificationService notificationService = mock(NotificationService.class);
     private final EmpSignatureService signatureService = mock(EmpSignatureService.class);
     private final ApprovalPdfService pdfService = mock(ApprovalPdfService.class);
+    private final ApprovalEquipmentProposalService equipmentProposalService = mock(ApprovalEquipmentProposalService.class);
     private final ApprovalDelegationService delegationService = mock(ApprovalDelegationService.class);
     private final ApprovalReminderService reminderService = mock(ApprovalReminderService.class);
     private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService);
@@ -199,6 +200,7 @@ class ApprovalServiceWorkflowTest {
             notificationService,
             permissionService,
             linePolicyService,
+            equipmentProposalService,
             jdbcTemplate,
             new ObjectMapper()
         );
@@ -214,6 +216,7 @@ class ApprovalServiceWorkflowTest {
             permissionService,
             reminderService,
             linePolicyService,
+            equipmentProposalService,
             new ObjectMapper()
         );
 

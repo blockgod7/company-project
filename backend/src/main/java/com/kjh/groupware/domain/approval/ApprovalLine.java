@@ -204,6 +204,11 @@ public class ApprovalLine extends BaseEntity {
         this.remindedAt = null;
     }
 
+    public void reassign(Emp assignee) {
+        this.assignedEmp = assignee;
+        this.targetId = assignee == null ? null : assignee.getEmpId();
+    }
+
     public boolean isActed() {
         return STATUS_APPROVED.equals(status)
             || STATUS_REJECTED.equals(status)

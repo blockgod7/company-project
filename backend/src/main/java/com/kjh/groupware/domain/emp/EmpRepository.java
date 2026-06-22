@@ -21,6 +21,17 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
     @Query("""
         select e from Emp e
         where e.useYn = 'Y'
+          and e.status = 'ACTIVE'
+          and e.dept.deptCode = :deptCode
+        order by
+          case when e.roleCode in ('MANAGER', 'APPROVAL_ADMIN', 'ADMIN') then 0 else 1 end,
+          e.empId asc
+        """)
+    List<Emp> findActiveByDeptCodeOrderForRouting(@Param("deptCode") String deptCode);
+
+    @Query("""
+        select e from Emp e
+        where e.useYn = 'Y'
           and (:status is null or e.status = :status)
           and (:deptId is null or e.dept.deptId = :deptId)
           and (

@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.file;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.approval.ApprovalDocument;
 import com.kjh.groupware.domain.approval.ApprovalDocumentRepository;
+import com.kjh.groupware.domain.approval.ApprovalEquipmentProposalService;
 import com.kjh.groupware.domain.approval.ApprovalLine;
 import com.kjh.groupware.domain.approval.ApprovalLineRepository;
 import com.kjh.groupware.domain.approval.ApprovalPermissionService;
@@ -45,6 +46,7 @@ public class FileService {
     private final ApprovalDocumentRepository approvalDocumentRepository;
     private final ApprovalLineRepository approvalLineRepository;
     private final ApprovalPermissionService approvalPermissionService;
+    private final ApprovalEquipmentProposalService equipmentProposalService;
 
     @Value("${app.file.storage-path:uploads}")
     private String storagePath;
@@ -239,6 +241,13 @@ public class FileService {
         if (isApprovalPdfTarget(targetType)) {
             throw BusinessException.forbidden("APPROVAL_PDF_WRITE_FORBIDDEN", "PDF 파일은 직접 수정할 수 없습니다.");
         }
+        if (equipmentProposalService.isEquipmentAttachmentTarget(targetType)) {
+            Emp currentEmp = currentEmpProvider.getCurrentEmp();
+            if (!equipmentProposalService.canWriteAttachment(targetType, targetId, currentEmp)) {
+                throw BusinessException.forbidden("EQUIPMENT_FILE_WRITE_FORBIDDEN", "This equipment proposal attachment section is not editable");
+            }
+            return;
+        }
         if (!isApprovalDocumentTarget(targetType)) {
             return;
         }
@@ -251,7 +260,7 @@ public class FileService {
     }
 
     private void assertTargetReadable(String targetType, Long targetId) {
-        if (targetType == null || targetId == null || (!isApprovalDocumentTarget(targetType) && !isApprovalPdfTarget(targetType))) {
+        if (targetType == null || targetId == null || (!isApprovalDocumentTarget(targetType) && !isApprovalPdfTarget(targetType) && !equipmentProposalService.isEquipmentAttachmentTarget(targetType))) {
             return;
         }
         Emp currentEmp = currentEmpProvider.getCurrentEmp();

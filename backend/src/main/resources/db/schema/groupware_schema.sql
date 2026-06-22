@@ -855,6 +855,51 @@ CREATE TABLE approval_pdf_history (
 
 CREATE INDEX idx_approval_pdf_history_document ON approval_pdf_history(approval_id);
 
+CREATE TABLE approval_equipment_proposal (
+    approval_id BIGINT PRIMARY KEY REFERENCES approval_document(approval_id),
+    workflow_stage VARCHAR(40) NOT NULL DEFAULT 'USER_APPROVAL',
+    request_dept_name VARCHAR(100) NULL,
+    equipment_name VARCHAR(200) NULL,
+    required_completion_date VARCHAR(30) NULL,
+    equipment_capacity VARCHAR(200) NULL,
+    request_type VARCHAR(50) NULL,
+    current_state TEXT NULL,
+    requirements TEXT NULL,
+    instructions TEXT NULL,
+    user_economic_review TEXT NULL,
+    pe_opinion TEXT NULL,
+    design_opinion TEXT NULL,
+    pe_economic_review TEXT NULL,
+    purchase_opinion TEXT NULL,
+    vendor_name VARCHAR(200) NULL,
+    delivery_due_date VARCHAR(30) NULL,
+    purchase_item_name VARCHAR(200) NULL,
+    purchase_usage VARCHAR(300) NULL,
+    quantity VARCHAR(100) NULL,
+    price VARCHAR(100) NULL,
+    purchase_note TEXT NULL,
+    attachment_contract_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    attachment_quote_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    attachment_drawing_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    attachment_spec_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    attachment_etc VARCHAR(200) NULL,
+    pe_assignee_emp_id BIGINT NULL REFERENCES emp(emp_id),
+    purchase_assignee_emp_id BIGINT NULL REFERENCES emp(emp_id),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    created_by BIGINT NULL,
+    updated_at TIMESTAMP NULL,
+    updated_by BIGINT NULL,
+    CONSTRAINT chk_approval_equipment_stage CHECK (workflow_stage IN ('USER_APPROVAL', 'PE_INPUT', 'PE_APPROVAL', 'PURCHASE_INPUT', 'PURCHASE_APPROVAL', 'COMPLETED')),
+    CONSTRAINT chk_approval_equipment_contract CHECK (attachment_contract_yn IN ('Y', 'N')),
+    CONSTRAINT chk_approval_equipment_quote CHECK (attachment_quote_yn IN ('Y', 'N')),
+    CONSTRAINT chk_approval_equipment_drawing CHECK (attachment_drawing_yn IN ('Y', 'N')),
+    CONSTRAINT chk_approval_equipment_spec CHECK (attachment_spec_yn IN ('Y', 'N'))
+);
+
+CREATE INDEX idx_approval_equipment_stage ON approval_equipment_proposal(workflow_stage);
+CREATE INDEX idx_approval_equipment_pe ON approval_equipment_proposal(pe_assignee_emp_id);
+CREATE INDEX idx_approval_equipment_purchase ON approval_equipment_proposal(purchase_assignee_emp_id);
+
 -- =========================================================
 -- 10. LOG TABLES
 -- =========================================================
@@ -1051,7 +1096,9 @@ VALUES
     ('EMP-007', 'oh.qa1', '$2a$10$STCx2vSXUihXSvJV5soudOLiyOR5FjIB4d7JkQlG6819nLIKK45vW', '오세훈', 'oh.qa1@schunk.local', '010-2000-1007', (SELECT dept_id FROM dept WHERE dept_code = 'QA'), '대리', '수입검사', (SELECT emp_id FROM emp WHERE login_id = 'choi.qa'), 'USER', DATE '2022-12-05', 'ACTIVE', 0, 'N', 'Y', NOW()),
     ('EMP-008', 'moon.qa2', '$2a$10$STCx2vSXUihXSvJV5soudOLiyOR5FjIB4d7JkQlG6819nLIKK45vW', '문소라', 'moon.qa2@schunk.local', '010-2000-1008', (SELECT dept_id FROM dept WHERE dept_code = 'QA'), '사원', '공정품질', (SELECT emp_id FROM emp WHERE login_id = 'choi.qa'), 'USER', DATE '2024-02-13', 'ACTIVE', 0, 'N', 'Y', NOW()),
     ('EMP-009', 'baek.rnd', '$2a$10$STCx2vSXUihXSvJV5soudOLiyOR5FjIB4d7JkQlG6819nLIKK45vW', '백승우', 'baek.rnd@schunk.local', '010-2000-1009', (SELECT dept_id FROM dept WHERE dept_code = 'RND'), '과장', '소재개발', (SELECT emp_id FROM emp WHERE login_id = 'admin'), 'USER', DATE '2021-06-21', 'ACTIVE', 0, 'N', 'Y', NOW()),
-    ('EMP-010', 'lim.purchase', '$2a$10$STCx2vSXUihXSvJV5soudOLiyOR5FjIB4d7JkQlG6819nLIKK45vW', '임나영', 'lim.purchase@schunk.local', '010-2000-1010', (SELECT dept_id FROM dept WHERE dept_code = 'PURCHASE'), '대리', '구매 담당', (SELECT emp_id FROM emp WHERE login_id = 'kim.manager'), 'USER', DATE '2023-09-04', 'ACTIVE', 0, 'N', 'Y', NOW())
+    ('EMP-010', 'lim.purchase', '$2a$10$STCx2vSXUihXSvJV5soudOLiyOR5FjIB4d7JkQlG6819nLIKK45vW', '임나영', 'lim.purchase@schunk.local', '010-2000-1010', (SELECT dept_id FROM dept WHERE dept_code = 'PURCHASE'), '대리', '구매 담당', (SELECT emp_id FROM emp WHERE login_id = 'kim.manager'), 'USER', DATE '2023-09-04', 'ACTIVE', 0, 'N', 'Y', NOW()),
+    ('MGR-005', 'cho.pe', '$2a$10$STCx2vSXUihXSvJV5soudOLiyOR5FjIB4d7JkQlG6819nLIKK45vW', '조태민', 'cho.pe@schunk.local', '010-1000-1005', (SELECT dept_id FROM dept WHERE dept_code = 'PROD_TECH'), '팀장', '생산기술팀장', (SELECT emp_id FROM emp WHERE login_id = 'admin'), 'MANAGER', DATE '2020-06-01', 'ACTIVE', 0, 'N', 'Y', NOW()),
+    ('EMP-011', 'han.pe', '$2a$10$STCx2vSXUihXSvJV5soudOLiyOR5FjIB4d7JkQlG6819nLIKK45vW', '한지수', 'han.pe@schunk.local', '010-2000-1011', (SELECT dept_id FROM dept WHERE dept_code = 'PROD_TECH'), '대리', '생산기술 담당', (SELECT emp_id FROM emp WHERE login_id = 'cho.pe'), 'USER', DATE '2022-10-04', 'ACTIVE', 0, 'N', 'Y', NOW())
 ON CONFLICT (login_id) DO NOTHING;
 
 INSERT INTO emp_role (emp_id, role_id, start_date, use_yn, created_by)
@@ -1073,7 +1120,9 @@ WHERE e.login_id IN (
     'oh.qa1',
     'moon.qa2',
     'baek.rnd',
-    'lim.purchase'
+    'lim.purchase',
+    'cho.pe',
+    'han.pe'
 )
 AND NOT EXISTS (
     SELECT 1 FROM emp_role er

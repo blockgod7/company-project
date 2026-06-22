@@ -33,6 +33,7 @@ public class ApprovalWorkflowService {
     private final ApprovalPermissionService permissionService;
     private final ApprovalReminderService reminderService;
     private final ApprovalLinePolicyService linePolicyService;
+    private final ApprovalEquipmentProposalService equipmentProposalService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -56,6 +57,7 @@ public class ApprovalWorkflowService {
         ApprovalDocument document = getPendingDocumentForUpdate(approvalId);
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
         ApprovalLine currentLine = linePolicyService.currentDecisionLineForUpdate(lines, currentEmp);
+        equipmentProposalService.assertApprovalActionAllowed(document);
 
         AttachFile signatureFile = currentLine.isApproval() ? signatureService.activeSignatureFile(currentEmp) : null;
         currentLine.approve(currentEmp, request == null ? null : request.comment(), signatureFile, signatureService.snapshotJson(currentEmp));
@@ -244,6 +246,9 @@ public class ApprovalWorkflowService {
         if (nextApprover != null) {
             nextApprover.open(reminderService.decisionDueAt());
             notificationService.notifyEmp(nextApprover.getAssignedEmp().getEmpId(), "전자결재 요청", "결재 요청 문서가 도착했습니다.", "APPROVAL", document.getApprovalId());
+            return;
+        }
+        if (equipmentProposalService.progressAfterApproval(document, lines, currentLine)) {
             return;
         }
         document.approve();

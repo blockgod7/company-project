@@ -31,6 +31,7 @@ public class ApprovalDraftService {
     private final NotificationService notificationService;
     private final ApprovalPermissionService permissionService;
     private final ApprovalLinePolicyService linePolicyService;
+    private final ApprovalEquipmentProposalService equipmentProposalService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
@@ -67,6 +68,7 @@ public class ApprovalDraftService {
             notifyInitialPendingLines(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
         }
 
+        equipmentProposalService.syncFromApprovalRequest(document, request);
         auditApproval(requester, draft ? AuditActionType.CREATE : AuditActionType.SUBMIT, document, draft ? "임시저장" : "상신", true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), requester);
     }
@@ -117,6 +119,7 @@ public class ApprovalDraftService {
         lineRepository.deleteByDocument(document);
         lineRepository.flush();
         linePolicyService.createLines(document, request, false);
+        equipmentProposalService.syncFromApprovalRequest(document, request);
         auditApproval(requester, AuditActionType.UPDATE, document, "결재선 변경", true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), requester);
     }
@@ -150,6 +153,7 @@ public class ApprovalDraftService {
         lineRepository.flush();
         linePolicyService.createLines(document, request, true);
         document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
+        equipmentProposalService.syncFromApprovalRequest(document, request);
         notifyInitialPendingLines(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
         auditApproval(requester, AuditActionType.SUBMIT, document, "상신", true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), requester);
@@ -239,6 +243,7 @@ public class ApprovalDraftService {
         String prefix = switch (templateCode) {
             case "PURCHASE" -> "PUR";
             case "TRAINING_REQUEST", "TRAINING_REPORT" -> "EDU";
+            case ApprovalEquipmentProposal.TEMPLATE_CODE -> "EQP";
             default -> "APP";
         };
         String prefixYear = prefix + "-" + Year.now().getValue() + "-";
