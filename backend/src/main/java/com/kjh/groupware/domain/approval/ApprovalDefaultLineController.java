@@ -4,8 +4,11 @@ import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineResponse;
 import com.kjh.groupware.global.response.ApiResponse;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,6 +35,25 @@ public class ApprovalDefaultLineController {
         @Valid @RequestBody ApprovalDefaultLineRequest request
     ) {
         return ApiResponse.ok(defaultLineService.savePersonal(request));
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<List<ApprovalDefaultLineResponse>> listPersonal() {
+        return ApiResponse.ok(defaultLineService.listPersonal());
+    }
+
+    @PatchMapping("/me/{defaultLineId}")
+    public ApiResponse<ApprovalDefaultLineResponse> renamePersonal(
+        @PathVariable Long defaultLineId,
+        @Valid @RequestBody ApprovalDefaultLineRequest request
+    ) {
+        return ApiResponse.ok(defaultLineService.renamePersonal(defaultLineId, request));
+    }
+
+    @DeleteMapping("/me/{defaultLineId}")
+    public ApiResponse<Void> deletePersonal(@PathVariable Long defaultLineId) {
+        defaultLineService.deletePersonal(defaultLineId);
+        return ApiResponse.ok(null);
     }
 
     @GetMapping("/templates/{templateCode}")

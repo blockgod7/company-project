@@ -36,13 +36,13 @@ public class ApprovalDefaultLineService {
     @Transactional(readOnly = true)
     public ApprovalDefaultLineResponse effective(String templateCode) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        ApprovalDefaultLine templateLine = activeTemplateLine(templateCode);
-        if (templateLine != null) {
-            return response(templateLine, ApprovalDefaultLine.TYPE_TEMPLATE);
-        }
         ApprovalDefaultLine personalLine = activePersonalLine(currentEmp);
         if (personalLine != null) {
             return response(personalLine, ApprovalDefaultLine.TYPE_PERSONAL);
+        }
+        ApprovalDefaultLine templateLine = activeTemplateLine(templateCode);
+        if (templateLine != null) {
+            return response(templateLine, ApprovalDefaultLine.TYPE_TEMPLATE);
         }
         return ApprovalDefaultLineResponse.empty();
     }
@@ -55,16 +55,24 @@ public class ApprovalDefaultLineService {
         return templateLine == null ? ApprovalDefaultLineResponse.empty() : response(templateLine, ApprovalDefaultLine.TYPE_TEMPLATE);
     }
 
+    @Transactional(readOnly = true)
+    public List<ApprovalDefaultLineResponse> listPersonal() {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        return defaultLineRepository.findByOwnerAndDefaultTypeAndDeletedYnOrderBySortOrderAscDefaultLineIdDesc(
+                currentEmp,
+                ApprovalDefaultLine.TYPE_PERSONAL,
+                "N"
+            ).stream()
+            .filter(line -> "Y".equals(line.getActiveYn()))
+            .filter(line -> !"최근 사용 결재선".equals(line.getLineName()))
+            .map(line -> response(line, ApprovalDefaultLine.TYPE_PERSONAL))
+            .toList();
+    }
+
     @Transactional
     public ApprovalDefaultLineResponse savePersonal(ApprovalDefaultLineRequest request) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         validateSteps(request.steps());
-        defaultLineRepository.findByOwnerAndDefaultTypeAndActiveYnAndDeletedYnOrderBySortOrderAscDefaultLineIdDesc(
-            currentEmp,
-            ApprovalDefaultLine.TYPE_PERSONAL,
-            "Y",
-            "N"
-        ).forEach(ApprovalDefaultLine::deactivate);
 
         ApprovalDefaultLine saved = defaultLineRepository.save(ApprovalDefaultLine.builder()
             .owner(currentEmp)
@@ -76,6 +84,22 @@ public class ApprovalDefaultLineService {
             .build());
         saveSteps(saved, request.steps());
         return response(saved, ApprovalDefaultLine.TYPE_PERSONAL);
+    }
+
+    @Transactional
+    public ApprovalDefaultLineResponse renamePersonal(Long defaultLineId, ApprovalDefaultLineRequest request) {
+        ApprovalDefaultLine line = personalLineForUpdate(defaultLineId);
+        if (request.lineName() == null || request.lineName().isBlank()) {
+            throw BusinessException.badRequest("DEFAULT_LINE_NAME_REQUIRED", "Default approval line name is required");
+        }
+        line.rename(request.lineName());
+        return response(line, ApprovalDefaultLine.TYPE_PERSONAL);
+    }
+
+    @Transactional
+    public void deletePersonal(Long defaultLineId) {
+        ApprovalDefaultLine line = personalLineForUpdate(defaultLineId);
+        line.delete();
     }
 
     @Transactional
@@ -130,6 +154,22 @@ public class ApprovalDefaultLineService {
                 "N"
             );
         return lines.isEmpty() ? null : lines.get(0);
+    }
+
+    private ApprovalDefaultLine personalLineForUpdate(Long defaultLineId) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        ApprovalDefaultLine line = defaultLineRepository.findById(defaultLineId)
+            .orElseThrow(() -> BusinessException.notFound("DEFAULT_LINE_NOT_FOUND", "Default approval line was not found"));
+        if (!ApprovalDefaultLine.TYPE_PERSONAL.equals(line.getDefaultType())
+            || line.getOwner() == null
+            || !line.getOwner().getEmpId().equals(currentEmp.getEmpId())
+            || "Y".equals(line.getDeletedYn())) {
+            throw BusinessException.forbidden("DEFAULT_LINE_FORBIDDEN", "You cannot manage this default approval line");
+        }
+        if ("최근 사용 결재선".equals(line.getLineName())) {
+            throw BusinessException.forbidden("DEFAULT_LINE_SYSTEM_RESERVED", "Recent approval line cannot be managed manually");
+        }
+        return line;
     }
 
     private void saveSteps(ApprovalDefaultLine defaultLine, List<ApprovalDefaultLineStepRequest> steps) {

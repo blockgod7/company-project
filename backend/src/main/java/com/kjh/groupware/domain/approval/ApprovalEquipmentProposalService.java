@@ -109,7 +109,7 @@ public class ApprovalEquipmentProposalService {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         ApprovalEquipmentProposal proposal = getProposalForUpdate(approvalId);
         if (!canAssignPe(currentEmp, proposal)) {
-            throw BusinessException.forbidden("EQUIPMENT_PE_ASSIGN_FORBIDDEN", "Only the production engineering assignee can assign this proposal");
+            throw BusinessException.forbidden("EQUIPMENT_PE_ASSIGN_FORBIDDEN", "Only the production engineering manager can assign this proposal");
         }
         Emp assignee = activeEmp(request.peAssigneeEmpId());
         requireDept(assignee, "PROD_TECH", "Production engineering assignee must belong to PROD_TECH");
@@ -325,11 +325,28 @@ public class ApprovalEquipmentProposalService {
     }
 
     private boolean canAssignPe(Emp emp, ApprovalEquipmentProposal proposal) {
-        return canEditPeSection(emp, proposal);
+        return emp != null
+            && ApprovalEquipmentProposal.STAGE_PE_INPUT.equals(proposal.getWorkflowStage())
+            && isDeptManager(emp, "PROD_TECH");
     }
 
     private boolean canAssignPurchase(Emp emp, ApprovalEquipmentProposal proposal) {
         return canEditPurchaseSection(emp, proposal);
+    }
+
+    private boolean isDeptManager(Emp emp, String deptCode) {
+        return emp != null
+            && emp.getDept() != null
+            && deptCode.equals(emp.getDept().getDeptCode())
+            && ("MANAGER".equals(emp.getRoleCode())
+                || "APPROVAL_ADMIN".equals(emp.getRoleCode())
+                || "ADMIN".equals(emp.getRoleCode())
+                || containsTeamLeadTitle(emp.getJobTitle())
+                || containsTeamLeadTitle(emp.getPositionName()));
+    }
+
+    private boolean containsTeamLeadTitle(String value) {
+        return value != null && value.contains("팀장");
     }
 
     private ApprovalLine pendingLine(ApprovalDocument document, String stage) {

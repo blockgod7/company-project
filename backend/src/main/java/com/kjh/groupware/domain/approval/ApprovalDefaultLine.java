@@ -74,4 +74,15 @@ public class ApprovalDefaultLine extends BaseEntity {
     public void deactivate() {
         this.activeYn = "N";
     }
+
+    public void rename(String lineName) {
+        if (lineName != null && !lineName.isBlank()) {
+            this.lineName = lineName;
+        }
+    }
+
+    public void delete() {
+        this.deletedYn = "Y";
+        this.activeYn = "N";
+    }
 }

@@ -205,6 +205,10 @@ public class ApprovalLine extends BaseEntity {
     }
 
     public void reassign(Emp assignee) {
+        if (assignee != null) {
+            this.approver = assignee;
+            snapshotAssignee(assignee);
+        }
         this.assignedEmp = assignee;
         this.targetId = assignee == null ? null : assignee.getEmpId();
     }
