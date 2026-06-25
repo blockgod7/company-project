@@ -585,6 +585,26 @@ select { min-height: 42px; }
 }
 .detail-actions h2 { margin: 8px 0 6px; color: var(--navy); font-size: 24px; }
 .detail-actions p { margin: 0; color: var(--muted); font-size: 13px; }
+.approval-action-panel {
+  display: grid;
+  gap: 10px;
+  padding: 8px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.approval-comment-input {
+  display: grid;
+  gap: 6px;
+  max-width: 720px;
+}
+.approval-comment-input span {
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 700;
+}
+.approval-comment-input textarea {
+  min-height: 64px;
+  resize: vertical;
+}
 .approval-actions {
   display: flex;
   flex-wrap: wrap;
@@ -592,8 +612,7 @@ select { min-height: 42px; }
   justify-content: flex-end;
 }
 .approval-actions-top {
-  padding: 8px 0 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 0;
 }
 .approval-actions button {
   display: inline-flex;
@@ -1455,6 +1474,204 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .preview-grid strong {
   background: var(--soft);
 }
+.legacy-template-summary {
+  display: none;
+}
+.template-paper {
+  width: min(100%, 520px);
+  min-height: 560px;
+  margin: 10px auto 0;
+  background: #fff;
+  border: 2px solid #111827;
+  color: #111827;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.template-equipment-preview {
+  padding: 10px;
+}
+.template-equipment-top {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr 1fr;
+  align-items: stretch;
+  gap: 8px;
+}
+.template-mini-stamp {
+  display: grid;
+  grid-template-columns: 28px repeat(3, minmax(0, 1fr));
+  grid-template-rows: 26px 54px;
+  border-top: 1px solid #111827;
+  border-left: 1px solid #111827;
+}
+.template-mini-stamp > div {
+  display: grid;
+  place-items: center;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+  min-width: 0;
+  padding: 3px;
+  text-align: center;
+}
+.template-mini-stamp .stamp-side {
+  grid-row: 1 / span 2;
+  writing-mode: vertical-rl;
+  font-weight: 900;
+}
+.template-mini-stamp .stamp-cell {
+  font-weight: 900;
+}
+.template-equipment-title {
+  display: grid;
+  place-items: center;
+  border: 1px solid #111827;
+  text-align: center;
+}
+.template-equipment-title strong {
+  display: inline-block;
+  padding-bottom: 4px;
+  border-bottom: 3px solid #111827;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+.template-equipment-title span {
+  font-weight: 800;
+}
+.template-equipment-info {
+  display: grid;
+  grid-template-columns: 72px 1fr 86px 1fr 44px 1.2fr;
+  border-top: 1px solid #111827;
+  border-left: 1px solid #111827;
+}
+.template-equipment-info > * {
+  min-height: 28px;
+  padding: 5px 7px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+}
+.template-equipment-info strong {
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+}
+.template-equipment-info .type-label,
+.template-equipment-info .type-options {
+  grid-row: span 2;
+}
+.template-equipment-info .type-options {
+  font-size: 11px;
+  line-height: 1.7;
+}
+.template-equipment-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-left: 1px solid #111827;
+}
+.template-equipment-body div {
+  min-height: 94px;
+  padding: 8px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+  font-weight: 900;
+}
+.template-equipment-body div:nth-child(5),
+.template-equipment-body div:nth-child(6) {
+  min-height: 64px;
+}
+.template-economic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-left: 1px solid #111827;
+}
+.template-economic strong {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  min-height: 24px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+}
+.template-economic span {
+  min-height: 62px;
+  padding: 8px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+  font-weight: 900;
+}
+.template-attachment {
+  min-height: 40px;
+  padding: 10px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+  border-left: 1px solid #111827;
+  font-weight: 900;
+}
+.template-draft-preview {
+  padding: 18px;
+}
+.template-draft-preview h2 {
+  margin: 4px 0 18px;
+  text-align: center;
+  font-size: 24px;
+  color: #111827;
+}
+.template-draft-head {
+  display: grid;
+  grid-template-columns: 1.25fr .9fr;
+  gap: 14px;
+}
+.template-draft-info {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  border-top: 1px solid #111827;
+  border-left: 1px solid #111827;
+}
+.template-draft-info > * {
+  min-height: 30px;
+  padding: 7px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+}
+.template-draft-info strong {
+  background: #f8fafc;
+}
+.template-draft-stamp {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: 28px 78px;
+  border-top: 1px solid #111827;
+  border-left: 1px solid #111827;
+}
+.template-draft-stamp div {
+  display: grid;
+  place-items: center;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+  text-align: center;
+  font-weight: 900;
+}
+.template-draft-body {
+  min-height: 250px;
+  margin-top: 22px;
+  padding: 10px;
+  border: 1px solid #111827;
+  border-top-width: 4px;
+  font-weight: 900;
+}
+.template-draft-footer {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-left: 1px solid #111827;
+  margin-top: 12px;
+}
+.template-draft-footer span {
+  min-height: 34px;
+  padding: 8px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+  border-top: 1px solid #111827;
+  font-weight: 900;
+}
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -1926,8 +2143,10 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   resize: vertical;
 }
 .equipment-proposal-detail .approval-form-grid textarea[readonly],
-.equipment-proposal-detail .approval-form-grid input[readonly] {
+.equipment-proposal-detail .approval-form-grid input[readonly],
+.equipment-proposal-detail .approval-form-grid select:disabled {
   color: var(--text);
+  opacity: 1;
 }
 .equipment-proposal-detail .checkbox-label {
   grid-template-columns: 28px minmax(0, 1fr) !important;

@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { api, authenticatedFetch, clearTokens, jsonBody, setTokens } from "./api";
 import schunkLogo from "./assets/schunk-carbon-logo.png";
 import type {
@@ -966,6 +966,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   const [approvalBoxes, setApprovalBoxes] = useState<{ box: ApprovalBox; label: string }[]>(APPROVAL_BOXES);
   const [selected, setSelected] = useState<Approval | null>(null);
   const [equipmentProposal, setEquipmentProposal] = useState<EquipmentProposal | null>(null);
+  const [equipmentProposalLoading, setEquipmentProposalLoading] = useState(false);
   const [mode, setMode] = useState<ContentMode>("list");
   const [templates, setTemplates] = useState<ApprovalTemplateOption[]>(DEFAULT_APPROVAL_TEMPLATES);
   const [adminTemplates, setAdminTemplates] = useState<ApprovalTemplateOption[]>([]);
@@ -988,6 +989,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   const [operationSettingsForm, setOperationSettingsForm] = useState<ApprovalOperationSettingsForm>(() => defaultOperationSettingsForm());
   const [operationSettings, setOperationSettings] = useState<ApprovalOperationSettings | null>(null);
   const [operationSettingsMessage, setOperationSettingsMessage] = useState("");
+  const [approvalActionComment, setApprovalActionComment] = useState("");
   const isApprovalAdmin = user.roleCode === "ADMIN" || user.roleCode === "APPROVAL_ADMIN";
 
   async function load(targetBox: ApprovalBox, targetFilter: ApprovalDashboardFilter | null | undefined = dashboardFilter?.dashboardFilter) {
@@ -1174,7 +1176,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     try {
       const saved = await api<ApprovalDefaultLineApi>("/approval-default-lines/me", {
         method: "PUT",
-        body: jsonBody(defaultLinePayload(form, lineName.trim(), false))
+        body: jsonBody(defaultLinePayload(form, lineName.trim()))
       });
       await loadSavedApprovalLines();
       if (saved.defaultLineId) setSelectedSavedLineId(String(saved.defaultLineId));
@@ -1194,6 +1196,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
       ...current,
       agreementEmpIds: defaultLineIds(savedLine.steps, "AGREEMENT"),
       approverEmpIds: defaultLineIds(savedLine.steps, "APPROVAL"),
+      receiverEmpIds: defaultLineIds(savedLine.steps, "RECEIVER"),
       referenceEmpIds: defaultLineIds(savedLine.steps, "REFERENCE"),
       readerEmpIds: defaultLineIds(savedLine.steps, "READER")
     }));
@@ -1211,12 +1214,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     try {
       await api<ApprovalDefaultLineApi>(`/approval-default-lines/me/${savedLine.defaultLineId}`, {
         method: "PATCH",
-        body: jsonBody({ lineName: lineName.trim(), steps: savedLine.steps.map((step) => ({
-          stepOrder: step.stepOrder,
-          approverEmpId: step.approverEmpId,
-          lineType: step.lineType,
-          required: step.required
-        })) })
+        body: jsonBody({ lineName: lineName.trim() })
       });
       await loadSavedApprovalLines();
       setSelectedSavedLineId(String(savedLine.defaultLineId));
@@ -1410,24 +1408,34 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   async function loadDetail(id: number) {
     try {
       const detail = await api<Approval>(`/approvals/${id}`);
-      setSelected(detail);
       if (isEquipmentProposalTemplateCode(detail.templateCode)) {
-        setEquipmentProposal(await api<EquipmentProposal>(`/approvals/${id}/equipment-proposal`));
+        setEquipmentProposalLoading(true);
+        const proposal = await api<EquipmentProposal>(`/approvals/${id}/equipment-proposal`);
+        setEquipmentProposal(proposal);
       } else {
         setEquipmentProposal(null);
       }
+      setSelected(detail);
       setMode("detail");
       setApprovalError("");
     } catch (err) {
       setApprovalError(err instanceof Error ? err.message : "문서 조회 권한이 없습니다.");
+    } finally {
+      setEquipmentProposalLoading(false);
     }
   }
 
   async function refreshEquipmentProposal(approval: Approval | null = selected) {
     if (approval && isEquipmentProposalTemplateCode(approval.templateCode)) {
-      setEquipmentProposal(await api<EquipmentProposal>(`/approvals/${approval.approvalId}/equipment-proposal`));
+      setEquipmentProposalLoading(true);
+      try {
+        setEquipmentProposal(await api<EquipmentProposal>(`/approvals/${approval.approvalId}/equipment-proposal`));
+      } finally {
+        setEquipmentProposalLoading(false);
+      }
     } else {
       setEquipmentProposal(null);
+      setEquipmentProposalLoading(false);
     }
   }
 
@@ -1540,6 +1548,10 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     void loadActiveTemplates().catch(() => undefined);
     void loadSavedApprovalLines();
   }, []);
+
+  useEffect(() => {
+    setApprovalActionComment("");
+  }, [selected?.approvalId]);
 
   async function changeBox(nextBox: ApprovalBox) {
     setApprovalError("");
@@ -1701,6 +1713,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
       }
       setPendingFiles([]);
       setForm(defaultApprovalForm(templates));
+      await refreshEquipmentProposal(saved);
       setSelected(saved);
       setMode("detail");
       setBox("requested");
@@ -1731,9 +1744,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     if (!selected) return;
     let comment = "";
     if (type === "approve") {
-      const input = window.prompt("승인 의견을 입력해 주세요. (선택)", "");
-      if (input === null) return;
-      comment = input;
+      comment = approvalActionComment.trim();
     }
     if (type === "reject") {
       comment = window.prompt("반려 사유를 입력해 주세요.") ?? "";
@@ -1751,6 +1762,9 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
         body: comment ? jsonBody({ comment }) : undefined
       });
       setSelected(updated);
+      if (type === "approve") {
+        setApprovalActionComment("");
+      }
       await refreshEquipmentProposal(updated);
       setApprovalError("");
       await load(box);
@@ -1877,7 +1891,19 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
       {mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "deleted" && <Toolbar title={dashboardFilter ? `전자결재 · ${dashboardFilter.label}` : "전자결재"} onNew={startCreate} onRefresh={() => load(box)} />}
       {approvalError && <p className="error">{approvalError}</p>}
       {mode === "detail" && selected && (
-        <div className="approval-actions approval-actions-top">
+        <div className="approval-action-panel">
+          {permissions?.canApprove && !equipmentInputStage && (
+            <label className="approval-comment-input">
+              <span>승인 의견</span>
+              <textarea
+                value={approvalActionComment}
+                onChange={(event) => setApprovalActionComment(event.target.value)}
+                placeholder="의견이 있으면 입력하세요."
+                rows={2}
+              />
+            </label>
+          )}
+          <div className="approval-actions approval-actions-top">
           {permissions?.canEditDraft && <button onClick={editDraft}><Edit3 size={16} /> 수정</button>}
           {permissions?.canSubmit && selected.status !== "IN_PROGRESS" && <button onClick={() => { editDraft(); }}><Check size={16} /> 상신</button>}
           {permissions?.canApprove && !equipmentInputStage && <button className="primary-action" onClick={() => action("approve")}><Check size={16} /> 승인</button>}
@@ -1890,6 +1916,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
           {permissions?.canPrintPdf && selected.pdfStatus === "GENERATED" && selected.pdfFileId != null && <button className="ghost" onClick={() => downloadApprovalPdf(selected.approvalId, selected.documentNo ?? selected.title)}><Paperclip size={16} /> PDF 출력</button>}
           {isApprovalAdmin && <button className="ghost" onClick={() => void correctStatus()}><RefreshCw size={16} /> 상태 보정</button>}
           {isApprovalAdmin && <button className="danger" onClick={() => void deleteForRetention()}><Trash2 size={16} /> 보존삭제</button>}
+        </div>
         </div>
       )}
       {mode === "delegation" && (
@@ -2056,6 +2083,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
             approval={selected}
             templates={templates}
             equipmentProposal={equipmentProposal}
+            equipmentProposalLoading={equipmentProposalLoading}
             employees={employees}
             onSaveEquipment={saveEquipmentProposalDraft}
             onSubmitEquipmentStage={submitEquipmentStage}
@@ -2137,7 +2165,18 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
           </div>
         </DetailPage>
       )}
-      {templateModalOpen && <TemplateSelectModal templates={templates} selected={previewTemplate} fallbackActive={templateFallbackActive} onSelect={setPreviewTemplate} onCancel={() => setTemplateModalOpen(false)} onConfirm={confirmTemplate} />}
+      {templateModalOpen && (
+        <TemplateSelectModal
+          templates={templates}
+          selected={previewTemplate}
+          fallbackActive={templateFallbackActive}
+          previewDeptName={currentUserDeptName(user, employees) || "-"}
+          previewRequesterName={user.empName}
+          onSelect={setPreviewTemplate}
+          onCancel={() => setTemplateModalOpen(false)}
+          onConfirm={confirmTemplate}
+        />
+      )}
     </section>
   );
 }
@@ -2209,17 +2248,41 @@ function EquipmentProposalEditor({ user, employees, form, onChange }: { user: Us
           <label className="wide">{requiredLabel("문서 제목")}<input className={isAutoTitle ? "auto-title-input" : ""} required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="검색에 사용할 품의서 제목을 입력하세요." /></label>
         </div>
       </section>
-      <section className="approval-detail-section">
-        <div className="equipment-section-head">
-          <h3>사용부서 작성란</h3>
-        </div>
+      <EquipmentProposalUserSection value={value} onChange={setValue} />
+    </article>
+  );
+}
+
+function EquipmentProposalUserSection({
+  value,
+  onChange,
+  readOnly = false,
+  stamp,
+  children
+}: {
+  value: (name: string) => string;
+  onChange?: (name: string, next: string) => void;
+  readOnly?: boolean;
+  stamp?: ReactNode;
+  children?: ReactNode;
+}) {
+  const change = (name: string) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    onChange?.(name, event.target.value);
+  };
+
+  return (
+    <section className="approval-detail-section">
+      <div className="equipment-section-head">
+        <h3>사용부서 작성란</h3>
+        {stamp}
+      </div>
       <div className="approval-form-grid">
         <label>{requiredLabel("요청부서")}<input required readOnly value={value("requestDeptName")} title="작성자 소속부서로 자동 지정됩니다." /></label>
-        <label>{requiredLabel("완료요구일")}<input required type="date" value={value("requiredCompletionDate")} onChange={(event) => setValue("requiredCompletionDate", event.target.value)} /></label>
-        <label>{requiredLabel("설비명")}<input required value={value("equipmentName")} onChange={(event) => setValue("equipmentName", event.target.value)} /></label>
-        <label><span>설비용량(능력)</span><input value={value("equipmentCapacity")} onChange={(event) => setValue("equipmentCapacity", event.target.value)} /></label>
+        <label>{requiredLabel("완료요구일")}<input required type="date" readOnly={readOnly} value={value("requiredCompletionDate")} onChange={change("requiredCompletionDate")} /></label>
+        <label>{requiredLabel("설비명")}<input required readOnly={readOnly} value={value("equipmentName")} onChange={change("equipmentName")} /></label>
+        <label><span>설비용량(능력)</span><input readOnly={readOnly} value={value("equipmentCapacity")} onChange={change("equipmentCapacity")} /></label>
         <label>{requiredLabel("구분")}
-          <select required value={value("requestType")} onChange={(event) => setValue("requestType", event.target.value)}>
+          <select required disabled={readOnly} value={value("requestType")} onChange={change("requestType")}>
             <option value="">선택</option>
             <option value="구입">구입</option>
             <option value="제작">제작</option>
@@ -2229,13 +2292,13 @@ function EquipmentProposalEditor({ user, employees, form, onChange }: { user: Us
             <option value="폐기">폐기</option>
           </select>
         </label>
-        <label className="wide">{requiredLabel("현상")}<textarea required value={value("currentState")} onChange={(event) => setValue("currentState", event.target.value)} /></label>
-        <label className="wide">{requiredLabel("요구사항")}<textarea required value={value("requirements")} onChange={(event) => setValue("requirements", event.target.value)} /></label>
-        <label className="wide"><span>지시 사항</span><textarea value={value("instructions")} onChange={(event) => setValue("instructions", event.target.value)} /></label>
-        <label className="wide"><span>경제성 검토 - 사용부서</span><textarea value={value("userEconomicReview")} onChange={(event) => setValue("userEconomicReview", event.target.value)} /></label>
+        <label className="wide">{requiredLabel("현상")}<textarea required readOnly={readOnly} value={value("currentState")} onChange={change("currentState")} /></label>
+        <label className="wide">{requiredLabel("요구사항")}<textarea required readOnly={readOnly} value={value("requirements")} onChange={change("requirements")} /></label>
+        <label className="wide"><span>지시 사항</span><textarea readOnly={readOnly} value={value("instructions")} onChange={change("instructions")} /></label>
+        <label className="wide"><span>경제성 검토 - 사용부서</span><textarea readOnly={readOnly} value={value("userEconomicReview")} onChange={change("userEconomicReview")} /></label>
       </div>
-      </section>
-    </article>
+      {children}
+    </section>
   );
 }
 
@@ -2278,10 +2341,12 @@ function isApprovalBox(value: string): value is ApprovalBox {
   return APPROVAL_BOXES.some((item) => item.box === value);
 }
 
-function TemplateSelectModal({ templates, selected, fallbackActive, onSelect, onCancel, onConfirm }: {
+function TemplateSelectModal({ templates, selected, fallbackActive, previewDeptName, previewRequesterName, onSelect, onCancel, onConfirm }: {
   templates: ApprovalTemplateOption[];
   selected: ApprovalTemplateOption;
   fallbackActive: boolean;
+  previewDeptName: string;
+  previewRequesterName: string;
   onSelect: (template: ApprovalTemplateOption) => void;
   onCancel: () => void;
   onConfirm: () => void;
@@ -2307,11 +2372,12 @@ function TemplateSelectModal({ templates, selected, fallbackActive, onSelect, on
           <div className="template-preview">
             <h3>양식 미리보기</h3>
             <p>{selected.description || "등록된 설명이 없습니다."}</p>
-            <div className="paper-preview">
+            <TemplatePaperPreview template={selected} previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
+            <div className="paper-preview legacy-template-summary">
               <h2>{selected.name} - 기안자명</h2>
               <div className="preview-grid">
-                <strong>기안부서</strong><span>생산기술</span>
-                <strong>기안자</strong><span>기안자명</span>
+                <strong>기안부서</strong><span>{previewDeptName}</span>
+                <strong>기안자</strong><span>{previewRequesterName}</span>
                 <strong>문서번호</strong><span>상신 시 자동생성</span>
                 <strong>결재</strong><span>합의/결재선 표시</span>
               </div>
@@ -2323,6 +2389,81 @@ function TemplateSelectModal({ templates, selected, fallbackActive, onSelect, on
           <button type="button" onClick={onConfirm}>확인</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TemplatePaperPreview({ template, previewDeptName, previewRequesterName }: {
+  template: ApprovalTemplateOption;
+  previewDeptName: string;
+  previewRequesterName: string;
+}) {
+  if (isEquipmentProposalTemplateCode(template.code)) {
+    return (
+      <div className="template-paper template-equipment-preview">
+        <div className="template-equipment-top">
+          <TemplateMiniStamp label="사용부서" writer={previewRequesterName} />
+          <div className="template-equipment-title">
+            <strong>설 비 품 의 서</strong>
+            <span>작성일 : {todayDate()}</span>
+          </div>
+          <TemplateMiniStamp label="주관부서" writer="" />
+        </div>
+        <div className="template-equipment-info">
+          <strong>요청부서</strong><span>{previewDeptName}</span>
+          <strong>완료요구일</strong><span></span>
+          <strong className="type-label">구분</strong><span className="type-options">□구입 □제작 □개선<br />□수리 □매각 □폐기</span>
+          <strong>설비명</strong><span></span>
+          <strong>설비용량(능력)</strong><span></span>
+        </div>
+        <div className="template-equipment-body">
+          <div>현상</div><div>주관부서(PE) 의견</div>
+          <div>요구사항</div><div>설계 의견</div>
+          <div>지시 사항</div><div>구매 의견</div>
+        </div>
+        <div className="template-economic">
+          <strong>경제성 검토</strong>
+          <span>사용부서</span>
+          <span>주관 부서</span>
+        </div>
+        <div className="template-attachment">첨부&nbsp;&nbsp; □ 계약서&nbsp;&nbsp; □ 견적서&nbsp;&nbsp; □ 도면&nbsp;&nbsp; □ 설비사양서</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="template-paper template-draft-preview">
+      <h2>{template.name}</h2>
+      <div className="template-draft-head">
+        <div className="template-draft-info">
+          <strong>문서번호</strong><span>상신 후 자동생성</span>
+          <strong>기안부서(자)</strong><span>{previewDeptName} / {previewRequesterName}</span>
+          <strong>기안일자</strong><span>{todayDate()}</span>
+          <strong>제목</strong><span>{template.name}</span>
+        </div>
+        <div className="template-draft-stamp">
+          <div>작성</div><div>검토</div><div>승인</div>
+          <div>{previewRequesterName}</div><div></div><div></div>
+        </div>
+      </div>
+      <div className="template-draft-body">본문</div>
+      <div className="template-draft-footer">
+        <span>수신</span><span>참조</span><span>열람</span><span>상태</span>
+      </div>
+    </div>
+  );
+}
+
+function TemplateMiniStamp({ label, writer }: { label: string; writer: string }) {
+  return (
+    <div className="template-mini-stamp">
+      <div className="stamp-side">{label}</div>
+      <div className="stamp-cell">작성</div>
+      <div className="stamp-cell">검토</div>
+      <div className="stamp-cell">승인</div>
+      <div className="stamp-name">{writer}</div>
+      <div className="stamp-name"></div>
+      <div className="stamp-name"></div>
     </div>
   );
 }
@@ -2441,6 +2582,7 @@ function ApprovalDetailView({
   approval,
   templates,
   equipmentProposal,
+  equipmentProposalLoading = false,
   employees = [],
   onSaveEquipment,
   onSubmitEquipmentStage,
@@ -2450,6 +2592,7 @@ function ApprovalDetailView({
   approval: Approval;
   templates: ApprovalTemplateOption[];
   equipmentProposal?: EquipmentProposal | null;
+  equipmentProposalLoading?: boolean;
   employees?: Employee[];
   onSaveEquipment?: (next: Partial<EquipmentProposal>) => void;
   onSubmitEquipmentStage?: (stage: "pe" | "purchase", next: Partial<EquipmentProposal>) => void;
@@ -2469,6 +2612,16 @@ function ApprovalDetailView({
         onSubmitStage={onSubmitEquipmentStage}
         onAssign={onAssignEquipmentAssignee}
       />
+    );
+  }
+  if (isEquipmentProposalTemplateCode(approval.templateCode)) {
+    return (
+      <article className="approval-detail equipment-proposal-detail">
+        <section className="approval-detail-section">
+          <h3>설비 품의서</h3>
+          <p className="muted-text">{equipmentProposalLoading ? "설비 품의서 양식을 불러오는 중입니다." : "설비 품의서 양식을 불러오지 못했습니다. 새로고침 후 다시 확인해 주세요."}</p>
+        </section>
+      </article>
     );
   }
 
@@ -2586,24 +2739,13 @@ function EquipmentProposalDetailView({
         </dl>
       </section>
 
-      <section className="approval-detail-section">
-        <div className="equipment-section-head">
-          <h3>사용부서 작성란</h3>
-          <EquipmentSectionStamp requester={approval} lines={approvalGroups.userLines} />
-        </div>
-        <div className="approval-form-grid">
-          <ReadOnlyField label="요청부서" value={draft.requestDeptName} />
-          <ReadOnlyField label="설비명" value={draft.equipmentName} />
-          <ReadOnlyField label="완료요구일" value={draft.requiredCompletionDate} />
-          <ReadOnlyField label="설비용량(능력)" value={draft.equipmentCapacity} />
-          <ReadOnlyField label="구분" value={draft.requestType} />
-          <ReadOnlyField label="현상" value={draft.currentState} wide />
-          <ReadOnlyField label="요구사항" value={draft.requirements} wide />
-          <ReadOnlyField label="지시 사항" value={draft.instructions} wide />
-          <ReadOnlyField label="경제성 검토 - 사용부서" value={draft.userEconomicReview} wide />
-        </div>
+      <EquipmentProposalUserSection
+        readOnly
+        value={(name) => String(draft[name as keyof EquipmentProposal] ?? "")}
+        stamp={<EquipmentSectionStamp requester={approval} lines={approvalGroups.userLines} />}
+      >
         <AttachmentBox targetType="APPROVAL_EQUIPMENT_USER" targetId={approval.approvalId} readOnly={!draft.canEditUserSection} canDownload={!!approval.permissions?.canDownloadAttachment} />
-      </section>
+      </EquipmentProposalUserSection>
 
       <section className="approval-detail-section">
         <div className="equipment-section-head">
@@ -2728,40 +2870,35 @@ function equipmentApprovalGroups(approval: Approval, proposal: EquipmentProposal
 }
 
 function EquipmentSectionStamp({ requester, leadLine, lines }: { requester?: Approval; leadLine?: ApprovalLine; lines: ApprovalLine[] }) {
-  const columns = [
-    ...(requester ? [{
+  const leadLinePersonId = leadLine ? approvalLinePersonId(leadLine) : null;
+  const leadLineIsDirectApprover = !!leadLine
+    && leadLine.status === "SKIPPED"
+    && lines.some((line) => approvalLinePersonId(line) === leadLinePersonId);
+  const visibleLeadLine = leadLineIsDirectApprover ? null : leadLine;
+  const writerColumn = requester ? {
       key: "requester",
       position: requester.requesterPositionName ?? "기안자",
       name: requester.requesterName,
       date: requester.requestedAt,
       muted: false,
       delegateText: null as string | null
-    }] : []),
-    ...(leadLine ? [{
-      key: `lead-${leadLine.lineId}`,
-      position: leadLine.positionSnapshot ?? leadLine.approverPositionName ?? "작성자",
-      name: leadLine.empNameSnapshot ?? leadLine.actedEmpName ?? leadLine.approverName,
-      date: leadLine.signedAt ?? leadLine.actedAt,
-      muted: leadLine.status !== "SKIPPED" && leadLine.status !== "APPROVED" && leadLine.status !== "REJECTED",
-      delegateText: delegatedActionText(leadLine)
-    }] : []),
-    ...lines.map((line) => ({
+    } : visibleLeadLine ? {
+      key: `lead-${visibleLeadLine.lineId}`,
+      position: visibleLeadLine.positionSnapshot ?? visibleLeadLine.approverPositionName ?? "작성자",
+      name: visibleLeadLine.empNameSnapshot ?? visibleLeadLine.actedEmpName ?? visibleLeadLine.approverName,
+      date: visibleLeadLine.signedAt ?? visibleLeadLine.actedAt,
+      muted: visibleLeadLine.status !== "SKIPPED" && visibleLeadLine.status !== "APPROVED" && visibleLeadLine.status !== "REJECTED",
+      delegateText: delegatedActionText(visibleLeadLine)
+    } : emptyStampColumn("writer-empty");
+  const approvalColumns = lines.map((line) => ({
       key: String(line.lineId),
       position: line.positionSnapshot ?? line.approverPositionName ?? "결재자",
       name: line.status === "APPROVED" || line.status === "REJECTED" ? signatureDisplayName(line) : line.approverName,
       date: line.signedAt ?? line.actedAt,
       muted: line.status !== "APPROVED" && line.status !== "REJECTED",
       delegateText: delegatedActionText(line)
-    }))
-  ];
-  const visibleColumns = columns.length ? columns : [{
-    key: "empty",
-    position: "결재자",
-    name: "-",
-    date: null,
-    muted: true,
-    delegateText: null
-  }];
+    }));
+  const visibleColumns = padStampColumns([writerColumn, ...approvalColumns].slice(0, 3));
 
   return (
     <div className="approval-stamp-wrap equipment-section-stamp">
@@ -2769,7 +2906,7 @@ function EquipmentSectionStamp({ requester, leadLine, lines }: { requester?: App
       <div className="approval-stamp-table">
         {visibleColumns.map((column) => (
           <div className="approval-stamp-column" key={column.key}>
-            <div className="stamp-position">{column.position}</div>
+            <div className="stamp-position">{column.header}</div>
             <div className={`stamp-signature${column.muted ? " stamp-signature-muted" : ""}`}>{column.name}</div>
             <div className="stamp-date">
               {column.date ? formatDate(column.date) : ""}
@@ -2782,8 +2919,45 @@ function EquipmentSectionStamp({ requester, leadLine, lines }: { requester?: App
   );
 }
 
-function ReadOnlyField({ label, value, wide = false }: { label: string; value: string | null; wide?: boolean }) {
-  return <div className={wide ? "wide" : ""}><strong>{label}</strong><p>{value || "-"}</p></div>;
+function approvalLinePersonId(line: ApprovalLine) {
+  return line.assignedEmpId ?? line.approverEmpId;
+}
+
+type StampDisplayColumn = {
+  key: string;
+  header?: string;
+  position: string;
+  name: string;
+  date: string | null | undefined;
+  muted: boolean;
+  delegateText: string | null;
+};
+
+function emptyStampColumn(key: string): StampDisplayColumn {
+  return {
+    key,
+    header: "",
+    position: "",
+    name: "",
+    date: null,
+    muted: true,
+    delegateText: null
+  };
+}
+
+function padStampColumns(columns: StampDisplayColumn[], minCount = 2) {
+  const padded = [...columns];
+  while (padded.length < minCount) {
+    padded.push(emptyStampColumn(`empty-${padded.length}`));
+  }
+  return withStampHeaders(padded);
+}
+
+function withStampHeaders(columns: StampDisplayColumn[]) {
+  return columns.map((column, index) => ({
+    ...column,
+    header: index === 0 ? "작성" : index === columns.length - 1 ? "승인" : "검토"
+  }));
 }
 
 function equipmentStageLabel(stage: EquipmentProposal["workflowStage"]) {
@@ -3485,7 +3659,7 @@ function ApprovalLineTableEditor({
 }
 
 function ApprovalStampTable({ approval }: { approval: Approval }) {
-  const columns = [
+  const columns = padStampColumns([
     {
       key: "requester",
       position: approval.requesterPositionName ?? "작성자",
@@ -3505,7 +3679,7 @@ function ApprovalStampTable({ approval }: { approval: Approval }) {
         muted: line.status !== "APPROVED" && line.status !== "REJECTED",
         delegateText: delegatedActionText(line)
       }))
-  ];
+  ]);
 
   return (
     <div className="approval-stamp-wrap">

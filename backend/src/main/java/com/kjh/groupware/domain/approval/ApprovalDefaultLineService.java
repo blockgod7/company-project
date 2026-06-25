@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.approval;
 
 import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineRequest;
+import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineRenameRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineStepRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineStepResponse;
@@ -18,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ApprovalDefaultLineService {
+
+    private static final String RECENT_LINE_NAME = "\uCD5C\uADFC \uC0AC\uC6A9 \uACB0\uC7AC\uC120";
 
     private static final Set<String> ALLOWED_LINE_TYPES = Set.of(
         ApprovalLine.TYPE_AGREEMENT,
@@ -74,6 +77,10 @@ public class ApprovalDefaultLineService {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         validateSteps(request.steps());
 
+        if (RECENT_LINE_NAME.equals(request.lineName())) {
+            return saveRecentPersonal(currentEmp, request);
+        }
+
         ApprovalDefaultLine saved = defaultLineRepository.save(ApprovalDefaultLine.builder()
             .owner(currentEmp)
             .lineName(request.lineName())
@@ -86,8 +93,35 @@ public class ApprovalDefaultLineService {
         return response(saved, ApprovalDefaultLine.TYPE_PERSONAL);
     }
 
+    private ApprovalDefaultLineResponse saveRecentPersonal(Emp currentEmp, ApprovalDefaultLineRequest request) {
+        List<ApprovalDefaultLine> lines = defaultLineRepository
+            .findByOwnerAndDefaultTypeAndLineNameAndDeletedYnOrderBySortOrderAscDefaultLineIdDesc(
+                currentEmp,
+                ApprovalDefaultLine.TYPE_PERSONAL,
+                RECENT_LINE_NAME,
+                "N"
+            );
+        ApprovalDefaultLine saved = lines.isEmpty()
+            ? defaultLineRepository.save(ApprovalDefaultLine.builder()
+                .owner(currentEmp)
+                .lineName(RECENT_LINE_NAME)
+                .defaultType(ApprovalDefaultLine.TYPE_PERSONAL)
+                .activeYn("Y")
+                .sortOrder(0)
+                .deletedYn("N")
+                .build())
+            : lines.get(0);
+        saved.activate();
+        for (int index = 1; index < lines.size(); index++) {
+            lines.get(index).delete();
+        }
+        stepRepository.deleteByDefaultLine(saved);
+        saveSteps(saved, request.steps());
+        return response(saved, ApprovalDefaultLine.TYPE_PERSONAL);
+    }
+
     @Transactional
-    public ApprovalDefaultLineResponse renamePersonal(Long defaultLineId, ApprovalDefaultLineRequest request) {
+    public ApprovalDefaultLineResponse renamePersonal(Long defaultLineId, ApprovalDefaultLineRenameRequest request) {
         ApprovalDefaultLine line = personalLineForUpdate(defaultLineId);
         if (request.lineName() == null || request.lineName().isBlank()) {
             throw BusinessException.badRequest("DEFAULT_LINE_NAME_REQUIRED", "Default approval line name is required");

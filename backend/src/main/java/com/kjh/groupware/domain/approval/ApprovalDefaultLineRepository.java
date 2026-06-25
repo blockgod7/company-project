@@ -19,6 +19,13 @@ public interface ApprovalDefaultLineRepository extends JpaRepository<ApprovalDef
         String deletedYn
     );
 
+    List<ApprovalDefaultLine> findByOwnerAndDefaultTypeAndLineNameAndDeletedYnOrderBySortOrderAscDefaultLineIdDesc(
+        Emp owner,
+        String defaultType,
+        String lineName,
+        String deletedYn
+    );
+
     List<ApprovalDefaultLine> findByDefaultTypeAndTemplateCodeAndActiveYnAndDeletedYnOrderBySortOrderAscDefaultLineIdDesc(
         String defaultType,
         String templateCode,

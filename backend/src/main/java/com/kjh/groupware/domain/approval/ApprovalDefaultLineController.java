@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.approval;
 
 import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineRequest;
+import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineRenameRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineResponse;
 import com.kjh.groupware.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -45,7 +46,7 @@ public class ApprovalDefaultLineController {
     @PatchMapping("/me/{defaultLineId}")
     public ApiResponse<ApprovalDefaultLineResponse> renamePersonal(
         @PathVariable Long defaultLineId,
-        @Valid @RequestBody ApprovalDefaultLineRequest request
+        @Valid @RequestBody ApprovalDefaultLineRenameRequest request
     ) {
         return ApiResponse.ok(defaultLineService.renamePersonal(defaultLineId, request));
     }

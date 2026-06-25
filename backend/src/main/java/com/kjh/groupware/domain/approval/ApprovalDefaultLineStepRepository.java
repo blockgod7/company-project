@@ -9,4 +9,6 @@ public interface ApprovalDefaultLineStepRepository extends JpaRepository<Approva
         ApprovalDefaultLine defaultLine,
         String deletedYn
     );
+
+    void deleteByDefaultLine(ApprovalDefaultLine defaultLine);
 }

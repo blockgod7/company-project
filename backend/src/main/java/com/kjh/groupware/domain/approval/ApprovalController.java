@@ -192,6 +192,8 @@ public class ApprovalController {
         String encodedName = URLEncoder.encode(file.getOriginalFileName(), StandardCharsets.UTF_8).replace("+", "%20");
         return ResponseEntity.ok()
             .contentType(fileService.mediaType(file))
+            .header(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate, max-age=0")
+            .header(HttpHeaders.PRAGMA, "no-cache")
             .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(encodedName).build().toString())
             .body(resource);
     }
