@@ -60,7 +60,8 @@ public class ApprovalEquipmentProposalService {
             text(fields, "cavity", ""),
             text(fields, "material", ""),
             text(fields, "quantity", ""),
-            text(fields, "moldNo", "")
+            text(fields, "moldNo", ""),
+            text(fields, "moldPartsJson", "")
         );
         proposalRepository.save(proposal);
     }
@@ -97,7 +98,8 @@ public class ApprovalEquipmentProposalService {
                 request.cavity(),
                 request.material(),
                 request.quantity(),
-                request.moldNo()
+                request.moldNo(),
+                request.moldPartsJson()
             );
         }
         if (canEditPeSection(currentEmp, proposal)) {

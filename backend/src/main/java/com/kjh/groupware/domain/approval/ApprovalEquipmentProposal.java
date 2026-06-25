@@ -88,6 +88,9 @@ public class ApprovalEquipmentProposal extends BaseEntity {
     @Column(name = "mold_no", length = 100)
     private String moldNo;
 
+    @Column(name = "mold_parts_json", columnDefinition = "text")
+    private String moldPartsJson;
+
     @Column(name = "current_state", columnDefinition = "text")
     private String currentState;
 
@@ -192,7 +195,8 @@ public class ApprovalEquipmentProposal extends BaseEntity {
         String cavity,
         String material,
         String quantity,
-        String moldNo
+        String moldNo,
+        String moldPartsJson
     ) {
         this.moldFixtureType = moldFixtureType;
         this.customerName = customerName;
@@ -203,6 +207,7 @@ public class ApprovalEquipmentProposal extends BaseEntity {
         this.material = material;
         this.quantity = quantity;
         this.moldNo = moldNo;
+        this.moldPartsJson = moldPartsJson;
     }
 
     public void updatePeSection(String peOpinion, String designOpinion, String peEconomicReview) {

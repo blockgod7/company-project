@@ -106,6 +106,13 @@ type AttachmentPresence = Record<number, boolean>;
 type DraftAttachment = { id: string; file: File };
 type LoginOption = { loginId: string; empName: string; deptName?: string | null; positionName?: string | null; roleCode: string };
 type ApprovalBoxApi = { code: string; label: string };
+type MoldFixturePart = {
+  partName: string;
+  cavity: string;
+  material: string;
+  quantity: string;
+  moldNo: string;
+};
 
 const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
   { code: "GENERAL", name: "일반문서", description: "일반 업무 기안", version: 1 },
@@ -219,6 +226,54 @@ function equipmentProposalItemFallback(templateCode: string | null | undefined) 
 
 function isMoldFixtureTemplateCode(templateCode: string | null | undefined) {
   return templateCode === "MOLD_FIXTURE_PROPOSAL";
+}
+
+function blankMoldFixturePart(): MoldFixturePart {
+  return { partName: "", cavity: "", material: "", quantity: "", moldNo: "" };
+}
+
+function normalizeMoldFixtureParts(parts: MoldFixturePart[]) {
+  const normalized = parts.length ? parts : [blankMoldFixturePart()];
+  return normalized.map((part) => ({
+    partName: part.partName ?? "",
+    cavity: part.cavity ?? "",
+    material: part.material ?? "",
+    quantity: part.quantity ?? "",
+    moldNo: part.moldNo ?? ""
+  }));
+}
+
+function parseMoldFixtureParts(values: Record<string, unknown> | EquipmentProposal): MoldFixturePart[] {
+  const raw = "moldPartsJson" in values ? values.moldPartsJson : undefined;
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const rows = parsed.map((item) => ({
+          partName: String(item?.partName ?? ""),
+          cavity: String(item?.cavity ?? ""),
+          material: String(item?.material ?? ""),
+          quantity: String(item?.quantity ?? ""),
+          moldNo: String(item?.moldNo ?? "")
+        }));
+        if (rows.length) return rows;
+      }
+    } catch {
+      // Fall back to legacy single-row fields.
+    }
+  }
+  const legacy = {
+    partName: String(values.partName ?? ""),
+    cavity: String(values.cavity ?? ""),
+    material: String(values.material ?? ""),
+    quantity: String(values.quantity ?? ""),
+    moldNo: String(values.moldNo ?? "")
+  };
+  return Object.values(legacy).some((value) => value.trim()) ? [legacy] : [blankMoldFixturePart()];
+}
+
+function moldFixturePartsJson(parts: MoldFixturePart[]) {
+  return JSON.stringify(normalizeMoldFixtureParts(parts));
 }
 
 function employeeDisplay(employee?: Employee) {
@@ -2258,6 +2313,14 @@ function EquipmentProposalEditor({ user, employees, form, onChange }: { user: Us
   }
   function setValue(name: string, next: string) {
     const fieldValues = { ...form.fieldValues, requestDeptName: requesterDeptName, [name]: next };
+    if (name === "moldPartsJson") {
+      const firstPart = parseMoldFixtureParts(fieldValues)[0] ?? blankMoldFixturePart();
+      fieldValues.partName = firstPart.partName;
+      fieldValues.cavity = firstPart.cavity;
+      fieldValues.material = firstPart.material;
+      fieldValues.quantity = firstPart.quantity;
+      fieldValues.moldNo = firstPart.moldNo;
+    }
     const titleSourceName = isMoldFixtureTemplateCode(form.templateCode) ? "productName" : "equipmentName";
     const title = name === titleSourceName && (!form.title || form.title === proposalTitle) ? `${next || equipmentProposalItemFallback(form.templateCode)} 품의서` : form.title;
     onChange({ ...form, title, content: equipmentProposalContent(fieldValues, form.templateCode), fieldValues });
@@ -2402,14 +2465,18 @@ function MoldFixtureProposalUserSection({
         </label>
         <label className="mold-wide mold-reason">{requiredLabel("사유")}<textarea required readOnly={readOnly} value={value("currentState")} onChange={change("currentState")} /></label>
 
-        <div className="mold-part-table mold-wide">
-          <div className="mold-part-head">부품 정보</div>
-          <label><span>부품명</span><input readOnly={readOnly} value={value("partName")} onChange={change("partName")} /></label>
-          <label><span>CAVITY</span><input readOnly={readOnly} value={value("cavity")} onChange={change("cavity")} /></label>
-          <label><span>재질</span><input readOnly={readOnly} value={value("material")} onChange={change("material")} /></label>
-          <label><span>수량</span><input readOnly={readOnly} value={value("quantity")} onChange={change("quantity")} /></label>
-          <label><span>금형번호</span><input readOnly={readOnly} value={value("moldNo")} onChange={change("moldNo")} /></label>
-        </div>
+        <MoldFixturePartTable
+          parts={parseMoldFixtureParts({
+            moldPartsJson: value("moldPartsJson"),
+            partName: value("partName"),
+            cavity: value("cavity"),
+            material: value("material"),
+            quantity: value("quantity"),
+            moldNo: value("moldNo")
+          })}
+          readOnly={readOnly}
+          onChange={(parts) => onChange?.("moldPartsJson", moldFixturePartsJson(parts))}
+        />
 
         <label className="mold-half"><span>요구사항</span><textarea readOnly={readOnly} value={value("requirements")} onChange={change("requirements")} /></label>
         <label className="mold-half"><span>지시사항</span><textarea readOnly={readOnly} value={value("instructions")} onChange={change("instructions")} /></label>
@@ -2417,6 +2484,55 @@ function MoldFixtureProposalUserSection({
       </div>
       {children}
     </section>
+  );
+}
+
+function MoldFixturePartTable({
+  parts,
+  readOnly,
+  onChange
+}: {
+  parts: MoldFixturePart[];
+  readOnly: boolean;
+  onChange: (parts: MoldFixturePart[]) => void;
+}) {
+  const rows = normalizeMoldFixtureParts(parts);
+  const update = (index: number, field: keyof MoldFixturePart, value: string) => {
+    const next = rows.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row);
+    onChange(next);
+  };
+  const add = () => onChange([...rows, blankMoldFixturePart()]);
+  const remove = (index: number) => onChange(rows.length === 1 ? [blankMoldFixturePart()] : rows.filter((_, rowIndex) => rowIndex !== index));
+
+  return (
+    <div className={`mold-part-table mold-wide${readOnly ? " readonly" : ""}`}>
+      <div className="mold-part-title">부품 정보</div>
+      <div className="mold-part-header">부품명</div>
+      <div className="mold-part-header">CAVITY</div>
+      <div className="mold-part-header">재질</div>
+      <div className="mold-part-header">수량</div>
+      <div className="mold-part-header">금형번호</div>
+      {!readOnly && <div className="mold-part-header">관리</div>}
+      {rows.map((part, index) => (
+        <div className="mold-part-row" key={index}>
+          <input readOnly={readOnly} value={part.partName} onChange={(event) => update(index, "partName", event.target.value)} />
+          <input readOnly={readOnly} value={part.cavity} onChange={(event) => update(index, "cavity", event.target.value)} />
+          <input readOnly={readOnly} value={part.material} onChange={(event) => update(index, "material", event.target.value)} />
+          <input readOnly={readOnly} value={part.quantity} onChange={(event) => update(index, "quantity", event.target.value)} />
+          <input readOnly={readOnly} value={part.moldNo} onChange={(event) => update(index, "moldNo", event.target.value)} />
+          {!readOnly && (
+            <button type="button" className="ghost mold-part-remove" onClick={() => remove(index)}>
+              <Trash2 size={14} /> 삭제
+            </button>
+          )}
+        </div>
+      ))}
+      {!readOnly && (
+        <button type="button" className="ghost mold-part-add" onClick={add}>
+          <Plus size={14} /> 부품 추가
+        </button>
+      )}
+    </div>
   );
 }
 

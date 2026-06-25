@@ -377,7 +377,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalActionCode.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalactioncode_java",
-      "community": 139,
+      "community": 11,
       "norm_label": "approvalactioncode.java"
     },
     {
@@ -386,7 +386,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalActionCode.java",
       "source_location": "L18",
       "id": "approval_approvalactioncode_approvalactioncode",
-      "community": 139,
+      "community": 11,
       "norm_label": "approvalactioncode()"
     },
     {
@@ -395,7 +395,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalActionCode.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalactioncode_java_string",
-      "community": 139,
+      "community": 11,
       "norm_label": "string"
     },
     {
@@ -404,7 +404,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalActionCode.java",
       "source_location": "L22",
       "id": "approval_approvalactioncode_code",
-      "community": 139,
+      "community": 11,
       "norm_label": "code()"
     },
     {
@@ -413,7 +413,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalActionCode.java",
       "source_location": "L26",
       "id": "approval_approvalactioncode_from",
-      "community": 139,
+      "community": 11,
       "norm_label": "from()"
     },
     {
@@ -2006,7 +2006,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalDelegationService.java",
       "source_location": "L60",
       "id": "approval_approvaldelegationservice_approvaldelegationservice_deletemine",
-      "community": 18,
+      "community": 76,
       "norm_label": ".deletemine()"
     },
     {
@@ -2015,7 +2015,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalDelegationService.java",
       "source_location": "L69",
       "id": "approval_approvaldelegationservice_approvaldelegationservice_decisionassigneesfor",
-      "community": 18,
+      "community": 17,
       "norm_label": ".decisionassigneesfor()"
     },
     {
@@ -2904,7 +2904,7 @@
       "label": ".ApprovalEquipmentProposal()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L159",
+      "source_location": "L162",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_approvalequipmentproposal",
       "community": 6,
       "norm_label": ".approvalequipmentproposal()"
@@ -2913,7 +2913,7 @@
       "label": "ApprovalDocument",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L159",
+      "source_location": "L162",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposal_java_approvaldocument",
       "community": 6,
       "norm_label": "approvaldocument"
@@ -2922,7 +2922,7 @@
       "label": ".updateUserSection()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L164",
+      "source_location": "L167",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_updateusersection",
       "community": 6,
       "norm_label": ".updateusersection()"
@@ -2931,7 +2931,7 @@
       "label": ".updateMoldFixtureSection()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L186",
+      "source_location": "L189",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_updatemoldfixturesection",
       "community": 6,
       "norm_label": ".updatemoldfixturesection()"
@@ -2940,7 +2940,7 @@
       "label": ".updatePeSection()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L208",
+      "source_location": "L213",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_updatepesection",
       "community": 6,
       "norm_label": ".updatepesection()"
@@ -2949,7 +2949,7 @@
       "label": ".updatePurchaseSection()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L214",
+      "source_location": "L219",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_updatepurchasesection",
       "community": 6,
       "norm_label": ".updatepurchasesection()"
@@ -2958,7 +2958,7 @@
       "label": ".moveToPeInput()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L244",
+      "source_location": "L249",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_movetopeinput",
       "community": 6,
       "norm_label": ".movetopeinput()"
@@ -2967,7 +2967,7 @@
       "label": "Emp",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L244",
+      "source_location": "L249",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposal_java_emp",
       "community": 6,
       "norm_label": "emp"
@@ -2976,7 +2976,7 @@
       "label": ".moveToPeApproval()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L249",
+      "source_location": "L254",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_movetopeapproval",
       "community": 6,
       "norm_label": ".movetopeapproval()"
@@ -2985,7 +2985,7 @@
       "label": ".moveToPurchaseInput()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L253",
+      "source_location": "L258",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_movetopurchaseinput",
       "community": 6,
       "norm_label": ".movetopurchaseinput()"
@@ -2994,7 +2994,7 @@
       "label": ".moveToPurchaseApproval()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L258",
+      "source_location": "L263",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_movetopurchaseapproval",
       "community": 6,
       "norm_label": ".movetopurchaseapproval()"
@@ -3003,7 +3003,7 @@
       "label": ".complete()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L262",
+      "source_location": "L267",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_complete",
       "community": 6,
       "norm_label": ".complete()"
@@ -3012,7 +3012,7 @@
       "label": ".assignPe()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L266",
+      "source_location": "L271",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_assignpe",
       "community": 6,
       "norm_label": ".assignpe()"
@@ -3021,7 +3021,7 @@
       "label": ".assignPurchase()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L270",
+      "source_location": "L275",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_assignpurchase",
       "community": 6,
       "norm_label": ".assignpurchase()"
@@ -3030,7 +3030,7 @@
       "label": ".yn()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposal.java",
-      "source_location": "L274",
+      "source_location": "L279",
       "id": "approval_approvalequipmentproposal_approvalequipmentproposal_yn",
       "community": 6,
       "norm_label": ".yn()"
@@ -3309,7 +3309,7 @@
       "label": ".find()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L68",
+      "source_location": "L69",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_find",
       "community": 6,
       "norm_label": ".find()"
@@ -3318,7 +3318,7 @@
       "label": "Long",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L68",
+      "source_location": "L69",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_long",
       "community": 6,
       "norm_label": "long"
@@ -3327,7 +3327,7 @@
       "label": "EquipmentProposalResponse",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L68",
+      "source_location": "L69",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_equipmentproposalresponse",
       "community": 6,
       "norm_label": "equipmentproposalresponse"
@@ -3336,7 +3336,7 @@
       "label": ".update()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L75",
+      "source_location": "L76",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_update",
       "community": 6,
       "norm_label": ".update()"
@@ -3345,7 +3345,7 @@
       "label": "EquipmentProposalRequest",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L75",
+      "source_location": "L76",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_equipmentproposalrequest",
       "community": 6,
       "norm_label": "equipmentproposalrequest"
@@ -3354,7 +3354,7 @@
       "label": ".assignPe()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L129",
+      "source_location": "L131",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_assignpe",
       "community": 6,
       "norm_label": ".assignpe()"
@@ -3363,7 +3363,7 @@
       "label": ".submitPe()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L144",
+      "source_location": "L146",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_submitpe",
       "community": 6,
       "norm_label": ".submitpe()"
@@ -3372,7 +3372,7 @@
       "label": ".assignPurchase()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L172",
+      "source_location": "L174",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_assignpurchase",
       "community": 6,
       "norm_label": ".assignpurchase()"
@@ -3381,7 +3381,7 @@
       "label": ".submitPurchase()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L187",
+      "source_location": "L189",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_submitpurchase",
       "community": 6,
       "norm_label": ".submitpurchase()"
@@ -3390,7 +3390,7 @@
       "label": ".progressAfterApproval()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L234",
+      "source_location": "L236",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_progressafterapproval",
       "community": 6,
       "norm_label": ".progressafterapproval()"
@@ -3399,7 +3399,7 @@
       "label": "List",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L234",
+      "source_location": "L236",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_list",
       "community": 6,
       "norm_label": "list"
@@ -3408,7 +3408,7 @@
       "label": "ApprovalLine",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L234",
+      "source_location": "L236",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_approvalline",
       "community": 6,
       "norm_label": "approvalline"
@@ -3417,7 +3417,7 @@
       "label": ".assertApprovalActionAllowed()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L266",
+      "source_location": "L268",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_assertapprovalactionallowed",
       "community": 6,
       "norm_label": ".assertapprovalactionallowed()"
@@ -3426,7 +3426,7 @@
       "label": ".canWriteAttachment()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L283",
+      "source_location": "L285",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_canwriteattachment",
       "community": 6,
       "norm_label": ".canwriteattachment()"
@@ -3435,7 +3435,7 @@
       "label": "String",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L283",
+      "source_location": "L285",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_string",
       "community": 6,
       "norm_label": "string"
@@ -3444,7 +3444,7 @@
       "label": "Emp",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L283",
+      "source_location": "L285",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_emp",
       "community": 6,
       "norm_label": "emp"
@@ -3453,7 +3453,7 @@
       "label": ".isEquipmentAttachmentTarget()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L301",
+      "source_location": "L303",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_isequipmentattachmenttarget",
       "community": 6,
       "norm_label": ".isequipmentattachmenttarget()"
@@ -3462,7 +3462,7 @@
       "label": ".getProposal()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L308",
+      "source_location": "L310",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_getproposal",
       "community": 6,
       "norm_label": ".getproposal()"
@@ -3471,7 +3471,7 @@
       "label": "ApprovalEquipmentProposal",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L308",
+      "source_location": "L310",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_approvalequipmentproposal",
       "community": 6,
       "norm_label": "approvalequipmentproposal"
@@ -3480,7 +3480,7 @@
       "label": ".getProposalForUpdate()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L313",
+      "source_location": "L315",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_getproposalforupdate",
       "community": 6,
       "norm_label": ".getproposalforupdate()"
@@ -3489,7 +3489,7 @@
       "label": ".response()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L318",
+      "source_location": "L320",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_response",
       "community": 6,
       "norm_label": ".response()"
@@ -3498,7 +3498,7 @@
       "label": ".canEditUserSection()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L329",
+      "source_location": "L331",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_caneditusersection",
       "community": 6,
       "norm_label": ".caneditusersection()"
@@ -3507,7 +3507,7 @@
       "label": ".canEditPeSection()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L335",
+      "source_location": "L337",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_caneditpesection",
       "community": 6,
       "norm_label": ".caneditpesection()"
@@ -3516,7 +3516,7 @@
       "label": ".canEditPurchaseSection()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L342",
+      "source_location": "L344",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_caneditpurchasesection",
       "community": 6,
       "norm_label": ".caneditpurchasesection()"
@@ -3525,7 +3525,7 @@
       "label": ".canAssignPe()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L349",
+      "source_location": "L351",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_canassignpe",
       "community": 6,
       "norm_label": ".canassignpe()"
@@ -3534,7 +3534,7 @@
       "label": ".canAssignPurchase()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L355",
+      "source_location": "L357",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_canassignpurchase",
       "community": 6,
       "norm_label": ".canassignpurchase()"
@@ -3543,7 +3543,7 @@
       "label": ".isDeptManager()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L359",
+      "source_location": "L361",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_isdeptmanager",
       "community": 6,
       "norm_label": ".isdeptmanager()"
@@ -3552,7 +3552,7 @@
       "label": ".containsTeamLeadTitle()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L370",
+      "source_location": "L372",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_containsteamleadtitle",
       "community": 6,
       "norm_label": ".containsteamleadtitle()"
@@ -3561,7 +3561,7 @@
       "label": ".pendingLine()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L374",
+      "source_location": "L376",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_pendingline",
       "community": 6,
       "norm_label": ".pendingline()"
@@ -3570,7 +3570,7 @@
       "label": ".createTypedLine()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L382",
+      "source_location": "L384",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_createtypedline",
       "community": 6,
       "norm_label": ".createtypedline()"
@@ -3579,7 +3579,7 @@
       "label": ".nextOrder()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L396",
+      "source_location": "L398",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_nextorder",
       "community": 6,
       "norm_label": ".nextorder()"
@@ -3588,7 +3588,7 @@
       "label": ".ids()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L400",
+      "source_location": "L402",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_ids",
       "community": 6,
       "norm_label": ".ids()"
@@ -3597,7 +3597,7 @@
       "label": ".requireNoDuplicate()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L404",
+      "source_location": "L406",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_requirenoduplicate",
       "community": 6,
       "norm_label": ".requirenoduplicate()"
@@ -3606,7 +3606,7 @@
       "label": ".requireNoOverlap()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L410",
+      "source_location": "L412",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_requirenooverlap",
       "community": 6,
       "norm_label": ".requirenooverlap()"
@@ -3615,7 +3615,7 @@
       "label": ".defaultAssignee()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L417",
+      "source_location": "L419",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_defaultassignee",
       "community": 6,
       "norm_label": ".defaultassignee()"
@@ -3624,7 +3624,7 @@
       "label": ".activeEmp()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L423",
+      "source_location": "L425",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_activeemp",
       "community": 6,
       "norm_label": ".activeemp()"
@@ -3633,7 +3633,7 @@
       "label": ".requireDept()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L435",
+      "source_location": "L437",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_requiredept",
       "community": 6,
       "norm_label": ".requiredept()"
@@ -3642,7 +3642,7 @@
       "label": ".formFields()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L441",
+      "source_location": "L443",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_formfields",
       "community": 6,
       "norm_label": ".formfields()"
@@ -3651,7 +3651,7 @@
       "label": "JsonNode",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L441",
+      "source_location": "L443",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalequipmentproposalservice_java_jsonnode",
       "community": 6,
       "norm_label": "jsonnode"
@@ -3660,7 +3660,7 @@
       "label": ".text()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L454",
+      "source_location": "L456",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_text",
       "community": 6,
       "norm_label": ".text()"
@@ -3669,7 +3669,7 @@
       "label": ".requesterDeptName()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L462",
+      "source_location": "L464",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_requesterdeptname",
       "community": 6,
       "norm_label": ".requesterdeptname()"
@@ -3678,7 +3678,7 @@
       "label": ".blankToDefault()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalEquipmentProposalService.java",
-      "source_location": "L469",
+      "source_location": "L471",
       "id": "approval_approvalequipmentproposalservice_approvalequipmentproposalservice_blanktodefault",
       "community": 6,
       "norm_label": ".blanktodefault()"
@@ -3950,7 +3950,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLine.java",
       "source_location": "L257",
       "id": "approval_approvalline_approvalline_markreminded",
-      "community": 9,
+      "community": 18,
       "norm_label": ".markreminded()"
     },
     {
@@ -4031,7 +4031,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLinePolicyService.java",
       "source_location": "L60",
       "id": "approval_approvallinepolicyservice_approvallinepolicyservice_currentdecisionlineforupdate",
-      "community": 11,
+      "community": 9,
       "norm_label": ".currentdecisionlineforupdate()"
     },
     {
@@ -4049,7 +4049,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLinePolicyService.java",
       "source_location": "L60",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinepolicyservice_java_approvalline",
-      "community": 11,
+      "community": 9,
       "norm_label": "approvalline"
     },
     {
@@ -4058,7 +4058,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLinePolicyService.java",
       "source_location": "L76",
       "id": "approval_approvallinepolicyservice_approvallinepolicyservice_receiverlineforupdate",
-      "community": 11,
+      "community": 9,
       "norm_label": ".receiverlineforupdate()"
     },
     {
@@ -4148,7 +4148,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java",
-      "community": 17,
+      "community": 2,
       "norm_label": "approvallinerepository.java"
     },
     {
@@ -4157,7 +4157,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L16",
       "id": "approval_approvallinerepository_approvallinerepository",
-      "community": 17,
+      "community": 2,
       "norm_label": "approvallinerepository"
     },
     {
@@ -4175,7 +4175,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_approvaldocument",
-      "community": 17,
+      "community": 2,
       "norm_label": "approvaldocument"
     },
     {
@@ -4184,7 +4184,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_list",
-      "community": 17,
+      "community": 2,
       "norm_label": "list"
     },
     {
@@ -4193,7 +4193,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_approvalline",
-      "community": 17,
+      "community": 2,
       "norm_label": "approvalline"
     },
     {
@@ -4202,7 +4202,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L20",
       "id": "approval_approvallinerepository_approvallinerepository_findbydocumentandstatus",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbydocumentandstatus()"
     },
     {
@@ -4211,7 +4211,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L20",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_string",
-      "community": 17,
+      "community": 2,
       "norm_label": "string"
     },
     {
@@ -4220,7 +4220,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L20",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_optional",
-      "community": 17,
+      "community": 2,
       "norm_label": "optional"
     },
     {
@@ -4229,7 +4229,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L22",
       "id": "approval_approvallinerepository_approvallinerepository_deletebydocument",
-      "community": 17,
+      "community": 2,
       "norm_label": ".deletebydocument()"
     },
     {
@@ -4238,7 +4238,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L24",
       "id": "approval_approvallinerepository_approvallinerepository_findbyapproverandstatusorderbylineiddesc",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyapproverandstatusorderbylineiddesc()"
     },
     {
@@ -4247,7 +4247,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L24",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_emp",
-      "community": 17,
+      "community": 2,
       "norm_label": "emp"
     },
     {
@@ -4256,7 +4256,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L24",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_pageable",
-      "community": 17,
+      "community": 2,
       "norm_label": "pageable"
     },
     {
@@ -4265,7 +4265,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L24",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_page",
-      "community": 17,
+      "community": 2,
       "norm_label": "page"
     },
     {
@@ -4274,7 +4274,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L26",
       "id": "approval_approvallinerepository_approvallinerepository_findbyapproverandstatusinorderbylineiddesc",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyapproverandstatusinorderbylineiddesc()"
     },
     {
@@ -4283,7 +4283,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L26",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_collection",
-      "community": 17,
+      "community": 2,
       "norm_label": "collection"
     },
     {
@@ -4292,7 +4292,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L28",
       "id": "approval_approvallinerepository_approvallinerepository_findbyassignedempandlinetypeandstatusorderbylineiddesc",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyassignedempandlinetypeandstatusorderbylineiddesc()"
     },
     {
@@ -4301,7 +4301,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L30",
       "id": "approval_approvallinerepository_approvallinerepository_findbyassignedempinandlinetypeandstatusorderbylineiddesc",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyassignedempinandlinetypeandstatusorderbylineiddesc()"
     },
     {
@@ -4310,7 +4310,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L32",
       "id": "approval_approvallinerepository_approvallinerepository_findbyassignedempinandlinetypeinandstatusorderbylineiddesc",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyassignedempinandlinetypeinandstatusorderbylineiddesc()"
     },
     {
@@ -4319,7 +4319,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L39",
       "id": "approval_approvallinerepository_approvallinerepository_findbyassignedempandlinetypeinandstatusinorderbylineiddesc",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyassignedempandlinetypeinandstatusinorderbylineiddesc()"
     },
     {
@@ -4328,7 +4328,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L46",
       "id": "approval_approvallinerepository_approvallinerepository_findbyassignedempandstatusinorderbylineiddesc",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyassignedempandstatusinorderbylineiddesc()"
     },
     {
@@ -4337,7 +4337,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L48",
       "id": "approval_approvallinerepository_approvallinerepository_findbyassignedempinandstatusinorderbylineiddesc",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyassignedempinandstatusinorderbylineiddesc()"
     },
     {
@@ -4346,7 +4346,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L50",
       "id": "approval_approvallinerepository_approvallinerepository_countbyassignedempinandlinetypeinandstatus",
-      "community": 17,
+      "community": 2,
       "norm_label": ".countbyassignedempinandlinetypeinandstatus()"
     },
     {
@@ -4355,7 +4355,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L50",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_query",
-      "community": 17,
+      "community": 2,
       "norm_label": "query"
     },
     {
@@ -4364,7 +4364,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L64",
       "id": "approval_approvallinerepository_approvallinerepository_countoverduebyassignedempin",
-      "community": 17,
+      "community": 2,
       "norm_label": ".countoverduebyassignedempin()"
     },
     {
@@ -4373,7 +4373,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L64",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_localdatetime",
-      "community": 17,
+      "community": 2,
       "norm_label": "localdatetime"
     },
     {
@@ -4382,7 +4382,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L81",
       "id": "approval_approvallinerepository_approvallinerepository_findoverduebyassignedempin",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findoverduebyassignedempin()"
     },
     {
@@ -4391,7 +4391,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L100",
       "id": "approval_approvallinerepository_approvallinerepository_finddueforreminder",
-      "community": 17,
+      "community": 2,
       "norm_label": ".finddueforreminder()"
     },
     {
@@ -4400,7 +4400,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L113",
       "id": "approval_approvallinerepository_approvallinerepository_findbyidforupdate",
-      "community": 17,
+      "community": 2,
       "norm_label": ".findbyidforupdate()"
     },
     {
@@ -4409,7 +4409,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L113",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_long",
-      "community": 17,
+      "community": 2,
       "norm_label": "long"
     },
     {
@@ -4418,7 +4418,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalLineRepository.java",
       "source_location": "L113",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvallinerepository_java_lock",
-      "community": 17,
+      "community": 2,
       "norm_label": "lock"
     },
     {
@@ -4875,7 +4875,7 @@
       "label": "ApprovalPdfService",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L36",
+      "source_location": "L38",
       "id": "approval_approvalpdfservice_approvalpdfservice",
       "community": 7,
       "norm_label": "approvalpdfservice"
@@ -4884,7 +4884,7 @@
       "label": ".generateForFinalApproval()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L52",
+      "source_location": "L55",
       "id": "approval_approvalpdfservice_approvalpdfservice_generateforfinalapproval",
       "community": 7,
       "norm_label": ".generateforfinalapproval()"
@@ -4893,7 +4893,7 @@
       "label": "ApprovalDocument",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L52",
+      "source_location": "L55",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_approvaldocument",
       "community": 7,
       "norm_label": "approvaldocument"
@@ -4902,7 +4902,7 @@
       "label": "Transactional",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L52",
+      "source_location": "L55",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_transactional",
       "community": 7,
       "norm_label": "transactional"
@@ -4911,7 +4911,7 @@
       "label": ".regenerate()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L74",
+      "source_location": "L77",
       "id": "approval_approvalpdfservice_approvalpdfservice_regenerate",
       "community": 7,
       "norm_label": ".regenerate()"
@@ -4920,7 +4920,7 @@
       "label": "Long",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L74",
+      "source_location": "L77",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_long",
       "community": 7,
       "norm_label": "long"
@@ -4929,7 +4929,7 @@
       "label": "String",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L74",
+      "source_location": "L77",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_string",
       "community": 7,
       "norm_label": "string"
@@ -4938,25 +4938,25 @@
       "label": ".getGeneratedPdf()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L117",
+      "source_location": "L120",
       "id": "approval_approvalpdfservice_approvalpdfservice_getgeneratedpdf",
-      "community": 7,
+      "community": 139,
       "norm_label": ".getgeneratedpdf()"
     },
     {
       "label": "AttachFile",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L117",
+      "source_location": "L120",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_attachfile",
-      "community": 7,
+      "community": 139,
       "norm_label": "attachfile"
     },
     {
       "label": ".refreshEquipmentProposalPdf()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L145",
+      "source_location": "L148",
       "id": "approval_approvalpdfservice_approvalpdfservice_refreshequipmentproposalpdf",
       "community": 7,
       "norm_label": ".refreshequipmentproposalpdf()"
@@ -4965,7 +4965,7 @@
       "label": "Emp",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L145",
+      "source_location": "L148",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_emp",
       "community": 7,
       "norm_label": "emp"
@@ -4974,7 +4974,7 @@
       "label": ".render()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L158",
+      "source_location": "L161",
       "id": "approval_approvalpdfservice_approvalpdfservice_render",
       "community": 7,
       "norm_label": ".render()"
@@ -4983,7 +4983,7 @@
       "label": "List",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L158",
+      "source_location": "L161",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_list",
       "community": 7,
       "norm_label": "list"
@@ -4992,7 +4992,7 @@
       "label": "ApprovalLine",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L158",
+      "source_location": "L161",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_approvalline",
       "community": 7,
       "norm_label": "approvalline"
@@ -5001,7 +5001,7 @@
       "label": "GeneratedPdf",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L158",
+      "source_location": "L161",
       "id": "generatedpdf",
       "community": 7,
       "norm_label": "generatedpdf"
@@ -5010,7 +5010,7 @@
       "label": ".renderClassicDraft()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L211",
+      "source_location": "L214",
       "id": "approval_approvalpdfservice_approvalpdfservice_renderclassicdraft",
       "community": 7,
       "norm_label": ".renderclassicdraft()"
@@ -5019,7 +5019,7 @@
       "label": ".renderEquipmentProposal()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L232",
+      "source_location": "L235",
       "id": "approval_approvalpdfservice_approvalpdfservice_renderequipmentproposal",
       "community": 7,
       "norm_label": ".renderequipmentproposal()"
@@ -5028,7 +5028,7 @@
       "label": ".renderMoldFixtureProposal()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L286",
+      "source_location": "L289",
       "id": "approval_approvalpdfservice_approvalpdfservice_rendermoldfixtureproposal",
       "community": 7,
       "norm_label": ".rendermoldfixtureproposal()"
@@ -5037,7 +5037,7 @@
       "label": "ApprovalEquipmentProposal",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L286",
+      "source_location": "L289",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_approvalequipmentproposal",
       "community": 7,
       "norm_label": "approvalequipmentproposal"
@@ -5046,7 +5046,7 @@
       "label": ".drawDepartmentStamp()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L336",
+      "source_location": "L339",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawdepartmentstamp",
       "community": 7,
       "norm_label": ".drawdepartmentstamp()"
@@ -5055,7 +5055,7 @@
       "label": "PDPageContentStream",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L336",
+      "source_location": "L339",
       "id": "pdpagecontentstream",
       "community": 7,
       "norm_label": "pdpagecontentstream"
@@ -5064,7 +5064,7 @@
       "label": "PDFont",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L336",
+      "source_location": "L339",
       "id": "pdfont",
       "community": 7,
       "norm_label": "pdfont"
@@ -5073,7 +5073,7 @@
       "label": "PdfStampColumn",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L336",
+      "source_location": "L339",
       "id": "pdfstampcolumn",
       "community": 7,
       "norm_label": "pdfstampcolumn"
@@ -5082,7 +5082,7 @@
       "label": ".stampHeader()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L378",
+      "source_location": "L381",
       "id": "approval_approvalpdfservice_approvalpdfservice_stampheader",
       "community": 7,
       "norm_label": ".stampheader()"
@@ -5091,7 +5091,7 @@
       "label": ".equipmentProposalTitle()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L385",
+      "source_location": "L388",
       "id": "approval_approvalpdfservice_approvalpdfservice_equipmentproposaltitle",
       "community": 7,
       "norm_label": ".equipmentproposaltitle()"
@@ -5100,7 +5100,7 @@
       "label": ".drawEquipmentTitle()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L392",
+      "source_location": "L395",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawequipmenttitle",
       "community": 7,
       "norm_label": ".drawequipmenttitle()"
@@ -5109,7 +5109,7 @@
       "label": ".drawMoldTitle()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L403",
+      "source_location": "L406",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawmoldtitle",
       "community": 7,
       "norm_label": ".drawmoldtitle()"
@@ -5118,7 +5118,7 @@
       "label": ".drawMoldTypeBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L417",
+      "source_location": "L420",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawmoldtypebox",
       "community": 7,
       "norm_label": ".drawmoldtypebox()"
@@ -5127,16 +5127,43 @@
       "label": ".drawMoldPartTable()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L430",
+      "source_location": "L433",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawmoldparttable",
       "community": 7,
       "norm_label": ".drawmoldparttable()"
     },
     {
+      "label": ".moldFixtureParts()",
+      "file_type": "code",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L458",
+      "id": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts",
+      "community": 7,
+      "norm_label": ".moldfixtureparts()"
+    },
+    {
+      "label": ".text()",
+      "file_type": "code",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L493",
+      "id": "approval_approvalpdfservice_approvalpdfservice_text",
+      "community": 7,
+      "norm_label": ".text()"
+    },
+    {
+      "label": "JsonNode",
+      "file_type": "code",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L493",
+      "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_jsonnode",
+      "community": 7,
+      "norm_label": "jsonnode"
+    },
+    {
       "label": ".drawMoldAttachmentChecklist()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L450",
+      "source_location": "L498",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawmoldattachmentchecklist",
       "community": 7,
       "norm_label": ".drawmoldattachmentchecklist()"
@@ -5145,7 +5172,7 @@
       "label": ".drawMoldPurchaseBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L460",
+      "source_location": "L508",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawmoldpurchasebox",
       "community": 7,
       "norm_label": ".drawmoldpurchasebox()"
@@ -5154,7 +5181,7 @@
       "label": ".blankToDash()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L483",
+      "source_location": "L531",
       "id": "approval_approvalpdfservice_approvalpdfservice_blanktodash",
       "community": 7,
       "norm_label": ".blanktodash()"
@@ -5163,7 +5190,7 @@
       "label": ".drawEquipmentTypeBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L490",
+      "source_location": "L538",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawequipmenttypebox",
       "community": 7,
       "norm_label": ".drawequipmenttypebox()"
@@ -5172,7 +5199,7 @@
       "label": ".drawLabeledBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L503",
+      "source_location": "L551",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawlabeledbox",
       "community": 7,
       "norm_label": ".drawlabeledbox()"
@@ -5181,7 +5208,7 @@
       "label": ".drawEconomicReviewBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L514",
+      "source_location": "L562",
       "id": "approval_approvalpdfservice_approvalpdfservice_draweconomicreviewbox",
       "community": 7,
       "norm_label": ".draweconomicreviewbox()"
@@ -5190,7 +5217,7 @@
       "label": ".drawAttachmentChecklist()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L528",
+      "source_location": "L576",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawattachmentchecklist",
       "community": 7,
       "norm_label": ".drawattachmentchecklist()"
@@ -5199,7 +5226,7 @@
       "label": ".drawPurchaseBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L541",
+      "source_location": "L589",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawpurchasebox",
       "community": 7,
       "norm_label": ".drawpurchasebox()"
@@ -5208,7 +5235,7 @@
       "label": ".drawPurchaseInfoRow()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L569",
+      "source_location": "L617",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawpurchaseinforow",
       "community": 7,
       "norm_label": ".drawpurchaseinforow()"
@@ -5217,7 +5244,7 @@
       "label": ".equipmentAttachmentText()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L576",
+      "source_location": "L624",
       "id": "approval_approvalpdfservice_approvalpdfservice_equipmentattachmenttext",
       "community": 7,
       "norm_label": ".equipmentattachmenttext()"
@@ -5226,7 +5253,7 @@
       "label": ".equipmentApprovalGroups()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L586",
+      "source_location": "L634",
       "id": "approval_approvalpdfservice_approvalpdfservice_equipmentapprovalgroups",
       "community": 7,
       "norm_label": ".equipmentapprovalgroups()"
@@ -5235,7 +5262,7 @@
       "label": "EquipmentApprovalGroups",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L586",
+      "source_location": "L634",
       "id": "equipmentapprovalgroups",
       "community": 7,
       "norm_label": "equipmentapprovalgroups"
@@ -5244,7 +5271,7 @@
       "label": ".sameEmp()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L632",
+      "source_location": "L680",
       "id": "approval_approvalpdfservice_approvalpdfservice_sameemp",
       "community": 7,
       "norm_label": ".sameemp()"
@@ -5253,7 +5280,7 @@
       "label": ".approvalLinePersonId()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L637",
+      "source_location": "L685",
       "id": "approval_approvalpdfservice_approvalpdfservice_approvallinepersonid",
       "community": 7,
       "norm_label": ".approvallinepersonid()"
@@ -5262,7 +5289,7 @@
       "label": ".requesterStamp()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L644",
+      "source_location": "L692",
       "id": "approval_approvalpdfservice_approvalpdfservice_requesterstamp",
       "community": 7,
       "norm_label": ".requesterstamp()"
@@ -5271,7 +5298,7 @@
       "label": ".sectionLeadStamp()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L654",
+      "source_location": "L702",
       "id": "approval_approvalpdfservice_approvalpdfservice_sectionleadstamp",
       "community": 7,
       "norm_label": ".sectionleadstamp()"
@@ -5280,7 +5307,7 @@
       "label": ".approvalStamp()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L669",
+      "source_location": "L717",
       "id": "approval_approvalpdfservice_approvalpdfservice_approvalstamp",
       "community": 7,
       "norm_label": ".approvalstamp()"
@@ -5289,7 +5316,7 @@
       "label": ".drawClassicLogo()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L679",
+      "source_location": "L727",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawclassiclogo",
       "community": 7,
       "norm_label": ".drawclassiclogo()"
@@ -5298,7 +5325,7 @@
       "label": "PDDocument",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L679",
+      "source_location": "L727",
       "id": "pddocument",
       "community": 7,
       "norm_label": "pddocument"
@@ -5307,7 +5334,7 @@
       "label": ".drawClassicDraftInfo()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L689",
+      "source_location": "L737",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawclassicdraftinfo",
       "community": 7,
       "norm_label": ".drawclassicdraftinfo()"
@@ -5316,7 +5343,7 @@
       "label": ".drawInfoRow()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L702",
+      "source_location": "L750",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawinforow",
       "community": 7,
       "norm_label": ".drawinforow()"
@@ -5325,7 +5352,7 @@
       "label": ".drawClassicApprovalBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L709",
+      "source_location": "L757",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawclassicapprovalbox",
       "community": 7,
       "norm_label": ".drawclassicapprovalbox()"
@@ -5334,7 +5361,7 @@
       "label": ".drawClassicOpinionBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L748",
+      "source_location": "L796",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawclassicopinionbox",
       "community": 7,
       "norm_label": ".drawclassicopinionbox()"
@@ -5343,7 +5370,7 @@
       "label": ".drawClassicBody()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L763",
+      "source_location": "L811",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawclassicbody",
       "community": 7,
       "norm_label": ".drawclassicbody()"
@@ -5352,7 +5379,7 @@
       "label": ".drawClassicFooter()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L777",
+      "source_location": "L825",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawclassicfooter",
       "community": 7,
       "norm_label": ".drawclassicfooter()"
@@ -5361,7 +5388,7 @@
       "label": ".linesOfType()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L794",
+      "source_location": "L842",
       "id": "approval_approvalpdfservice_approvalpdfservice_linesoftype",
       "community": 7,
       "norm_label": ".linesoftype()"
@@ -5370,7 +5397,7 @@
       "label": ".lineSummary()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L801",
+      "source_location": "L849",
       "id": "approval_approvalpdfservice_approvalpdfservice_linesummary",
       "community": 7,
       "norm_label": ".linesummary()"
@@ -5379,7 +5406,7 @@
       "label": ".approvalStatusForPdf()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L813",
+      "source_location": "L861",
       "id": "approval_approvalpdfservice_approvalpdfservice_approvalstatusforpdf",
       "community": 7,
       "norm_label": ".approvalstatusforpdf()"
@@ -5388,7 +5415,7 @@
       "label": ".isDelegatedAction()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L821",
+      "source_location": "L869",
       "id": "approval_approvalpdfservice_approvalpdfservice_isdelegatedaction",
       "community": 7,
       "norm_label": ".isdelegatedaction()"
@@ -5397,7 +5424,7 @@
       "label": ".actedName()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L833",
+      "source_location": "L881",
       "id": "approval_approvalpdfservice_approvalpdfservice_actedname",
       "community": 7,
       "norm_label": ".actedname()"
@@ -5406,7 +5433,7 @@
       "label": ".drawBox()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L837",
+      "source_location": "L885",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawbox",
       "community": 7,
       "norm_label": ".drawbox()"
@@ -5415,7 +5442,7 @@
       "label": ".drawText()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L842",
+      "source_location": "L890",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawtext",
       "community": 7,
       "norm_label": ".drawtext()"
@@ -5424,7 +5451,7 @@
       "label": ".drawVerticalText()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L850",
+      "source_location": "L898",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawverticaltext",
       "community": 7,
       "norm_label": ".drawverticaltext()"
@@ -5433,7 +5460,7 @@
       "label": ".drawWrappedText()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L859",
+      "source_location": "L907",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawwrappedtext",
       "community": 7,
       "norm_label": ".drawwrappedtext()"
@@ -5442,7 +5469,7 @@
       "label": ".loadFont()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L875",
+      "source_location": "L923",
       "id": "approval_approvalpdfservice_approvalpdfservice_loadfont",
       "community": 7,
       "norm_label": ".loadfont()"
@@ -5451,7 +5478,7 @@
       "label": ".wrap()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L884",
+      "source_location": "L932",
       "id": "approval_approvalpdfservice_approvalpdfservice_wrap",
       "community": 7,
       "norm_label": ".wrap()"
@@ -5460,7 +5487,7 @@
       "label": ".writeLine()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L903",
+      "source_location": "L951",
       "id": "approval_approvalpdfservice_approvalpdfservice_writeline",
       "community": 7,
       "norm_label": ".writeline()"
@@ -5469,7 +5496,7 @@
       "label": ".drawApprovalStampTable()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L908",
+      "source_location": "L956",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawapprovalstamptable",
       "community": 7,
       "norm_label": ".drawapprovalstamptable()"
@@ -5478,7 +5505,7 @@
       "label": ".drawApprovalColumn()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L945",
+      "source_location": "L993",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawapprovalcolumn",
       "community": 7,
       "norm_label": ".drawapprovalcolumn()"
@@ -5487,7 +5514,7 @@
       "label": ".drawCenteredText()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L958",
+      "source_location": "L1006",
       "id": "approval_approvalpdfservice_approvalpdfservice_drawcenteredtext",
       "community": 7,
       "norm_label": ".drawcenteredtext()"
@@ -5496,7 +5523,7 @@
       "label": ".signatureDisplayName()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L971",
+      "source_location": "L1019",
       "id": "approval_approvalpdfservice_approvalpdfservice_signaturedisplayname",
       "community": 7,
       "norm_label": ".signaturedisplayname()"
@@ -5505,7 +5532,7 @@
       "label": ".dateText()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L987",
+      "source_location": "L1035",
       "id": "approval_approvalpdfservice_approvalpdfservice_datetext",
       "community": 7,
       "norm_label": ".datetext()"
@@ -5514,7 +5541,7 @@
       "label": "LocalDateTime",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L987",
+      "source_location": "L1035",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_localdatetime",
       "community": 7,
       "norm_label": "localdatetime"
@@ -5523,7 +5550,7 @@
       "label": ".safe()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L991",
+      "source_location": "L1039",
       "id": "approval_approvalpdfservice_approvalpdfservice_safe",
       "community": 7,
       "norm_label": ".safe()"
@@ -5532,7 +5559,7 @@
       "label": "Object",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L991",
+      "source_location": "L1039",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_object",
       "community": 7,
       "norm_label": "object"
@@ -5541,7 +5568,7 @@
       "label": ".checkboxLabel()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L995",
+      "source_location": "L1043",
       "id": "approval_approvalpdfservice_approvalpdfservice_checkboxlabel",
       "community": 7,
       "norm_label": ".checkboxlabel()"
@@ -5550,7 +5577,7 @@
       "label": ".sha256()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L999",
+      "source_location": "L1047",
       "id": "approval_approvalpdfservice_approvalpdfservice_sha256",
       "community": 7,
       "norm_label": ".sha256()"
@@ -5559,7 +5586,7 @@
       "label": "empty()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
-      "source_location": "L1021",
+      "source_location": "L1069",
       "id": "approval_approvalpdfservice_empty",
       "community": 7,
       "norm_label": "empty()"
@@ -5570,7 +5597,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpermissionservice_java",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalpermissionservice.java"
     },
     {
@@ -5579,7 +5606,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L10",
       "id": "approval_approvalpermissionservice_approvalpermissionservice",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalpermissionservice"
     },
     {
@@ -5588,7 +5615,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L16",
       "id": "approval_approvalpermissionservice_approvalpermissionservice_permissions",
-      "community": 2,
+      "community": 17,
       "norm_label": ".permissions()"
     },
     {
@@ -5597,7 +5624,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L16",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpermissionservice_java_emp",
-      "community": 2,
+      "community": 17,
       "norm_label": "emp"
     },
     {
@@ -5606,7 +5633,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L16",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpermissionservice_java_approvaldocument",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvaldocument"
     },
     {
@@ -5615,7 +5642,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L16",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpermissionservice_java_list",
-      "community": 2,
+      "community": 17,
       "norm_label": "list"
     },
     {
@@ -5624,7 +5651,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L16",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpermissionservice_java_approvalline",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalline"
     },
     {
@@ -5633,7 +5660,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L16",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpermissionservice_java_approvalpermissionresponse",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalpermissionresponse"
     },
     {
@@ -5642,7 +5669,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L65",
       "id": "approval_approvalpermissionservice_approvalpermissionservice_assertcanview",
-      "community": 2,
+      "community": 17,
       "norm_label": ".assertcanview()"
     },
     {
@@ -5651,7 +5678,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L71",
       "id": "approval_approvalpermissionservice_approvalpermissionservice_assertcandownloadattachment",
-      "community": 2,
+      "community": 17,
       "norm_label": ".assertcandownloadattachment()"
     },
     {
@@ -5660,7 +5687,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L77",
       "id": "approval_approvalpermissionservice_approvalpermissionservice_assertcanprintpdf",
-      "community": 2,
+      "community": 17,
       "norm_label": ".assertcanprintpdf()"
     },
     {
@@ -5669,7 +5696,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L83",
       "id": "approval_approvalpermissionservice_approvalpermissionservice_isrequester",
-      "community": 2,
+      "community": 17,
       "norm_label": ".isrequester()"
     },
     {
@@ -5678,7 +5705,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L87",
       "id": "approval_approvalpermissionservice_approvalpermissionservice_isactedby",
-      "community": 2,
+      "community": 17,
       "norm_label": ".isactedby()"
     },
     {
@@ -5687,7 +5714,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L91",
       "id": "approval_approvalpermissionservice_approvalpermissionservice_canmanageoperations",
-      "community": 2,
+      "community": 17,
       "norm_label": ".canmanageoperations()"
     },
     {
@@ -5696,7 +5723,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPermissionService.java",
       "source_location": "L95",
       "id": "approval_approvalpermissionservice_approvalpermissionservice_canviewalldocuments",
-      "community": 2,
+      "community": 17,
       "norm_label": ".canviewalldocuments()"
     },
     {
@@ -5993,7 +6020,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalreminderservice_java",
-      "community": 9,
+      "community": 18,
       "norm_label": "approvalreminderservice.java"
     },
     {
@@ -6002,7 +6029,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L14",
       "id": "approval_approvalreminderservice_approvalreminderservice",
-      "community": 9,
+      "community": 18,
       "norm_label": "approvalreminderservice"
     },
     {
@@ -6020,7 +6047,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L24",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalreminderservice_java_localdatetime",
-      "community": 9,
+      "community": 18,
       "norm_label": "localdatetime"
     },
     {
@@ -6029,7 +6056,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L28",
       "id": "approval_approvalreminderservice_approvalreminderservice_senddueremindersonschedule",
-      "community": 9,
+      "community": 18,
       "norm_label": ".senddueremindersonschedule()"
     },
     {
@@ -6038,7 +6065,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L28",
       "id": "scheduled",
-      "community": 9,
+      "community": 18,
       "norm_label": "scheduled"
     },
     {
@@ -6047,7 +6074,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L28",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalreminderservice_java_transactional",
-      "community": 9,
+      "community": 18,
       "norm_label": "transactional"
     },
     {
@@ -6056,7 +6083,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L40",
       "id": "approval_approvalreminderservice_approvalreminderservice_sendduereminders",
-      "community": 9,
+      "community": 18,
       "norm_label": ".sendduereminders()"
     },
     {
@@ -6065,7 +6092,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L66",
       "id": "approval_approvalreminderservice_approvalreminderservice_reminderrecipients",
-      "community": 9,
+      "community": 18,
       "norm_label": ".reminderrecipients()"
     },
     {
@@ -6074,7 +6101,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L66",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalreminderservice_java_approvalline",
-      "community": 9,
+      "community": 18,
       "norm_label": "approvalline"
     },
     {
@@ -6083,7 +6110,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L66",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalreminderservice_java_map",
-      "community": 9,
+      "community": 18,
       "norm_label": "map"
     },
     {
@@ -6092,7 +6119,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L66",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalreminderservice_java_long",
-      "community": 9,
+      "community": 18,
       "norm_label": "long"
     },
     {
@@ -6101,7 +6128,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L66",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalreminderservice_java_emp",
-      "community": 9,
+      "community": 18,
       "norm_label": "emp"
     },
     {
@@ -6110,7 +6137,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L79",
       "id": "approval_approvalreminderservice_approvalreminderservice_remindermessage",
-      "community": 9,
+      "community": 18,
       "norm_label": ".remindermessage()"
     },
     {
@@ -6119,7 +6146,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalReminderService.java",
       "source_location": "L79",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalreminderservice_java_string",
-      "community": 9,
+      "community": 18,
       "norm_label": "string"
     },
     {
@@ -6335,7 +6362,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalservice.java"
     },
     {
@@ -6344,7 +6371,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L27",
       "id": "approval_approvalservice_approvalservice",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalservice"
     },
     {
@@ -6353,7 +6380,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L71",
       "id": "approval_approvalservice_approvalservice_boxes",
-      "community": 2,
+      "community": 17,
       "norm_label": ".boxes()"
     },
     {
@@ -6362,7 +6389,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L71",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_list",
-      "community": 2,
+      "community": 17,
       "norm_label": "list"
     },
     {
@@ -6371,7 +6398,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L71",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_approvalboxresponse",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalboxresponse"
     },
     {
@@ -6380,7 +6407,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L71",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_transactional",
-      "community": 2,
+      "community": 17,
       "norm_label": "transactional"
     },
     {
@@ -6407,7 +6434,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L129",
       "id": "approval_approvalservice_approvalservice_findpage",
-      "community": 2,
+      "community": 17,
       "norm_label": ".findpage()"
     },
     {
@@ -6416,7 +6443,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L129",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_string",
-      "community": 2,
+      "community": 17,
       "norm_label": "string"
     },
     {
@@ -6425,7 +6452,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L129",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_long",
-      "community": 2,
+      "community": 17,
       "norm_label": "long"
     },
     {
@@ -6434,7 +6461,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L129",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_localdate",
-      "community": 2,
+      "community": 17,
       "norm_label": "localdate"
     },
     {
@@ -6443,7 +6470,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L129",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_pageresponse",
-      "community": 2,
+      "community": 17,
       "norm_label": "pageresponse"
     },
     {
@@ -6452,7 +6479,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L129",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_approvalsummaryresponse",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalsummaryresponse"
     },
     {
@@ -6461,7 +6488,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L222",
       "id": "approval_approvalservice_approvalservice_finddashboardpage",
-      "community": 2,
+      "community": 17,
       "norm_label": ".finddashboardpage()"
     },
     {
@@ -6470,7 +6497,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L222",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_emp",
-      "community": 2,
+      "community": 17,
       "norm_label": "emp"
     },
     {
@@ -6479,7 +6506,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L222",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_pagerequest",
-      "community": 2,
+      "community": 17,
       "norm_label": "pagerequest"
     },
     {
@@ -6488,7 +6515,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L277",
       "id": "approval_approvalservice_approvalservice_findone",
-      "community": 2,
+      "community": 17,
       "norm_label": ".findone()"
     },
     {
@@ -6497,7 +6524,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L277",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_approvalresponse",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalresponse"
     },
     {
@@ -6506,7 +6533,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L292",
       "id": "approval_approvalservice_approvalservice_deleteforretention",
-      "community": 2,
+      "community": 17,
       "norm_label": ".deleteforretention()"
     },
     {
@@ -6515,7 +6542,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L292",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_approvalactionrequest",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalactionrequest"
     },
     {
@@ -6524,7 +6551,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L311",
       "id": "approval_approvalservice_approvalservice_deletedpage",
-      "community": 2,
+      "community": 17,
       "norm_label": ".deletedpage()"
     },
     {
@@ -6533,7 +6560,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L323",
       "id": "approval_approvalservice_approvalservice_restore",
-      "community": 2,
+      "community": 17,
       "norm_label": ".restore()"
     },
     {
@@ -6542,7 +6569,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L336",
       "id": "approval_approvalservice_approvalservice_summary",
-      "community": 2,
+      "community": 17,
       "norm_label": ".summary()"
     },
     {
@@ -6551,7 +6578,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L336",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_approvaldocument",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvaldocument"
     },
     {
@@ -6560,7 +6587,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L340",
       "id": "approval_approvalservice_approvalservice_validatebox",
-      "community": 2,
+      "community": 17,
       "norm_label": ".validatebox()"
     },
     {
@@ -6569,7 +6596,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L349",
       "id": "approval_approvalservice_approvalservice_response",
-      "community": 2,
+      "community": 17,
       "norm_label": ".response()"
     },
     {
@@ -6578,7 +6605,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L349",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_approvalline",
-      "community": 2,
+      "community": 17,
       "norm_label": "approvalline"
     },
     {
@@ -6587,7 +6614,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L353",
       "id": "approval_approvalservice_approvalservice_auditapproval",
-      "community": 2,
+      "community": 17,
       "norm_label": ".auditapproval()"
     },
     {
@@ -6596,7 +6623,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L353",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalservice_java_auditactiontype",
-      "community": 2,
+      "community": 17,
       "norm_label": "auditactiontype"
     },
     {
@@ -6605,7 +6632,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L383",
       "id": "approval_approvalservice_approvalservice_getactivedocument",
-      "community": 2,
+      "community": 17,
       "norm_label": ".getactivedocument()"
     },
     {
@@ -6614,7 +6641,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L392",
       "id": "approval_approvalservice_approvalservice_getactivedocumentforupdate",
-      "community": 2,
+      "community": 17,
       "norm_label": ".getactivedocumentforupdate()"
     },
     {
@@ -6623,7 +6650,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L401",
       "id": "approval_approvalservice_approvalservice_getdeleteddocumentforupdate",
-      "community": 2,
+      "community": 17,
       "norm_label": ".getdeleteddocumentforupdate()"
     },
     {
@@ -6632,7 +6659,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L410",
       "id": "approval_approvalservice_approvalservice_hassearch",
-      "community": 2,
+      "community": 17,
       "norm_label": ".hassearch()"
     },
     {
@@ -6641,7 +6668,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L414",
       "id": "approval_approvalservice_approvalservice_hastext",
-      "community": 2,
+      "community": 17,
       "norm_label": ".hastext()"
     },
     {
@@ -6650,7 +6677,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalService.java",
       "source_location": "L418",
       "id": "approval_approvalservice_approvalservice_blanktonull",
-      "community": 2,
+      "community": 17,
       "norm_label": ".blanktonull()"
     },
     {
@@ -7989,7 +8016,7 @@
       "label": "from()",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/dto/EquipmentProposalResponse.java",
-      "source_location": "L51",
+      "source_location": "L52",
       "id": "dto_equipmentproposalresponse_from",
       "community": 81,
       "norm_label": "from()"
@@ -7998,7 +8025,7 @@
       "label": "ApprovalEquipmentProposal",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/dto/EquipmentProposalResponse.java",
-      "source_location": "L51",
+      "source_location": "L52",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_dto_equipmentproposalresponse_java_approvalequipmentproposal",
       "community": 81,
       "norm_label": "approvalequipmentproposal"
@@ -8007,7 +8034,7 @@
       "label": "EquipmentProposalResponse",
       "file_type": "code",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/dto/EquipmentProposalResponse.java",
-      "source_location": "L51",
+      "source_location": "L52",
       "id": "backend_src_main_java_com_kjh_groupware_domain_approval_dto_equipmentproposalresponse_java_equipmentproposalresponse",
       "community": 81,
       "norm_label": "equipmentproposalresponse"
@@ -8405,7 +8432,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/auth/AuthService.java",
       "source_location": "L39",
       "id": "auth_authservice_authservice_login",
-      "community": 142,
+      "community": 5,
       "norm_label": ".login()"
     },
     {
@@ -8432,7 +8459,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/auth/AuthService.java",
       "source_location": "L39",
       "id": "backend_src_main_java_com_kjh_groupware_domain_auth_authservice_java_authenticatedlogin",
-      "community": 142,
+      "community": 5,
       "norm_label": "authenticatedlogin"
     },
     {
@@ -8540,7 +8567,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/auth/LoginRateLimiter.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_auth_loginratelimiter_java",
-      "community": 139,
+      "community": 11,
       "norm_label": "loginratelimiter.java"
     },
     {
@@ -8621,7 +8648,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/auth/dto/CurrentUserResponse.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_auth_dto_currentuserresponse_java",
-      "community": 151,
+      "community": 143,
       "norm_label": "currentuserresponse.java"
     },
     {
@@ -8630,7 +8657,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/auth/dto/CurrentUserResponse.java",
       "source_location": "L16",
       "id": "dto_currentuserresponse_from",
-      "community": 151,
+      "community": 143,
       "norm_label": "from()"
     },
     {
@@ -8639,7 +8666,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/auth/dto/CurrentUserResponse.java",
       "source_location": "L16",
       "id": "backend_src_main_java_com_kjh_groupware_domain_auth_dto_currentuserresponse_java_emp",
-      "community": 151,
+      "community": 143,
       "norm_label": "emp"
     },
     {
@@ -8648,7 +8675,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/auth/dto/CurrentUserResponse.java",
       "source_location": "L16",
       "id": "backend_src_main_java_com_kjh_groupware_domain_auth_dto_currentuserresponse_java_currentuserresponse",
-      "community": 151,
+      "community": 143,
       "norm_label": "currentuserresponse"
     },
     {
@@ -10313,7 +10340,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/Emp.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_emp_emp_java",
-      "community": 142,
+      "community": 5,
       "norm_label": "emp.java"
     },
     {
@@ -10322,7 +10349,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/Emp.java",
       "source_location": "L20",
       "id": "emp_emp_emp",
-      "community": 142,
+      "community": 5,
       "norm_label": "emp"
     },
     {
@@ -10331,7 +10358,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/Emp.java",
       "source_location": "L92",
       "id": "emp_emp_emp_isactiveuser",
-      "community": 142,
+      "community": 18,
       "norm_label": ".isactiveuser()"
     },
     {
@@ -10340,7 +10367,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/Emp.java",
       "source_location": "L96",
       "id": "emp_emp_emp_isaccountlocked",
-      "community": 142,
+      "community": 5,
       "norm_label": ".isaccountlocked()"
     },
     {
@@ -10349,7 +10376,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/Emp.java",
       "source_location": "L100",
       "id": "emp_emp_emp_recordloginsuccess",
-      "community": 142,
+      "community": 5,
       "norm_label": ".recordloginsuccess()"
     },
     {
@@ -10358,7 +10385,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/Emp.java",
       "source_location": "L105",
       "id": "emp_emp_emp_recordloginfailure",
-      "community": 142,
+      "community": 5,
       "norm_label": ".recordloginfailure()"
     },
     {
@@ -10448,7 +10475,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/EmpQueryService.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_emp_empqueryservice_java",
-      "community": 21,
+      "community": 142,
       "norm_label": "empqueryservice.java"
     },
     {
@@ -10457,7 +10484,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/EmpQueryService.java",
       "source_location": "L12",
       "id": "emp_empqueryservice_empqueryservice",
-      "community": 21,
+      "community": 142,
       "norm_label": "empqueryservice"
     },
     {
@@ -10466,7 +10493,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/EmpQueryService.java",
       "source_location": "L18",
       "id": "emp_empqueryservice_empqueryservice_search",
-      "community": 21,
+      "community": 142,
       "norm_label": ".search()"
     },
     {
@@ -10475,7 +10502,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/EmpQueryService.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_emp_empqueryservice_java_string",
-      "community": 21,
+      "community": 142,
       "norm_label": "string"
     },
     {
@@ -10484,7 +10511,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/EmpQueryService.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_emp_empqueryservice_java_long",
-      "community": 21,
+      "community": 142,
       "norm_label": "long"
     },
     {
@@ -10493,7 +10520,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/EmpQueryService.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_emp_empqueryservice_java_pageresponse",
-      "community": 21,
+      "community": 142,
       "norm_label": "pageresponse"
     },
     {
@@ -10502,7 +10529,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/EmpQueryService.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_emp_empqueryservice_java_empresponse",
-      "community": 21,
+      "community": 142,
       "norm_label": "empresponse"
     },
     {
@@ -10511,7 +10538,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/emp/EmpQueryService.java",
       "source_location": "L18",
       "id": "backend_src_main_java_com_kjh_groupware_domain_emp_empqueryservice_java_transactional",
-      "community": 21,
+      "community": 142,
       "norm_label": "transactional"
     },
     {
@@ -11105,7 +11132,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/AttachFileRepository.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_attachfilerepository_java",
-      "community": 25,
+      "community": 147,
       "norm_label": "attachfilerepository.java"
     },
     {
@@ -11114,7 +11141,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/AttachFileRepository.java",
       "source_location": "L6",
       "id": "file_attachfilerepository_attachfilerepository",
-      "community": 25,
+      "community": 147,
       "norm_label": "attachfilerepository"
     },
     {
@@ -11123,7 +11150,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/AttachFileRepository.java",
       "source_location": "L8",
       "id": "file_attachfilerepository_attachfilerepository_findbytargettypeandtargetidanddeletedynorderbyfileidasc",
-      "community": 25,
+      "community": 147,
       "norm_label": ".findbytargettypeandtargetidanddeletedynorderbyfileidasc()"
     },
     {
@@ -11132,7 +11159,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/AttachFileRepository.java",
       "source_location": "L8",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_attachfilerepository_java_string",
-      "community": 25,
+      "community": 147,
       "norm_label": "string"
     },
     {
@@ -11141,7 +11168,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/AttachFileRepository.java",
       "source_location": "L8",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_attachfilerepository_java_long",
-      "community": 25,
+      "community": 147,
       "norm_label": "long"
     },
     {
@@ -11150,7 +11177,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/AttachFileRepository.java",
       "source_location": "L8",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_attachfilerepository_java_list",
-      "community": 25,
+      "community": 147,
       "norm_label": "list"
     },
     {
@@ -11159,7 +11186,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/AttachFileRepository.java",
       "source_location": "L8",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_attachfilerepository_java_attachfile",
-      "community": 25,
+      "community": 147,
       "norm_label": "attachfile"
     },
     {
@@ -11168,7 +11195,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java",
-      "community": 25,
+      "community": 52,
       "norm_label": "filecontroller.java"
     },
     {
@@ -11177,7 +11204,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L24",
       "id": "file_filecontroller_filecontroller",
-      "community": 25,
+      "community": 52,
       "norm_label": "filecontroller"
     },
     {
@@ -11186,7 +11213,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L31",
       "id": "file_filecontroller_filecontroller_upload",
-      "community": 25,
+      "community": 52,
       "norm_label": ".upload()"
     },
     {
@@ -11195,7 +11222,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L31",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_string",
-      "community": 25,
+      "community": 52,
       "norm_label": "string"
     },
     {
@@ -11204,7 +11231,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L31",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_long",
-      "community": 25,
+      "community": 52,
       "norm_label": "long"
     },
     {
@@ -11213,7 +11240,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L31",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_multipartfile",
-      "community": 25,
+      "community": 52,
       "norm_label": "multipartfile"
     },
     {
@@ -11222,7 +11249,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L31",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_httpservletrequest",
-      "community": 25,
+      "community": 52,
       "norm_label": "httpservletrequest"
     },
     {
@@ -11231,7 +11258,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L31",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_apiresponse",
-      "community": 25,
+      "community": 52,
       "norm_label": "apiresponse"
     },
     {
@@ -11240,7 +11267,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L31",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_attachfileresponse",
-      "community": 25,
+      "community": 52,
       "norm_label": "attachfileresponse"
     },
     {
@@ -11249,7 +11276,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L31",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_postmapping",
-      "community": 25,
+      "community": 52,
       "norm_label": "postmapping"
     },
     {
@@ -11258,7 +11285,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L41",
       "id": "file_filecontroller_filecontroller_uploadbatch",
-      "community": 25,
+      "community": 52,
       "norm_label": ".uploadbatch()"
     },
     {
@@ -11267,7 +11294,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L41",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_list",
-      "community": 25,
+      "community": 52,
       "norm_label": "list"
     },
     {
@@ -11276,7 +11303,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L55",
       "id": "file_filecontroller_filecontroller_findbytarget",
-      "community": 25,
+      "community": 52,
       "norm_label": ".findbytarget()"
     },
     {
@@ -11285,7 +11312,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L55",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_getmapping",
-      "community": 25,
+      "community": 52,
       "norm_label": "getmapping"
     },
     {
@@ -11294,7 +11321,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L63",
       "id": "file_filecontroller_filecontroller_download",
-      "community": 25,
+      "community": 52,
       "norm_label": ".download()"
     },
     {
@@ -11303,7 +11330,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L63",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_responseentity",
-      "community": 25,
+      "community": 52,
       "norm_label": "responseentity"
     },
     {
@@ -11312,7 +11339,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L63",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_resource",
-      "community": 25,
+      "community": 52,
       "norm_label": "resource"
     },
     {
@@ -11321,7 +11348,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L75",
       "id": "file_filecontroller_filecontroller_delete",
-      "community": 25,
+      "community": 52,
       "norm_label": ".delete()"
     },
     {
@@ -11330,7 +11357,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L75",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_void",
-      "community": 25,
+      "community": 52,
       "norm_label": "void"
     },
     {
@@ -11339,7 +11366,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileController.java",
       "source_location": "L75",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_filecontroller_java_deletemapping",
-      "community": 25,
+      "community": 52,
       "norm_label": "deletemapping"
     },
     {
@@ -11555,7 +11582,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/FileService.java",
       "source_location": "L216",
       "id": "set",
-      "community": 144,
+      "community": 25,
       "norm_label": "set"
     },
     {
@@ -11618,7 +11645,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/OutputStreamDiscard.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_outputstreamdiscard_java",
-      "community": 25,
+      "community": 151,
       "norm_label": "outputstreamdiscard.java"
     },
     {
@@ -11627,7 +11654,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/OutputStreamDiscard.java",
       "source_location": "L5",
       "id": "file_outputstreamdiscard_outputstreamdiscard",
-      "community": 25,
+      "community": 151,
       "norm_label": "outputstreamdiscard"
     },
     {
@@ -11636,7 +11663,7 @@
       "source_file": "",
       "source_location": "",
       "id": "outputstream",
-      "community": 25,
+      "community": 151,
       "norm_label": "outputstream"
     },
     {
@@ -11645,7 +11672,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/OutputStreamDiscard.java",
       "source_location": "L9",
       "id": "file_outputstreamdiscard_outputstreamdiscard_outputstreamdiscard",
-      "community": 25,
+      "community": 151,
       "norm_label": ".outputstreamdiscard()"
     },
     {
@@ -11654,7 +11681,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/OutputStreamDiscard.java",
       "source_location": "L12",
       "id": "file_outputstreamdiscard_outputstreamdiscard_write",
-      "community": 25,
+      "community": 151,
       "norm_label": ".write()"
     },
     {
@@ -11663,7 +11690,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/file/OutputStreamDiscard.java",
       "source_location": "L12",
       "id": "backend_src_main_java_com_kjh_groupware_domain_file_outputstreamdiscard_java_override",
-      "community": 25,
+      "community": 151,
       "norm_label": "override"
     },
     {
@@ -11843,7 +11870,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_domain_log_auditlogcontroller_java",
-      "community": 52,
+      "community": 1,
       "norm_label": "auditlogcontroller.java"
     },
     {
@@ -11852,7 +11879,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L13",
       "id": "log_auditlogcontroller_auditlogcontroller",
-      "community": 52,
+      "community": 1,
       "norm_label": "auditlogcontroller"
     },
     {
@@ -11861,7 +11888,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L20",
       "id": "log_auditlogcontroller_auditlogcontroller_findrecent",
-      "community": 52,
+      "community": 1,
       "norm_label": ".findrecent()"
     },
     {
@@ -11870,7 +11897,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L20",
       "id": "backend_src_main_java_com_kjh_groupware_domain_log_auditlogcontroller_java_apiresponse",
-      "community": 52,
+      "community": 1,
       "norm_label": "apiresponse"
     },
     {
@@ -11879,7 +11906,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L20",
       "id": "backend_src_main_java_com_kjh_groupware_domain_log_auditlogcontroller_java_list",
-      "community": 52,
+      "community": 1,
       "norm_label": "list"
     },
     {
@@ -11888,7 +11915,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L20",
       "id": "backend_src_main_java_com_kjh_groupware_domain_log_auditlogcontroller_java_auditlogresponse",
-      "community": 52,
+      "community": 1,
       "norm_label": "auditlogresponse"
     },
     {
@@ -11897,7 +11924,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L20",
       "id": "backend_src_main_java_com_kjh_groupware_domain_log_auditlogcontroller_java_getmapping",
-      "community": 52,
+      "community": 1,
       "norm_label": "getmapping"
     },
     {
@@ -11906,7 +11933,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L25",
       "id": "log_auditlogcontroller_auditlogcontroller_findpage",
-      "community": 52,
+      "community": 1,
       "norm_label": ".findpage()"
     },
     {
@@ -11915,7 +11942,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/log/AuditLogController.java",
       "source_location": "L25",
       "id": "backend_src_main_java_com_kjh_groupware_domain_log_auditlogcontroller_java_pageresponse",
-      "community": 52,
+      "community": 1,
       "norm_label": "pageresponse"
     },
     {
@@ -13508,7 +13535,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/notification/NotificationService.java",
       "source_location": "L56",
       "id": "notification_notificationservice_notificationservice_notifyemp",
-      "community": 19,
+      "community": 9,
       "norm_label": ".notifyemp()"
     },
     {
@@ -13526,7 +13553,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/notification/NotificationService.java",
       "source_location": "L56",
       "id": "backend_src_main_java_com_kjh_groupware_domain_notification_notificationservice_java_notification",
-      "community": 19,
+      "community": 9,
       "norm_label": "notification"
     },
     {
@@ -13913,7 +13940,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/exception/BusinessException.java",
       "source_location": "L1",
       "id": "backend_src_main_java_com_kjh_groupware_global_exception_businessexception_java",
-      "community": 147,
+      "community": 12,
       "norm_label": "businessexception.java"
     },
     {
@@ -13922,7 +13949,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/exception/BusinessException.java",
       "source_location": "L5",
       "id": "exception_businessexception_businessexception",
-      "community": 147,
+      "community": 12,
       "norm_label": "businessexception"
     },
     {
@@ -13931,7 +13958,7 @@
       "source_file": "",
       "source_location": "",
       "id": "runtimeexception",
-      "community": 147,
+      "community": 12,
       "norm_label": "runtimeexception"
     },
     {
@@ -13940,7 +13967,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/exception/BusinessException.java",
       "source_location": "L10",
       "id": "exception_businessexception_businessexception_businessexception",
-      "community": 147,
+      "community": 12,
       "norm_label": ".businessexception()"
     },
     {
@@ -13949,7 +13976,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/exception/BusinessException.java",
       "source_location": "L10",
       "id": "backend_src_main_java_com_kjh_groupware_global_exception_businessexception_java_string",
-      "community": 147,
+      "community": 12,
       "norm_label": "string"
     },
     {
@@ -13958,7 +13985,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/exception/BusinessException.java",
       "source_location": "L10",
       "id": "backend_src_main_java_com_kjh_groupware_global_exception_businessexception_java_httpstatus",
-      "community": 147,
+      "community": 12,
       "norm_label": "httpstatus"
     },
     {
@@ -13994,7 +14021,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/exception/BusinessException.java",
       "source_location": "L28",
       "id": "exception_businessexception_businessexception_notfound",
-      "community": 11,
+      "community": 25,
       "norm_label": ".notfound()"
     },
     {
@@ -14003,7 +14030,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/exception/BusinessException.java",
       "source_location": "L32",
       "id": "exception_businessexception_businessexception_getcode",
-      "community": 147,
+      "community": 12,
       "norm_label": ".getcode()"
     },
     {
@@ -14084,7 +14111,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/exception/GlobalExceptionHandler.java",
       "source_location": "L25",
       "id": "businessexception",
-      "community": 139,
+      "community": 11,
       "norm_label": "businessexception"
     },
     {
@@ -14426,7 +14453,7 @@
       "source_file": "backend/src/main/java/com/kjh/groupware/global/security/CurrentEmpProvider.java",
       "source_location": "L17",
       "id": "security_currentempprovider_currentempprovider_getcurrentemp",
-      "community": 0,
+      "community": 139,
       "norm_label": ".getcurrentemp()"
     },
     {
@@ -15011,7 +15038,7 @@
       "source_file": "backend/src/test/java/com/kjh/groupware/domain/approval/ApprovalServiceWorkflowTest.java",
       "source_location": "L75",
       "id": "approval_approvalserviceworkflowtest_approvalserviceworkflowtest_setup",
-      "community": 17,
+      "community": 9,
       "norm_label": ".setup()"
     },
     {
@@ -15816,10 +15843,19 @@
       "norm_label": "approvalboxapi"
     },
     {
+      "label": "MoldFixturePart",
+      "file_type": "code",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L109",
+      "id": "src_app_moldfixturepart",
+      "community": 4,
+      "norm_label": "moldfixturepart"
+    },
+    {
       "label": "DEFAULT_APPROVAL_TEMPLATES",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L110",
+      "source_location": "L117",
       "id": "src_app_default_approval_templates",
       "community": 4,
       "norm_label": "default_approval_templates"
@@ -15828,7 +15864,7 @@
       "label": "todayDate()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L123",
+      "source_location": "L130",
       "id": "src_app_todaydate",
       "community": 140,
       "norm_label": "todaydate()"
@@ -15837,7 +15873,7 @@
       "label": "defaultDelegationForm()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L127",
+      "source_location": "L134",
       "id": "src_app_defaultdelegationform",
       "community": 140,
       "norm_label": "defaultdelegationform()"
@@ -15846,7 +15882,7 @@
       "label": "defaultOperationSettingsForm()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L137",
+      "source_location": "L144",
       "id": "src_app_defaultoperationsettingsform",
       "community": 4,
       "norm_label": "defaultoperationsettingsform()"
@@ -15855,7 +15891,7 @@
       "label": "defaultApprovalForm()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L146",
+      "source_location": "L153",
       "id": "src_app_defaultapprovalform",
       "community": 4,
       "norm_label": "defaultapprovalform()"
@@ -15864,7 +15900,7 @@
       "label": "idsFromJson()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L163",
+      "source_location": "L170",
       "id": "src_app_idsfromjson",
       "community": 28,
       "norm_label": "idsfromjson()"
@@ -15873,7 +15909,7 @@
       "label": "clampApprovalSlotCount()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L167",
+      "source_location": "L174",
       "id": "src_app_clampapprovalslotcount",
       "community": 4,
       "norm_label": "clampapprovalslotcount()"
@@ -15882,7 +15918,7 @@
       "label": "approvalDraftData()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L171",
+      "source_location": "L178",
       "id": "src_app_approvaldraftdata",
       "community": 28,
       "norm_label": "approvaldraftdata()"
@@ -15891,7 +15927,7 @@
       "label": "approvalContent()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L191",
+      "source_location": "L198",
       "id": "src_app_approvalcontent",
       "community": 28,
       "norm_label": "approvalcontent()"
@@ -15900,7 +15936,7 @@
       "label": "isDraftTemplateCode()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L196",
+      "source_location": "L203",
       "id": "src_app_isdrafttemplatecode",
       "community": 36,
       "norm_label": "isdrafttemplatecode()"
@@ -15909,7 +15945,7 @@
       "label": "isEquipmentProposalTemplateCode()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L200",
+      "source_location": "L207",
       "id": "src_app_isequipmentproposaltemplatecode",
       "community": 36,
       "norm_label": "isequipmentproposaltemplatecode()"
@@ -15918,7 +15954,7 @@
       "label": "equipmentProposalTitle()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L204",
+      "source_location": "L211",
       "id": "src_app_equipmentproposaltitle",
       "community": 36,
       "norm_label": "equipmentproposaltitle()"
@@ -15927,7 +15963,7 @@
       "label": "equipmentProposalItemLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L208",
+      "source_location": "L215",
       "id": "src_app_equipmentproposalitemlabel",
       "community": 36,
       "norm_label": "equipmentproposalitemlabel()"
@@ -15936,7 +15972,7 @@
       "label": "equipmentProposalCapacityLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L212",
+      "source_location": "L219",
       "id": "src_app_equipmentproposalcapacitylabel",
       "community": 36,
       "norm_label": "equipmentproposalcapacitylabel()"
@@ -15945,7 +15981,7 @@
       "label": "equipmentProposalItemFallback()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L216",
+      "source_location": "L223",
       "id": "src_app_equipmentproposalitemfallback",
       "community": 4,
       "norm_label": "equipmentproposalitemfallback()"
@@ -15954,16 +15990,52 @@
       "label": "isMoldFixtureTemplateCode()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L220",
+      "source_location": "L227",
       "id": "src_app_ismoldfixturetemplatecode",
       "community": 36,
       "norm_label": "ismoldfixturetemplatecode()"
     },
     {
+      "label": "blankMoldFixturePart()",
+      "file_type": "code",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L231",
+      "id": "src_app_blankmoldfixturepart",
+      "community": 152,
+      "norm_label": "blankmoldfixturepart()"
+    },
+    {
+      "label": "normalizeMoldFixtureParts()",
+      "file_type": "code",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L235",
+      "id": "src_app_normalizemoldfixtureparts",
+      "community": 152,
+      "norm_label": "normalizemoldfixtureparts()"
+    },
+    {
+      "label": "parseMoldFixtureParts()",
+      "file_type": "code",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L246",
+      "id": "src_app_parsemoldfixtureparts",
+      "community": 152,
+      "norm_label": "parsemoldfixtureparts()"
+    },
+    {
+      "label": "moldFixturePartsJson()",
+      "file_type": "code",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L275",
+      "id": "src_app_moldfixturepartsjson",
+      "community": 152,
+      "norm_label": "moldfixturepartsjson()"
+    },
+    {
       "label": "employeeDisplay()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L224",
+      "source_location": "L279",
       "id": "src_app_employeedisplay",
       "community": 4,
       "norm_label": "employeedisplay()"
@@ -15972,7 +16044,7 @@
       "label": "currentUserDeptName()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L229",
+      "source_location": "L284",
       "id": "src_app_currentuserdeptname",
       "community": 36,
       "norm_label": "currentuserdeptname()"
@@ -15981,7 +16053,7 @@
       "label": "employeesByIds()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L235",
+      "source_location": "L290",
       "id": "src_app_employeesbyids",
       "community": 140,
       "norm_label": "employeesbyids()"
@@ -15990,7 +16062,7 @@
       "label": "formatEmployeeList()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L239",
+      "source_location": "L294",
       "id": "src_app_formatemployeelist",
       "community": 140,
       "norm_label": "formatemployeelist()"
@@ -15999,7 +16071,7 @@
       "label": "approvalLinePerson()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L244",
+      "source_location": "L299",
       "id": "src_app_approvallineperson",
       "community": 4,
       "norm_label": "approvallineperson()"
@@ -16008,7 +16080,7 @@
       "label": "formatApprovalLines()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L250",
+      "source_location": "L305",
       "id": "src_app_formatapprovallines",
       "community": 28,
       "norm_label": "formatapprovallines()"
@@ -16017,7 +16089,7 @@
       "label": "approvalOpinionLines()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L255",
+      "source_location": "L310",
       "id": "src_app_approvalopinionlines",
       "community": 28,
       "norm_label": "approvalopinionlines()"
@@ -16026,7 +16098,7 @@
       "label": "defaultLineIds()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L261",
+      "source_location": "L316",
       "id": "src_app_defaultlineids",
       "community": 4,
       "norm_label": "defaultlineids()"
@@ -16035,7 +16107,7 @@
       "label": "productionEngineeringManagerId()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L268",
+      "source_location": "L323",
       "id": "src_app_productionengineeringmanagerid",
       "community": 4,
       "norm_label": "productionengineeringmanagerid()"
@@ -16044,7 +16116,7 @@
       "label": "isDeptManagerUser()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L275",
+      "source_location": "L330",
       "id": "src_app_isdeptmanageruser",
       "community": 36,
       "norm_label": "isdeptmanageruser()"
@@ -16053,7 +16125,7 @@
       "label": "defaultLinePayload()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L287",
+      "source_location": "L342",
       "id": "src_app_defaultlinepayload",
       "community": 4,
       "norm_label": "defaultlinepayload()"
@@ -16062,7 +16134,7 @@
       "label": "templateOptionFromApi()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L302",
+      "source_location": "L357",
       "id": "src_app_templateoptionfromapi",
       "community": 4,
       "norm_label": "templateoptionfromapi()"
@@ -16071,7 +16143,7 @@
       "label": "templateAdminFormFromOption()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L315",
+      "source_location": "L370",
       "id": "src_app_templateadminformfromoption",
       "community": 4,
       "norm_label": "templateadminformfromoption()"
@@ -16080,7 +16152,7 @@
       "label": "parseTemplateFields()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L327",
+      "source_location": "L382",
       "id": "src_app_parsetemplatefields",
       "community": 36,
       "norm_label": "parsetemplatefields()"
@@ -16089,7 +16161,7 @@
       "label": "isRequiredTemplateField()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L346",
+      "source_location": "L401",
       "id": "src_app_isrequiredtemplatefield",
       "community": 4,
       "norm_label": "isrequiredtemplatefield()"
@@ -16098,7 +16170,7 @@
       "label": "routeLabels",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L350",
+      "source_location": "L405",
       "id": "src_app_routelabels",
       "community": 4,
       "norm_label": "routelabels"
@@ -16107,7 +16179,7 @@
       "label": "menu",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L360",
+      "source_location": "L415",
       "id": "src_app_menu",
       "community": 4,
       "norm_label": "menu"
@@ -16116,7 +16188,7 @@
       "label": "formatDate()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L369",
+      "source_location": "L424",
       "id": "src_app_formatdate",
       "community": 28,
       "norm_label": "formatdate()"
@@ -16125,7 +16197,7 @@
       "label": "Empty()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L374",
+      "source_location": "L429",
       "id": "src_app_empty",
       "community": 4,
       "norm_label": "empty()"
@@ -16134,7 +16206,7 @@
       "label": "loadAttachmentPresence()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L383",
+      "source_location": "L438",
       "id": "src_app_loadattachmentpresence",
       "community": 4,
       "norm_label": "loadattachmentpresence()"
@@ -16143,7 +16215,7 @@
       "label": "uploadAttachments()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L395",
+      "source_location": "L450",
       "id": "src_app_uploadattachments",
       "community": 4,
       "norm_label": "uploadattachments()"
@@ -16152,7 +16224,7 @@
       "label": "displayBoardName()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L404",
+      "source_location": "L459",
       "id": "src_app_displayboardname",
       "community": 4,
       "norm_label": "displayboardname()"
@@ -16161,7 +16233,7 @@
       "label": "App()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L408",
+      "source_location": "L463",
       "id": "src_app_app",
       "community": 4,
       "norm_label": "app()"
@@ -16170,7 +16242,7 @@
       "label": "LoginPage()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L532",
+      "source_location": "L587",
       "id": "src_app_loginpage",
       "community": 4,
       "norm_label": "loginpage()"
@@ -16179,7 +16251,7 @@
       "label": "Dashboard()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L597",
+      "source_location": "L652",
       "id": "src_app_dashboard",
       "community": 4,
       "norm_label": "dashboard()"
@@ -16188,7 +16260,7 @@
       "label": "CardHeader()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L668",
+      "source_location": "L723",
       "id": "src_app_cardheader",
       "community": 4,
       "norm_label": "cardheader()"
@@ -16197,7 +16269,7 @@
       "label": "MetricCard()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L681",
+      "source_location": "L736",
       "id": "src_app_metriccard",
       "community": 4,
       "norm_label": "metriccard()"
@@ -16206,7 +16278,7 @@
       "label": "MiniCalendar()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L692",
+      "source_location": "L747",
       "id": "src_app_minicalendar",
       "community": 4,
       "norm_label": "minicalendar()"
@@ -16215,7 +16287,7 @@
       "label": "NoticePage()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L709",
+      "source_location": "L764",
       "id": "src_app_noticepage",
       "community": 28,
       "norm_label": "noticepage()"
@@ -16224,7 +16296,7 @@
       "label": "BoardPage()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L826",
+      "source_location": "L881",
       "id": "src_app_boardpage",
       "community": 28,
       "norm_label": "boardpage()"
@@ -16233,7 +16305,7 @@
       "label": "ApprovalPage()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L982",
+      "source_location": "L1037",
       "id": "src_app_approvalpage",
       "community": 36,
       "norm_label": "approvalpage()"
@@ -16242,7 +16314,7 @@
       "label": "TemplateFieldInputs()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2205",
+      "source_location": "L2260",
       "id": "src_app_templatefieldinputs",
       "community": 4,
       "norm_label": "templatefieldinputs()"
@@ -16251,7 +16323,7 @@
       "label": "EquipmentProposalEditor()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2251",
+      "source_location": "L2306",
       "id": "src_app_equipmentproposaleditor",
       "community": 36,
       "norm_label": "equipmentproposaleditor()"
@@ -16260,7 +16332,7 @@
       "label": "EquipmentProposalUserSection()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2283",
+      "source_location": "L2346",
       "id": "src_app_equipmentproposalusersection",
       "community": 36,
       "norm_label": "equipmentproposalusersection()"
@@ -16269,16 +16341,25 @@
       "label": "MoldFixtureProposalUserSection()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2359",
+      "source_location": "L2422",
       "id": "src_app_moldfixtureproposalusersection",
       "community": 36,
       "norm_label": "moldfixtureproposalusersection()"
     },
     {
+      "label": "MoldFixturePartTable()",
+      "file_type": "code",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L2490",
+      "id": "src_app_moldfixtureparttable",
+      "community": 152,
+      "norm_label": "moldfixtureparttable()"
+    },
+    {
       "label": "requiredLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2423",
+      "source_location": "L2539",
       "id": "src_app_requiredlabel",
       "community": 36,
       "norm_label": "requiredlabel()"
@@ -16287,7 +16368,7 @@
       "label": "equipmentProposalContent()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2427",
+      "source_location": "L2543",
       "id": "src_app_equipmentproposalcontent",
       "community": 36,
       "norm_label": "equipmentproposalcontent()"
@@ -16296,7 +16377,7 @@
       "label": "APPROVAL_BOXES",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2478",
+      "source_location": "L2594",
       "id": "src_app_approval_boxes",
       "community": 4,
       "norm_label": "approval_boxes"
@@ -16305,7 +16386,7 @@
       "label": "isApprovalBox()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2488",
+      "source_location": "L2604",
       "id": "src_app_isapprovalbox",
       "community": 4,
       "norm_label": "isapprovalbox()"
@@ -16314,7 +16395,7 @@
       "label": "TemplateSelectModal()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2492",
+      "source_location": "L2608",
       "id": "src_app_templateselectmodal",
       "community": 4,
       "norm_label": "templateselectmodal()"
@@ -16323,7 +16404,7 @@
       "label": "TemplatePaperPreview()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2544",
+      "source_location": "L2660",
       "id": "src_app_templatepaperpreview",
       "community": 36,
       "norm_label": "templatepaperpreview()"
@@ -16332,7 +16413,7 @@
       "label": "TemplateMiniStamp()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2606",
+      "source_location": "L2722",
       "id": "src_app_templateministamp",
       "community": 4,
       "norm_label": "templateministamp()"
@@ -16341,7 +16422,7 @@
       "label": "ApprovalListTable()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2620",
+      "source_location": "L2736",
       "id": "src_app_approvallisttable",
       "community": 4,
       "norm_label": "approvallisttable()"
@@ -16350,7 +16431,7 @@
       "label": "DeletedApprovalListTable()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2659",
+      "source_location": "L2775",
       "id": "src_app_deletedapprovallisttable",
       "community": 4,
       "norm_label": "deletedapprovallisttable()"
@@ -16359,7 +16440,7 @@
       "label": "ApprovalRetentionAuditTable()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2694",
+      "source_location": "L2810",
       "id": "src_app_approvalretentionaudittable",
       "community": 4,
       "norm_label": "approvalretentionaudittable()"
@@ -16368,7 +16449,7 @@
       "label": "ApprovalDetailView()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2729",
+      "source_location": "L2845",
       "id": "src_app_approvaldetailview",
       "community": 28,
       "norm_label": "approvaldetailview()"
@@ -16377,7 +16458,7 @@
       "label": "ApprovalLineSection()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2815",
+      "source_location": "L2931",
       "id": "src_app_approvallinesection",
       "community": 4,
       "norm_label": "approvallinesection()"
@@ -16386,7 +16467,7 @@
       "label": "EquipmentProposalDetailView()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L2840",
+      "source_location": "L2956",
       "id": "src_app_equipmentproposaldetailview",
       "community": 36,
       "norm_label": "equipmentproposaldetailview()"
@@ -16395,7 +16476,7 @@
       "label": "equipmentApprovalGroups()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3015",
+      "source_location": "L3131",
       "id": "src_app_equipmentapprovalgroups",
       "community": 36,
       "norm_label": "equipmentapprovalgroups()"
@@ -16404,7 +16485,7 @@
       "label": "EquipmentSectionStamp()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3036",
+      "source_location": "L3152",
       "id": "src_app_equipmentsectionstamp",
       "community": 41,
       "norm_label": "equipmentsectionstamp()"
@@ -16413,7 +16494,7 @@
       "label": "approvalLinePersonId()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3086",
+      "source_location": "L3202",
       "id": "src_app_approvallinepersonid",
       "community": 41,
       "norm_label": "approvallinepersonid()"
@@ -16422,7 +16503,7 @@
       "label": "StampDisplayColumn",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3090",
+      "source_location": "L3206",
       "id": "src_app_stampdisplaycolumn",
       "community": 4,
       "norm_label": "stampdisplaycolumn"
@@ -16431,7 +16512,7 @@
       "label": "emptyStampColumn()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3100",
+      "source_location": "L3216",
       "id": "src_app_emptystampcolumn",
       "community": 41,
       "norm_label": "emptystampcolumn()"
@@ -16440,7 +16521,7 @@
       "label": "padStampColumns()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3112",
+      "source_location": "L3228",
       "id": "src_app_padstampcolumns",
       "community": 41,
       "norm_label": "padstampcolumns()"
@@ -16449,7 +16530,7 @@
       "label": "withStampHeaders()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3120",
+      "source_location": "L3236",
       "id": "src_app_withstampheaders",
       "community": 41,
       "norm_label": "withstampheaders()"
@@ -16458,7 +16539,7 @@
       "label": "equipmentStageLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3127",
+      "source_location": "L3243",
       "id": "src_app_equipmentstagelabel",
       "community": 36,
       "norm_label": "equipmentstagelabel()"
@@ -16467,7 +16548,7 @@
       "label": "ClassicDraftEditor()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3139",
+      "source_location": "L3255",
       "id": "src_app_classicdrafteditor",
       "community": 140,
       "norm_label": "classicdrafteditor()"
@@ -16476,7 +16557,7 @@
       "label": "ClassicDraftDetailView()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3205",
+      "source_location": "L3321",
       "id": "src_app_classicdraftdetailview",
       "community": 28,
       "norm_label": "classicdraftdetailview()"
@@ -16485,7 +16566,7 @@
       "label": "EmployeeMultiPicker()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3271",
+      "source_location": "L3387",
       "id": "src_app_employeemultipicker",
       "community": 4,
       "norm_label": "employeemultipicker()"
@@ -16494,7 +16575,7 @@
       "label": "downloadApprovalPdf()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3398",
+      "source_location": "L3514",
       "id": "src_app_downloadapprovalpdf",
       "community": 35,
       "norm_label": "downloadapprovalpdf()"
@@ -16503,7 +16584,7 @@
       "label": "documentPrefix()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3410",
+      "source_location": "L3526",
       "id": "src_app_documentprefix",
       "community": 140,
       "norm_label": "documentprefix()"
@@ -16512,7 +16593,7 @@
       "label": "templateName()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3418",
+      "source_location": "L3534",
       "id": "src_app_templatename",
       "community": 28,
       "norm_label": "templatename()"
@@ -16521,7 +16602,7 @@
       "label": "priorityLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3422",
+      "source_location": "L3538",
       "id": "src_app_prioritylabel",
       "community": 28,
       "norm_label": "prioritylabel()"
@@ -16530,7 +16611,7 @@
       "label": "statusLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3426",
+      "source_location": "L3542",
       "id": "src_app_statuslabel",
       "community": 28,
       "norm_label": "statuslabel()"
@@ -16539,7 +16620,7 @@
       "label": "retentionAuditActionLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3439",
+      "source_location": "L3555",
       "id": "src_app_retentionauditactionlabel",
       "community": 4,
       "norm_label": "retentionauditactionlabel()"
@@ -16548,7 +16629,7 @@
       "label": "stageLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3445",
+      "source_location": "L3561",
       "id": "src_app_stagelabel",
       "community": 28,
       "norm_label": "stagelabel()"
@@ -16557,7 +16638,7 @@
       "label": "lineStatusLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3459",
+      "source_location": "L3575",
       "id": "src_app_linestatuslabel",
       "community": 4,
       "norm_label": "linestatuslabel()"
@@ -16566,7 +16647,7 @@
       "label": "lineTypeLabel()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3473",
+      "source_location": "L3589",
       "id": "src_app_linetypelabel",
       "community": 4,
       "norm_label": "linetypelabel()"
@@ -16575,7 +16656,7 @@
       "label": "lineDueText()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3484",
+      "source_location": "L3600",
       "id": "src_app_lineduetext",
       "community": 28,
       "norm_label": "lineduetext()"
@@ -16584,7 +16665,7 @@
       "label": "lineAssignedName()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3490",
+      "source_location": "L3606",
       "id": "src_app_lineassignedname",
       "community": 41,
       "norm_label": "lineassignedname()"
@@ -16593,7 +16674,7 @@
       "label": "lineActedName()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3494",
+      "source_location": "L3610",
       "id": "src_app_lineactedname",
       "community": 41,
       "norm_label": "lineactedname()"
@@ -16602,7 +16683,7 @@
       "label": "isDelegatedAction()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3498",
+      "source_location": "L3614",
       "id": "src_app_isdelegatedaction",
       "community": 41,
       "norm_label": "isdelegatedaction()"
@@ -16611,7 +16692,7 @@
       "label": "delegatedActionText()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3503",
+      "source_location": "L3619",
       "id": "src_app_delegatedactiontext",
       "community": 41,
       "norm_label": "delegatedactiontext()"
@@ -16620,7 +16701,7 @@
       "label": "approvalProgress()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3508",
+      "source_location": "L3624",
       "id": "src_app_approvalprogress",
       "community": 28,
       "norm_label": "approvalprogress()"
@@ -16629,7 +16710,7 @@
       "label": "receiverProgress()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3518",
+      "source_location": "L3634",
       "id": "src_app_receiverprogress",
       "community": 28,
       "norm_label": "receiverprogress()"
@@ -16638,7 +16719,7 @@
       "label": "ApproverPicker()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3526",
+      "source_location": "L3642",
       "id": "src_app_approverpicker",
       "community": 4,
       "norm_label": "approverpicker()"
@@ -16647,7 +16728,7 @@
       "label": "mergeEmployees()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3657",
+      "source_location": "L3773",
       "id": "src_app_mergeemployees",
       "community": 4,
       "norm_label": "mergeemployees()"
@@ -16656,7 +16737,7 @@
       "label": "ApprovalLineTableEditor()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3663",
+      "source_location": "L3779",
       "id": "src_app_approvallinetableeditor",
       "community": 4,
       "norm_label": "approvallinetableeditor()"
@@ -16665,7 +16746,7 @@
       "label": "ApprovalStampTable()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3826",
+      "source_location": "L3942",
       "id": "src_app_approvalstamptable",
       "community": 41,
       "norm_label": "approvalstamptable()"
@@ -16674,7 +16755,7 @@
       "label": "ApprovalOpinionList()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3868",
+      "source_location": "L3984",
       "id": "src_app_approvalopinionlist",
       "community": 4,
       "norm_label": "approvalopinionlist()"
@@ -16683,7 +16764,7 @@
       "label": "signatureDisplayName()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3895",
+      "source_location": "L4011",
       "id": "src_app_signaturedisplayname",
       "community": 41,
       "norm_label": "signaturedisplayname()"
@@ -16692,7 +16773,7 @@
       "label": "ApprovalLineView()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3904",
+      "source_location": "L4020",
       "id": "src_app_approvallineview",
       "community": 4,
       "norm_label": "approvallineview()"
@@ -16701,7 +16782,7 @@
       "label": "NotificationPage()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3921",
+      "source_location": "L4037",
       "id": "src_app_notificationpage",
       "community": 4,
       "norm_label": "notificationpage()"
@@ -16710,7 +16791,7 @@
       "label": "OrganizationPage()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L3969",
+      "source_location": "L4085",
       "id": "src_app_organizationpage",
       "community": 4,
       "norm_label": "organizationpage()"
@@ -16719,7 +16800,7 @@
       "label": "DeptTree()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4030",
+      "source_location": "L4146",
       "id": "src_app_depttree",
       "community": 4,
       "norm_label": "depttree()"
@@ -16728,7 +16809,7 @@
       "label": "AuditLogPage()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4039",
+      "source_location": "L4155",
       "id": "src_app_auditlogpage",
       "community": 4,
       "norm_label": "auditlogpage()"
@@ -16737,7 +16818,7 @@
       "label": "AccessDenied()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4077",
+      "source_location": "L4193",
       "id": "src_app_accessdenied",
       "community": 4,
       "norm_label": "accessdenied()"
@@ -16746,7 +16827,7 @@
       "label": "Toolbar()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4086",
+      "source_location": "L4202",
       "id": "src_app_toolbar",
       "community": 4,
       "norm_label": "toolbar()"
@@ -16755,7 +16836,7 @@
       "label": "ListSummary()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4099",
+      "source_location": "L4215",
       "id": "src_app_listsummary",
       "community": 4,
       "norm_label": "listsummary()"
@@ -16764,7 +16845,7 @@
       "label": "ContentTable()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4103",
+      "source_location": "L4219",
       "id": "src_app_contenttable",
       "community": 4,
       "norm_label": "contenttable()"
@@ -16773,7 +16854,7 @@
       "label": "DetailPage()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4152",
+      "source_location": "L4268",
       "id": "src_app_detailpage",
       "community": 4,
       "norm_label": "detailpage()"
@@ -16782,7 +16863,7 @@
       "label": "TwoPane()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4163",
+      "source_location": "L4279",
       "id": "src_app_twopane",
       "community": 4,
       "norm_label": "twopane()"
@@ -16791,7 +16872,7 @@
       "label": "EmptyDetail()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4172",
+      "source_location": "L4288",
       "id": "src_app_emptydetail",
       "community": 4,
       "norm_label": "emptydetail()"
@@ -16800,7 +16881,7 @@
       "label": "ReadDetail()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4182",
+      "source_location": "L4298",
       "id": "src_app_readdetail",
       "community": 4,
       "norm_label": "readdetail()"
@@ -16809,7 +16890,7 @@
       "label": "NoticeEditor()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4214",
+      "source_location": "L4330",
       "id": "src_app_noticeeditor",
       "community": 4,
       "norm_label": "noticeeditor()"
@@ -16818,7 +16899,7 @@
       "label": "BoardEditor()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4241",
+      "source_location": "L4357",
       "id": "src_app_boardeditor",
       "community": 4,
       "norm_label": "boardeditor()"
@@ -16827,7 +16908,7 @@
       "label": "EditorTools()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4268",
+      "source_location": "L4384",
       "id": "src_app_editortools",
       "community": 4,
       "norm_label": "editortools()"
@@ -16836,7 +16917,7 @@
       "label": "DraftAttachmentPicker()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4287",
+      "source_location": "L4403",
       "id": "src_app_draftattachmentpicker",
       "community": 4,
       "norm_label": "draftattachmentpicker()"
@@ -16845,7 +16926,7 @@
       "label": "RichContent()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4323",
+      "source_location": "L4439",
       "id": "src_app_richcontent",
       "community": 4,
       "norm_label": "richcontent()"
@@ -16854,7 +16935,7 @@
       "label": "EditorHeader()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4344",
+      "source_location": "L4460",
       "id": "src_app_editorheader",
       "community": 4,
       "norm_label": "editorheader()"
@@ -16863,7 +16944,7 @@
       "label": "CommentBox()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4357",
+      "source_location": "L4473",
       "id": "src_app_commentbox",
       "community": 4,
       "norm_label": "commentbox()"
@@ -16872,7 +16953,7 @@
       "label": "AttachmentBox()",
       "file_type": "code",
       "source_file": "frontend/src/App.tsx",
-      "source_location": "L4378",
+      "source_location": "L4494",
       "id": "src_app_attachmentbox",
       "community": 4,
       "norm_label": "attachmentbox()"
@@ -35714,6 +35795,17 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L11",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java",
+      "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_jsonnode"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
       "source_location": "L22",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -36231,6 +36323,16 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L458",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice",
+      "target": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
       "source_location": "L145",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -36356,6 +36458,16 @@
       "confidence_score": 1.0,
       "source": "approval_approvalpdfservice_approvalpdfservice",
       "target": "approval_approvalpdfservice_approvalpdfservice_stampheader"
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L493",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice",
+      "target": "approval_approvalpdfservice_approvalpdfservice_text"
     },
     {
       "relation": "method",
@@ -37008,6 +37120,17 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L458",
+      "weight": 1.0,
+      "context": "generic_arg",
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts",
+      "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_string"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
       "source_location": "L844",
       "weight": 1.0,
       "context": "return_type",
@@ -37046,6 +37169,17 @@
       "context": "return_type",
       "confidence_score": 1.0,
       "source": "approval_approvalpdfservice_approvalpdfservice_stampheader",
+      "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_string"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L493",
+      "weight": 1.0,
+      "context": "return_type",
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_text",
       "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_string"
     },
     {
@@ -37453,6 +37587,17 @@
       "context": "parameter_type",
       "confidence_score": 1.0,
       "source": "approval_approvalpdfservice_approvalpdfservice_linesummary",
+      "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_list"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L458",
+      "weight": 1.0,
+      "context": "return_type",
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts",
       "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_list"
     },
     {
@@ -38402,6 +38547,17 @@
       "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_approvalequipmentproposal"
     },
     {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L458",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts",
+      "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_approvalequipmentproposal"
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -39301,7 +39457,62 @@
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "approval_approvalpdfservice_approvalpdfservice_drawmoldparttable",
+      "target": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L445",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_drawmoldparttable",
       "target": "approval_approvalpdfservice_approvalpdfservice_safe"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L483",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts",
+      "target": "approval_approvalpdfservice_approvalpdfservice_safe"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L466",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts",
+      "target": "approval_approvalpdfservice_approvalpdfservice_text"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L478",
+      "weight": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_moldfixtureparts",
+      "target": "auth_loginratelimiter_loginratelimiter_clear"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalPdfService.java",
+      "source_location": "L493",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "confidence_score": 1.0,
+      "source": "approval_approvalpdfservice_approvalpdfservice_text",
+      "target": "backend_src_main_java_com_kjh_groupware_domain_approval_approvalpdfservice_java_jsonnode"
     },
     {
       "relation": "calls",
@@ -67969,6 +68180,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/App.tsx",
+      "source_location": "L231",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "frontend_src_app_tsx",
+      "target": "src_app_blankmoldfixturepart"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
       "source_location": "L4076",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -68669,11 +68890,51 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "frontend/src/App.tsx",
+      "source_location": "L109",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "frontend_src_app_tsx",
+      "target": "src_app_moldfixturepart"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L277",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "frontend_src_app_tsx",
+      "target": "src_app_moldfixturepartsjson"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L2492",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "frontend_src_app_tsx",
+      "target": "src_app_moldfixtureparttable"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
       "source_location": "L2359",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "frontend_src_app_tsx",
-      "target": "src_app_moldfixtureproposalusersection",
-      "confidence_score": 1.0
+      "target": "src_app_moldfixtureproposalusersection"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L235",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "frontend_src_app_tsx",
+      "target": "src_app_normalizemoldfixtureparts"
     },
     {
       "relation": "contains",
@@ -68734,6 +68995,16 @@
       "confidence_score": 1.0,
       "source": "frontend_src_app_tsx",
       "target": "src_app_padstampcolumns"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L246",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "frontend_src_app_tsx",
+      "target": "src_app_parsemoldfixtureparts"
     },
     {
       "relation": "contains",
@@ -69497,9 +69768,9 @@
       "source_file": "frontend/src/App.tsx",
       "source_location": "L2875",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_equipmentproposaldetailview",
-      "target": "src_app_ismoldfixturetemplatecode",
-      "confidence_score": 1.0
+      "target": "src_app_ismoldfixturetemplatecode"
     },
     {
       "relation": "calls",
@@ -69508,9 +69779,9 @@
       "source_file": "frontend/src/App.tsx",
       "source_location": "L2274",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_equipmentproposaleditor",
-      "target": "src_app_ismoldfixturetemplatecode",
-      "confidence_score": 1.0
+      "target": "src_app_ismoldfixturetemplatecode"
     },
     {
       "relation": "calls",
@@ -69522,6 +69793,61 @@
       "confidence_score": 1.0,
       "source": "src_app_equipmentproposalusersection",
       "target": "src_app_ismoldfixturetemplatecode"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L236",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_app_normalizemoldfixtureparts",
+      "target": "src_app_blankmoldfixturepart"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L274",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_app_parsemoldfixtureparts",
+      "target": "src_app_blankmoldfixturepart"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L278",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_app_moldfixturepartsjson",
+      "target": "src_app_normalizemoldfixtureparts"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L2501",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_app_moldfixtureparttable",
+      "target": "src_app_normalizemoldfixtureparts"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend/src/App.tsx",
+      "source_location": "L2471",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "src_app_moldfixtureproposalusersection",
+      "target": "src_app_parsemoldfixtureparts"
     },
     {
       "relation": "calls",
@@ -69717,9 +70043,9 @@
       "source_file": "frontend/src/App.tsx",
       "source_location": "L2383",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "src_app_moldfixtureproposalusersection",
-      "target": "src_app_requiredlabel",
-      "confidence_score": 1.0
+      "target": "src_app_requiredlabel"
     },
     {
       "relation": "calls",
@@ -71046,5 +71372,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "7c218f3ec460584f9a690cf082d5bd182f4e826d"
+  "built_at_commit": "a8e75a01de55de2c87b7c2f9800bbd9d87e065d1"
 }

@@ -1,16 +1,16 @@
 # Graph Report - Groupware  (2026-06-25)
 
 ## Corpus Check
-- 198 files · ~66,886 words
+- 198 files · ~67,488 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1991 nodes · 4930 edges · 152 communities (144 shown, 8 thin omitted)
-- Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 765 edges (avg confidence: 0.8)
+- 2000 nodes · 4953 edges · 153 communities (146 shown, 7 thin omitted)
+- Extraction: 85% EXTRACTED · 15% INFERRED · 0% AMBIGUOUS · INFERRED: 766 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7c218f3e`
+- Built from commit: `a8e75a01`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -127,15 +127,16 @@
 - [[_COMMUNITY_Community 149|Community 149]]
 - [[_COMMUNITY_Community 150|Community 150]]
 - [[_COMMUNITY_Community 151|Community 151]]
+- [[_COMMUNITY_Community 152|Community 152]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `ok()` - 89 edges
-2. `ApprovalPdfService` - 59 edges
+2. `ApprovalPdfService` - 61 edges
 3. `of()` - 58 edges
 4. `BaseEntity` - 39 edges
 5. `ApprovalEquipmentProposalService` - 35 edges
-6. `ApprovalWorkflowService` - 31 edges
-7. `String` - 30 edges
+6. `String` - 32 edges
+7. `ApprovalWorkflowService` - 31 edges
 8. `PDPageContentStream` - 29 edges
 9. `PDFont` - 27 edges
 10. `BusinessException` - 25 edges
@@ -152,19 +153,19 @@
 - `ApprovalDefaultLine` --inherits--> `BaseEntity`  [EXTRACTED]
   backend/src/main/java/com/kjh/groupware/domain/approval/ApprovalDefaultLine.java → backend/src/main/java/com/kjh/groupware/global/entity/BaseEntity.java
 
-## Communities (152 total, 8 thin omitted)
+## Communities (153 total, 7 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.19
+Cohesion: 0.18
 Nodes (15): Board, BoardCommentRequest, BoardCommentResponse, BoardPost, BoardPostRequest, BoardPostResponse, BoardRequest, BoardResponse (+7 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.06
-Nodes (61): ApprovalController, ApprovalDefaultLineController, ApprovalDelegationController, ApiResponse, ApprovalActionRequest, ApprovalBoxResponse, ApprovalDashboardResponse, ApprovalRequest (+53 more)
+Cohesion: 0.05
+Nodes (67): ApprovalController, ApprovalDefaultLineController, ApprovalDelegationController, ApiResponse, ApprovalActionRequest, ApprovalBoxResponse, ApprovalDashboardResponse, ApprovalRequest (+59 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.13
-Nodes (22): ApprovalPermissionService, ApprovalService, ApprovalDocument, ApprovalLine, ApprovalPermissionResponse, Emp, List, ApprovalActionRequest (+14 more)
+Cohesion: 0.24
+Nodes (14): ApprovalLineRepository, ApprovalDocument, ApprovalLine, Collection, Emp, List, LocalDateTime, Lock (+6 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.14
@@ -172,11 +173,11 @@ Nodes (5): ApprovalDocument, Builder, Emp, Integer, String
 
 ### Community 4 - "Community 4"
 Cohesion: 0.02
-Nodes (24): APPROVAL_BOXES, ApprovalBox, ApprovalBoxApi, ApprovalDashboardFilter, ApprovalDelegationForm, ApprovalForm, ApprovalLaunch, ApprovalLineTableEditor() (+16 more)
+Nodes (25): APPROVAL_BOXES, ApprovalBox, ApprovalBoxApi, ApprovalDashboardFilter, ApprovalDelegationForm, ApprovalForm, ApprovalLaunch, ApprovalLineTableEditor() (+17 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.26
-Nodes (8): AuthService, CurrentUserResponse, Emp, List, LoginOptionResponse, LoginRequest, String, Transactional
+Cohesion: 0.18
+Nodes (10): AuthService, AuthenticatedLogin, CurrentUserResponse, Emp, List, LoginOptionResponse, LoginRequest, String (+2 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.09
@@ -184,27 +185,27 @@ Nodes (23): ApprovalEquipmentProposal, ApprovalEquipmentProposalRepository, Appr
 
 ### Community 7 - "Community 7"
 Cohesion: 0.12
-Nodes (20): ApprovalPdfService, empty(), AttachFile, ApprovalDocument, ApprovalEquipmentProposal, ApprovalLine, AttachFile, Emp (+12 more)
+Nodes (20): ApprovalPdfService, empty(), AttachFile, ApprovalDocument, ApprovalEquipmentProposal, ApprovalLine, Emp, JsonNode (+12 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.16
 Nodes (16): ApprovalDefaultLineRepository, ApprovalDefaultLineService, ApprovalDefaultLineStepRequest, ApprovalDefaultLine, Emp, List, String, ApprovalDefaultLine (+8 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.06
-Nodes (35): ApprovalLine, ApprovalReminderService, ApprovalWorkflowService, ApprovalLineResponse, ApprovalDocument, AttachFile, Builder, Emp (+27 more)
+Cohesion: 0.08
+Nodes (28): ApprovalLine, ApprovalWorkflowService, ApprovalLineResponse, ApprovalDocument, AttachFile, Builder, Emp, Integer (+20 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.26
 Nodes (9): ApprovalServiceWorkflowTest, String, ApprovalDocument, ApprovalLine, Long, String, Test, ErrorResponse (+1 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.12
-Nodes (22): ApprovalDraftService, ApprovalLinePolicyService, ApprovalDocument, ApprovalLine, ApprovalRequest, ApprovalResponse, ApprovalTemplate, AuditActionType (+14 more)
+Cohesion: 0.11
+Nodes (26): ApprovalActionCode(), code(), from(), ApprovalDraftService, ApprovalLinePolicyService, String, ApprovalDocument, ApprovalLine (+18 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.19
-Nodes (19): AccessDeniedException, ApiResponse, Object, ResponseEntity, ApiResponse, String, T, ConstraintViolationException (+11 more)
+Cohesion: 0.14
+Nodes (23): AccessDeniedException, HttpStatus, String, ApiResponse, Object, ResponseEntity, ApiResponse, String (+15 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.11
@@ -223,24 +224,24 @@ Cohesion: 0.13
 Nodes (16): ApprovalOperationSettingController, ApprovalOperationSettingRepository, ApprovalOperationSettingService, ApprovalOperationSetting, ApiResponse, ApprovalOperationSettingRequest, ApprovalOperationSettingResponse, GetMapping (+8 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.07
-Nodes (43): ApprovalDocumentRepository, ApprovalLineRepository, ApprovalQueryService, ApprovalDocument, Collection, Emp, LocalDateTime, Lock (+35 more)
+Cohesion: 0.06
+Nodes (51): ApprovalDocumentRepository, ApprovalPermissionService, ApprovalQueryService, ApprovalService, ApprovalDocument, Collection, Emp, LocalDateTime (+43 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.17
-Nodes (16): ApprovalDelegationRepository, ApprovalDelegationService, ApprovalDelegation, Emp, List, LocalDate, Optional, Query (+8 more)
+Cohesion: 0.10
+Nodes (25): ApprovalDelegationRepository, ApprovalDelegationService, ApprovalReminderService, ApprovalDelegation, Emp, List, LocalDate, Optional (+17 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.16
-Nodes (17): Emp, List, Notification, Page, Pageable, String, Boolean, List (+9 more)
+Cohesion: 0.17
+Nodes (16): Emp, List, Notification, Page, Pageable, String, Boolean, List (+8 more)
 
 ### Community 20 - "Community 20"
 Cohesion: 0.19
 Nodes (16): AuthController, ApiResponse, AuthenticatedLogin, CurrentUserResponse, GetMapping, HttpServletRequest, List, LoginOptionResponse (+8 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.18
-Nodes (15): EmpResponse, Long, PageResponse, String, Transactional, Emp, List, Long (+7 more)
+Cohesion: 0.32
+Nodes (9): Emp, List, Long, Optional, Page, Pageable, Query, String (+1 more)
 
 ### Community 22 - "Community 22"
 Cohesion: 0.08
@@ -255,8 +256,8 @@ Cohesion: 0.15
 Nodes (14): Emp, EmpSignature, Optional, String, AttachFile, Emp, EmpSignature, HttpServletRequest (+6 more)
 
 ### Community 25 - "Community 25"
-Cohesion: 0.08
-Nodes (33): AttachFile, List, Long, String, ApiResponse, AttachFileResponse, DeleteMapping, GetMapping (+25 more)
+Cohesion: 0.19
+Nodes (12): AttachFile, AttachFileResponse, Emp, List, Long, MultipartFile, Resource, String (+4 more)
 
 ### Community 26 - "Community 26"
 Cohesion: 0.16
@@ -363,8 +364,8 @@ Cohesion: 0.33
 Nodes (4): Builder, Emp, String, Notice
 
 ### Community 52 - "Community 52"
-Cohesion: 0.44
-Nodes (6): ApiResponse, AuditLogResponse, GetMapping, List, PageResponse, AuditLogController
+Cohesion: 0.25
+Nodes (14): ApiResponse, AttachFileResponse, DeleteMapping, GetMapping, HttpServletRequest, List, Long, MultipartFile (+6 more)
 
 ### Community 53 - "Community 53"
 Cohesion: 0.36
@@ -459,7 +460,7 @@ Cohesion: 0.50
 Nodes (4): Page, PageResponse, T, from()
 
 ### Community 76 - "Community 76"
-Cohesion: 0.32
+Cohesion: 0.28
 Nodes (6): AuditLogService, AuditActionType, JsonNode, Long, String, Transactional
 
 ### Community 77 - "Community 77"
@@ -523,8 +524,8 @@ Cohesion: 0.39
 Nodes (6): HttpServletRequest, HttpServletResponse, Override, FilterChain, OncePerRequestFilter, JwtAuthenticationFilter
 
 ### Community 139 - "Community 139"
-Cohesion: 0.21
-Nodes (8): ApprovalActionCode(), code(), from(), String, Emp, Long, BusinessException, CurrentEmpProvider
+Cohesion: 0.32
+Nodes (4): AttachFile, Emp, Long, CurrentEmpProvider
 
 ### Community 140 - "Community 140"
 Cohesion: 0.40
@@ -534,13 +535,17 @@ Nodes (6): ClassicDraftEditor(), defaultDelegationForm(), documentPrefix(), empl
 Cohesion: 0.23
 Nodes (14): ApiResponse, DeleteMapping, GetMapping, HttpServletRequest, Long, NoticeCommentRequest, NoticeCommentResponse, NoticeRequest (+6 more)
 
-### Community 143 - "Community 143"
+### Community 142 - "Community 142"
 Cohesion: 0.36
-Nodes (7): ApprovalDefaultLine, ApprovalDefaultLineResponse, ApprovalDefaultLineStepResponse, List, String, empty(), from()
+Nodes (6): EmpResponse, Long, PageResponse, String, Transactional, EmpQueryService
+
+### Community 143 - "Community 143"
+Cohesion: 0.21
+Nodes (10): ApprovalDefaultLine, ApprovalDefaultLineResponse, ApprovalDefaultLineStepResponse, List, String, CurrentUserResponse, Emp, empty() (+2 more)
 
 ### Community 144 - "Community 144"
-Cohesion: 0.29
-Nodes (5): ApprovalRequest, BeforeEach, Emp, List, Set
+Cohesion: 0.33
+Nodes (4): ApprovalRequest, BeforeEach, Emp, List
 
 ### Community 145 - "Community 145"
 Cohesion: 0.48
@@ -551,8 +556,8 @@ Cohesion: 0.48
 Nodes (5): ApiResponse, AuditLogResponse, GetMapping, PageResponse, AdminAuditLogController
 
 ### Community 147 - "Community 147"
-Cohesion: 0.38
-Nodes (4): HttpStatus, String, BusinessException, RuntimeException
+Cohesion: 0.33
+Nodes (5): AttachFile, List, Long, String, AttachFileRepository
 
 ### Community 148 - "Community 148"
 Cohesion: 0.47
@@ -567,28 +572,32 @@ Cohesion: 0.47
 Nodes (4): GetMapping, Map, String, HealthController
 
 ### Community 151 - "Community 151"
-Cohesion: 0.67
-Nodes (3): CurrentUserResponse, Emp, from()
+Cohesion: 0.40
+Nodes (3): Override, OutputStreamDiscard, OutputStream
+
+### Community 152 - "Community 152"
+Cohesion: 0.40
+Nodes (5): blankMoldFixturePart(), moldFixturePartsJson(), MoldFixturePartTable(), normalizeMoldFixtureParts(), parseMoldFixtureParts()
 
 ## Knowledge Gaps
-- **273 isolated node(s):** `timestamp`, `hook_event_name`, `session_id`, `transcript_path`, `tool_name` (+268 more)
+- **274 isolated node(s):** `timestamp`, `hook_event_name`, `session_id`, `transcript_path`, `tool_name` (+269 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ok()` connect `Community 1` to `Community 64`, `Community 12`, `Community 13`, `Community 14`, `Community 46`, `Community 16`, `Community 145`, `Community 146`, `Community 141`, `Community 20`, `Community 52`, `Community 25`, `Community 60`, `Community 30`?**
-  _High betweenness centrality (0.150) - this node is a cross-community bridge._
-- **Why does `of()` connect `Community 10` to `Community 0`, `Community 2`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 11`, `Community 14`, `Community 143`, `Community 17`, `Community 18`, `Community 19`, `Community 148`, `Community 149`, `Community 150`, `Community 23`, `Community 151`, `Community 21`, `Community 25`, `Community 38`, `Community 63`, `Community 65`?**
-  _High betweenness centrality (0.096) - this node is a cross-community bridge._
-- **Why does `BaseEntity` connect `Community 33` to `Community 32`, `Community 3`, `Community 6`, `Community 71`, `Community 40`, `Community 9`, `Community 44`, `Community 142`, `Community 50`, `Community 51`, `Community 56`, `Community 57`, `Community 58`, `Community 59`?**
+- **Why does `ok()` connect `Community 1` to `Community 64`, `Community 12`, `Community 13`, `Community 14`, `Community 46`, `Community 16`, `Community 145`, `Community 146`, `Community 141`, `Community 20`, `Community 52`, `Community 60`, `Community 30`?**
+  _High betweenness centrality (0.139) - this node is a cross-community bridge._
+- **Why does `of()` connect `Community 10` to `Community 0`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 11`, `Community 14`, `Community 143`, `Community 142`, `Community 17`, `Community 18`, `Community 19`, `Community 148`, `Community 149`, `Community 150`, `Community 23`, `Community 25`, `Community 38`, `Community 63`, `Community 65`?**
+  _High betweenness centrality (0.099) - this node is a cross-community bridge._
+- **Why does `BaseEntity` connect `Community 33` to `Community 32`, `Community 3`, `Community 5`, `Community 6`, `Community 71`, `Community 40`, `Community 9`, `Community 44`, `Community 50`, `Community 51`, `Community 56`, `Community 57`, `Community 58`, `Community 59`?**
   _High betweenness centrality (0.081) - this node is a cross-community bridge._
 - **Are the 85 inferred relationships involving `ok()` (e.g. with `.act()` and `.approve()`) actually correct?**
   _`ok()` has 85 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 55 inferred relationships involving `of()` (e.g. with `.recentApprovalLineReusesExistingRowAndReplacesSteps()` and `.renamePersonalOnlyRequiresLineName()`) actually correct?**
   _`of()` has 55 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `timestamp`, `hook_event_name`, `session_id` to the rest of the system?**
-  _273 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _274 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 1` be split into smaller, more focused modules?**
-  _Cohesion score 0.060835831423029445 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05442278860569715 - nodes in this community are weakly interconnected._

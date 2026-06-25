@@ -16,6 +16,7 @@ public record EquipmentProposalRequest(
     String cavity,
     String material,
     String moldNo,
+    String moldPartsJson,
     String currentState,
     String requirements,
     String instructions,

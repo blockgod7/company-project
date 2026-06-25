@@ -8,6 +8,8 @@ import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApprovalPdfService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final ApprovalDocumentRepository documentRepository;
     private final ApprovalLineRepository lineRepository;
@@ -439,12 +442,57 @@ public class ApprovalPdfService {
             drawBox(content, cx, y, cols[i], row * 3);
             cx += cols[i];
         }
-        String[] values = {proposal.getPartName(), proposal.getCavity(), proposal.getMaterial(), proposal.getQuantity(), proposal.getMoldNo()};
-        cx = x;
-        for (int i = 0; i < cols.length; i++) {
-            drawCenteredText(content, font, safe(values[i]), cx, y + row * 2 + 5, cols[i], 8, 22);
-            cx += cols[i];
+        List<String[]> parts = moldFixtureParts(proposal);
+        for (int rowIndex = 0; rowIndex < Math.min(3, parts.size()); rowIndex++) {
+            String[] values = parts.get(rowIndex);
+            cx = x;
+            float textY = y + row * (2 - rowIndex) + 5;
+            for (int i = 0; i < cols.length; i++) {
+                String text = rowIndex == 2 && parts.size() > 3 && i == 0 ? safe(values[i]) + " 외 " + (parts.size() - 3) + "건" : values[i];
+                drawCenteredText(content, font, safe(text), cx, textY, cols[i], 8, 22);
+                cx += cols[i];
+            }
         }
+    }
+
+    private List<String[]> moldFixtureParts(ApprovalEquipmentProposal proposal) {
+        List<String[]> parts = new ArrayList<>();
+        if (proposal.getMoldPartsJson() != null && !proposal.getMoldPartsJson().isBlank()) {
+            try {
+                JsonNode root = OBJECT_MAPPER.readTree(proposal.getMoldPartsJson());
+                if (root.isArray()) {
+                    for (JsonNode node : root) {
+                        String[] row = {
+                            text(node, "partName"),
+                            text(node, "cavity"),
+                            text(node, "material"),
+                            text(node, "quantity"),
+                            text(node, "moldNo")
+                        };
+                        if (java.util.Arrays.stream(row).anyMatch(value -> value != null && !value.isBlank())) {
+                            parts.add(row);
+                        }
+                    }
+                }
+            } catch (IOException ignored) {
+                parts.clear();
+            }
+        }
+        if (parts.isEmpty()) {
+            parts.add(new String[] {
+                safe(proposal.getPartName()),
+                safe(proposal.getCavity()),
+                safe(proposal.getMaterial()),
+                safe(proposal.getQuantity()),
+                safe(proposal.getMoldNo())
+            });
+        }
+        return parts;
+    }
+
+    private String text(JsonNode node, String fieldName) {
+        JsonNode value = node.get(fieldName);
+        return value == null || value.isNull() ? "" : value.asText("");
     }
 
     private void drawMoldAttachmentChecklist(PDPageContentStream content, PDFont font, float x, float y, float width, ApprovalEquipmentProposal proposal) throws IOException {

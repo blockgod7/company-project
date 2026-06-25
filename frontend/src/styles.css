@@ -2154,8 +2154,7 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   gap: 0;
   border-left: 1px solid #cbd5e1;
 }
-.mold-fixture-form > label,
-.mold-part-table > label {
+.mold-fixture-form > label {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr);
   min-height: 36px;
@@ -2177,9 +2176,7 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .mold-fixture-form .mold-half {
   grid-column: span 3;
 }
-.mold-fixture-form > label > span,
-.mold-part-table > label > span,
-.mold-part-head {
+.mold-fixture-form > label > span {
   display: flex;
   align-items: center;
   padding: 8px 10px;
@@ -2191,8 +2188,7 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 }
 .mold-fixture-form input,
 .mold-fixture-form select,
-.mold-fixture-form textarea,
-.mold-part-table input {
+.mold-fixture-form textarea {
   min-height: 34px;
   margin: 0;
   padding: 8px 10px;
@@ -2217,30 +2213,68 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 }
 .mold-part-table {
   display: grid;
-  grid-template-columns: 120px repeat(5, minmax(0, 1fr));
+  grid-template-columns: 120px repeat(4, minmax(0, 1fr)) 1.2fr 92px;
   border-right: 1px solid #cbd5e1;
   border-bottom: 1px solid #cbd5e1;
 }
-.mold-part-table .mold-part-head {
-  grid-row: span 2;
+.mold-part-table.readonly {
+  grid-template-columns: 120px repeat(4, minmax(0, 1fr)) 1.2fr;
+}
+.mold-part-title {
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  border-bottom: 0;
+  padding: 8px 10px;
+  border-right: 1px solid #cbd5e1;
+  background: #f8fafc;
   font-weight: 900;
 }
-.mold-part-table > label {
-  display: block;
-  grid-template-columns: none;
-  border-right: 0;
-  border-bottom: 0;
-}
-.mold-part-table > label > span {
+.mold-part-header {
+  display: flex;
+  align-items: center;
   justify-content: center;
   min-height: 34px;
+  padding: 8px 10px;
+  border-right: 1px solid #cbd5e1;
   border-bottom: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 900;
 }
-.mold-part-table > label input {
+.mold-part-row {
+  display: contents;
+}
+.mold-part-table input {
   width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  border-radius: 0;
+  background: #fff;
   text-align: center;
+}
+.mold-part-remove {
+  min-height: 34px;
+  border: 0;
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  border-radius: 0;
+  box-shadow: none;
+  justify-content: center;
+}
+.mold-part-add {
+  grid-column: 2 / -1;
+  min-height: 34px;
+  border: 0;
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  border-radius: 0;
+  box-shadow: none;
+  justify-content: center;
 }
 .equipment-proposal-detail .checkbox-label {
   grid-template-columns: 28px minmax(0, 1fr) !important;
@@ -2331,21 +2365,22 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
     grid-column: auto;
   }
   .mold-fixture-form > label,
-  .mold-part-table > label {
-    grid-template-columns: 128px minmax(0, 1fr);
-  }
-  .mold-part-table .mold-part-head {
+  .mold-part-title {
     grid-row: auto;
     justify-content: flex-start;
     min-height: 34px;
     border-right: 1px solid #cbd5e1;
     border-bottom: 1px solid #cbd5e1;
   }
-  .mold-part-table > label {
-    display: grid;
-  }
-  .mold-part-table > label > span {
+  .mold-part-header {
     justify-content: flex-start;
+  }
+  .mold-part-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .mold-part-add {
+    grid-column: auto;
   }
   .classic-draft-paper { padding: 18px; }
   .classic-draft-head, .classic-draft-footer-grid { grid-template-columns: 1fr; }

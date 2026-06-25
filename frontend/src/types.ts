@@ -306,6 +306,7 @@ export type EquipmentProposal = {
   cavity: string | null;
   material: string | null;
   moldNo: string | null;
+  moldPartsJson: string | null;
   currentState: string | null;
   requirements: string | null;
   instructions: string | null;

@@ -51,6 +51,7 @@ ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS part_name VARCH
 ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS cavity VARCHAR(100) NULL;
 ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS material VARCHAR(100) NULL;
 ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS mold_no VARCHAR(100) NULL;
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS mold_parts_json TEXT NULL;
 
 INSERT INTO approval_template (
     created_at,
