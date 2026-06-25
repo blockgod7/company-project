@@ -860,8 +860,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\approval_equipment_proposal_patch.sql": {
-    "mtime": 1782350572.23789,
-    "ast_hash": "3fc2943bca65f1b7e32a2eb0ac20baad",
+    "mtime": 1782352057.2689722,
+    "ast_hash": "d032793760ab9725e44dd7a0a90eed1f",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\approval_operation_setting_patch.sql": {
@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\App.tsx": {
-    "mtime": 1782350792.2553182,
-    "ast_hash": "229140cb1a7d04053ab3fb435d67bea7",
+    "mtime": 1782352733.7310324,
+    "ast_hash": "0a382045a131fbe9936f262e4c35d1d2",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\main.tsx": {

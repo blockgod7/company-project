@@ -2271,7 +2271,11 @@ function EquipmentProposalEditor({ user, employees, form, onChange }: { user: Us
           <label className="wide">{requiredLabel("문서 제목")}<input className={isAutoTitle ? "auto-title-input" : ""} required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="검색에 사용할 품의서 제목을 입력하세요." /></label>
         </div>
       </section>
-      <EquipmentProposalUserSection templateCode={form.templateCode} value={value} onChange={setValue} />
+      {isMoldFixtureTemplateCode(form.templateCode) ? (
+        <MoldFixtureProposalUserSection value={value} onChange={setValue} />
+      ) : (
+        <EquipmentProposalUserSection templateCode={form.templateCode} value={value} onChange={setValue} />
+      )}
     </article>
   );
 }
@@ -2346,6 +2350,70 @@ function EquipmentProposalUserSection({
         <label className="wide">{requiredLabel("요구사항")}<textarea required={!moldFixture} readOnly={readOnly} value={value("requirements")} onChange={change("requirements")} /></label>
         <label className="wide"><span>지시 사항</span><textarea readOnly={readOnly} value={value("instructions")} onChange={change("instructions")} /></label>
         <label className="wide"><span>경제성 검토 - 사용부서</span><textarea readOnly={readOnly} value={value("userEconomicReview")} onChange={change("userEconomicReview")} /></label>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MoldFixtureProposalUserSection({
+  value,
+  onChange,
+  readOnly = false,
+  stamp,
+  children
+}: {
+  value: (name: string) => string;
+  onChange?: (name: string, next: string) => void;
+  readOnly?: boolean;
+  stamp?: ReactNode;
+  children?: ReactNode;
+}) {
+  const change = (name: string) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    onChange?.(name, event.target.value);
+  };
+
+  return (
+    <section className="approval-detail-section mold-fixture-section">
+      <div className="equipment-section-head">
+        <h3>사용부서 작성란</h3>
+        {stamp}
+      </div>
+      <div className="mold-fixture-form">
+        <label className="mold-item-type">{requiredLabel("품목")}
+          <select required disabled={readOnly} value={value("moldFixtureType")} onChange={change("moldFixtureType")}>
+            <option value="">선택</option>
+            <option value="금형">금형</option>
+            <option value="치공구">치공구</option>
+          </select>
+        </label>
+        <label><span>고객사</span><input readOnly={readOnly} value={value("customerName")} onChange={change("customerName")} /></label>
+        <label>{requiredLabel("제품(기종)명")}<input required readOnly={readOnly} value={value("productName")} onChange={change("productName")} /></label>
+        <label>{requiredLabel("사용부서")}<input required readOnly value={value("requestDeptName")} title="작성자 소속부서로 자동 지정됩니다." /></label>
+        <label><span>용도</span><input readOnly={readOnly} value={value("usageText")} onChange={change("usageText")} /></label>
+        <label>{requiredLabel("완료요구일")}<input required type="date" readOnly={readOnly} value={value("requiredCompletionDate")} onChange={change("requiredCompletionDate")} /></label>
+        <label className="mold-request-type">{requiredLabel("구분")}
+          <select required disabled={readOnly} value={value("requestType")} onChange={change("requestType")}>
+            <option value="">선택</option>
+            {["고객지급", "투자", "설계 및 제작", "구매", "수리", "매각", "폐기"].map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+        <label className="mold-wide mold-reason">{requiredLabel("사유")}<textarea required readOnly={readOnly} value={value("currentState")} onChange={change("currentState")} /></label>
+
+        <div className="mold-part-table mold-wide">
+          <div className="mold-part-head">부품 정보</div>
+          <label><span>부품명</span><input readOnly={readOnly} value={value("partName")} onChange={change("partName")} /></label>
+          <label><span>CAVITY</span><input readOnly={readOnly} value={value("cavity")} onChange={change("cavity")} /></label>
+          <label><span>재질</span><input readOnly={readOnly} value={value("material")} onChange={change("material")} /></label>
+          <label><span>수량</span><input readOnly={readOnly} value={value("quantity")} onChange={change("quantity")} /></label>
+          <label><span>금형번호</span><input readOnly={readOnly} value={value("moldNo")} onChange={change("moldNo")} /></label>
+        </div>
+
+        <label className="mold-half"><span>요구사항</span><textarea readOnly={readOnly} value={value("requirements")} onChange={change("requirements")} /></label>
+        <label className="mold-half"><span>지시사항</span><textarea readOnly={readOnly} value={value("instructions")} onChange={change("instructions")} /></label>
+        <label className="mold-wide mold-economic"><span>경제성 검토 - 사용부서</span><textarea readOnly={readOnly} value={value("userEconomicReview")} onChange={change("userEconomicReview")} /></label>
       </div>
       {children}
     </section>
@@ -2804,6 +2872,7 @@ function EquipmentProposalDetailView({
   const purchaseAgreementDisabledIds = [approval.requesterEmpId, draft.purchaseAssigneeEmpId, ...purchaseApproverIds].filter((id): id is number => typeof id === "number");
   const approvalGroups = equipmentApprovalGroups(approval, draft);
   const proposalTitle = equipmentProposalTitle(approval.templateCode);
+  const moldFixture = isMoldFixtureTemplateCode(approval.templateCode);
 
   function change<K extends keyof EquipmentProposal>(key: K, value: EquipmentProposal[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -2822,14 +2891,24 @@ function EquipmentProposalDetailView({
         </dl>
       </section>
 
-      <EquipmentProposalUserSection
-        templateCode={approval.templateCode}
-        readOnly
-        value={(name) => String(draft[name as keyof EquipmentProposal] ?? "")}
-        stamp={<EquipmentSectionStamp requester={approval} lines={approvalGroups.userLines} />}
-      >
-        <AttachmentBox targetType="APPROVAL_EQUIPMENT_USER" targetId={approval.approvalId} readOnly={!draft.canEditUserSection} canDownload={!!approval.permissions?.canDownloadAttachment} />
-      </EquipmentProposalUserSection>
+      {moldFixture ? (
+        <MoldFixtureProposalUserSection
+          readOnly
+          value={(name) => String(draft[name as keyof EquipmentProposal] ?? "")}
+          stamp={<EquipmentSectionStamp requester={approval} lines={approvalGroups.userLines} />}
+        >
+          <AttachmentBox targetType="APPROVAL_EQUIPMENT_USER" targetId={approval.approvalId} readOnly={!draft.canEditUserSection} canDownload={!!approval.permissions?.canDownloadAttachment} />
+        </MoldFixtureProposalUserSection>
+      ) : (
+        <EquipmentProposalUserSection
+          templateCode={approval.templateCode}
+          readOnly
+          value={(name) => String(draft[name as keyof EquipmentProposal] ?? "")}
+          stamp={<EquipmentSectionStamp requester={approval} lines={approvalGroups.userLines} />}
+        >
+          <AttachmentBox targetType="APPROVAL_EQUIPMENT_USER" targetId={approval.approvalId} readOnly={!draft.canEditUserSection} canDownload={!!approval.permissions?.canDownloadAttachment} />
+        </EquipmentProposalUserSection>
+      )}
 
       <section className="approval-detail-section">
         <div className="equipment-section-head">
@@ -2892,15 +2971,16 @@ function EquipmentProposalDetailView({
           <label className="wide"><span>구매 의견</span><textarea value={draft.purchaseOpinion ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("purchaseOpinion", event.target.value)} /></label>
           <label><span>제작업체</span><input value={draft.vendorName ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("vendorName", event.target.value)} /></label>
           <label><span>납기(완료예정일)</span><input value={draft.deliveryDueDate ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("deliveryDueDate", event.target.value)} /></label>
-          <label><span>설비/부품명</span><input value={draft.purchaseItemName ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("purchaseItemName", event.target.value)} /></label>
-          <label><span>용도</span><input value={draft.purchaseUsage ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("purchaseUsage", event.target.value)} /></label>
-          <label><span>수량</span><input value={draft.quantity ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("quantity", event.target.value)} /></label>
+          <label><span>{moldFixture ? "제품(기종)명" : "설비/부품명"}</span><input value={draft.purchaseItemName ?? (moldFixture ? draft.productName ?? "" : "")} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("purchaseItemName", event.target.value)} /></label>
+          <label><span>{moldFixture ? "제작수량" : "용도"}</span><input value={moldFixture ? draft.quantity ?? "" : draft.purchaseUsage ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => moldFixture ? change("quantity", event.target.value) : change("purchaseUsage", event.target.value)} /></label>
+          {!moldFixture && <label><span>수량</span><input value={draft.quantity ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("quantity", event.target.value)} /></label>}
+          {moldFixture && <label><span>CAVITY</span><input value={draft.cavity ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("cavity", event.target.value)} /></label>}
           <label><span>가격</span><input value={draft.price ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("price", event.target.value)} /></label>
-          <label className="wide"><span>비고</span><textarea value={draft.purchaseNote ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("purchaseNote", event.target.value)} /></label>
-          <label className="checkbox-label"><input type="checkbox" checked={draft.attachmentContract} disabled={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentContract", event.target.checked)} /> 계약서</label>
-          <label className="checkbox-label"><input type="checkbox" checked={draft.attachmentQuote} disabled={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentQuote", event.target.checked)} /> 견적서</label>
-          <label className="checkbox-label"><input type="checkbox" checked={draft.attachmentDrawing} disabled={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentDrawing", event.target.checked)} /> 도면</label>
-          <label className="checkbox-label"><input type="checkbox" checked={draft.attachmentSpec} disabled={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentSpec", event.target.checked)} /> 설비사양서</label>
+          <label className="wide"><span>{moldFixture ? "제작사양" : "비고"}</span><textarea value={draft.purchaseNote ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("purchaseNote", event.target.value)} /></label>
+          <label className="checkbox-label"><input type="checkbox" checked={draft.attachmentContract} disabled={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentContract", event.target.checked)} /> {moldFixture ? "분말금형기초자료" : "계약서"}</label>
+          <label className="checkbox-label"><input type="checkbox" checked={draft.attachmentQuote} disabled={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentQuote", event.target.checked)} /> {moldFixture ? "제품도면" : "견적서"}</label>
+          <label className="checkbox-label"><input type="checkbox" checked={draft.attachmentDrawing} disabled={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentDrawing", event.target.checked)} /> {moldFixture ? "부품도면" : "도면"}</label>
+          <label className="checkbox-label"><input type="checkbox" checked={draft.attachmentSpec} disabled={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentSpec", event.target.checked)} /> {moldFixture ? "견적서" : "설비사양서"}</label>
           <label className="wide"><span>기타 첨부</span><input value={draft.attachmentEtc ?? ""} readOnly={!draft.canEditPurchaseSection} onChange={(event) => change("attachmentEtc", event.target.value)} /></label>
         </div>
         {draft.canEditPurchaseSection && (

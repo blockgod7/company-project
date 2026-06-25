@@ -2148,6 +2148,100 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   color: var(--text);
   opacity: 1;
 }
+.mold-fixture-form {
+  display: grid;
+  grid-template-columns: 120px minmax(120px, 1fr) 120px minmax(120px, 1fr) 120px minmax(120px, 1fr);
+  gap: 0;
+  border-left: 1px solid #cbd5e1;
+}
+.mold-fixture-form > label,
+.mold-part-table > label {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  min-height: 36px;
+  margin: 0;
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  font-weight: 900;
+}
+.mold-fixture-form > label:not(.mold-wide):not(.mold-half) {
+  grid-column: span 2;
+}
+.mold-fixture-form .mold-item-type,
+.mold-fixture-form .mold-request-type {
+  grid-column: span 2;
+}
+.mold-fixture-form .mold-wide {
+  grid-column: span 6;
+}
+.mold-fixture-form .mold-half {
+  grid-column: span 3;
+}
+.mold-fixture-form > label > span,
+.mold-part-table > label > span,
+.mold-part-head {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-right: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 13px;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+.mold-fixture-form input,
+.mold-fixture-form select,
+.mold-fixture-form textarea,
+.mold-part-table input {
+  min-height: 34px;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.mold-fixture-form textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+.mold-fixture-form .mold-reason textarea {
+  min-height: 120px;
+}
+.mold-fixture-form input[readonly],
+.mold-fixture-form textarea[readonly],
+.mold-fixture-form select:disabled {
+  color: var(--text);
+  opacity: 1;
+}
+.mold-part-table {
+  display: grid;
+  grid-template-columns: 120px repeat(5, minmax(0, 1fr));
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+}
+.mold-part-table .mold-part-head {
+  grid-row: span 2;
+  justify-content: center;
+  border-bottom: 0;
+  font-weight: 900;
+}
+.mold-part-table > label {
+  display: block;
+  grid-template-columns: none;
+  border-right: 0;
+  border-bottom: 0;
+}
+.mold-part-table > label > span {
+  justify-content: center;
+  min-height: 34px;
+  border-bottom: 1px solid #cbd5e1;
+}
+.mold-part-table > label input {
+  width: 100%;
+  text-align: center;
+}
 .equipment-proposal-detail .checkbox-label {
   grid-template-columns: 28px minmax(0, 1fr) !important;
   align-items: center;
@@ -2223,6 +2317,35 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   .equipment-proposal-detail .approval-form-grid > div,
   .equipment-proposal-detail .approval-form-grid > label {
     grid-template-columns: 128px minmax(0, 1fr);
+  }
+  .mold-fixture-form,
+  .mold-part-table {
+    grid-template-columns: 1fr;
+  }
+  .mold-fixture-form > label,
+  .mold-fixture-form > label:not(.mold-wide):not(.mold-half),
+  .mold-fixture-form .mold-half,
+  .mold-fixture-form .mold-wide,
+  .mold-fixture-form .mold-item-type,
+  .mold-fixture-form .mold-request-type {
+    grid-column: auto;
+  }
+  .mold-fixture-form > label,
+  .mold-part-table > label {
+    grid-template-columns: 128px minmax(0, 1fr);
+  }
+  .mold-part-table .mold-part-head {
+    grid-row: auto;
+    justify-content: flex-start;
+    min-height: 34px;
+    border-right: 1px solid #cbd5e1;
+    border-bottom: 1px solid #cbd5e1;
+  }
+  .mold-part-table > label {
+    display: grid;
+  }
+  .mold-part-table > label > span {
+    justify-content: flex-start;
   }
   .classic-draft-paper { padding: 18px; }
   .classic-draft-head, .classic-draft-footer-grid { grid-template-columns: 1fr; }
