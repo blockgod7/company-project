@@ -2507,31 +2507,33 @@ function MoldFixturePartTable({
   return (
     <div className={`mold-part-table mold-wide${readOnly ? " readonly" : ""}`}>
       <div className="mold-part-title">부품 정보</div>
-      <div className="mold-part-header">부품명</div>
-      <div className="mold-part-header">CAVITY</div>
-      <div className="mold-part-header">재질</div>
-      <div className="mold-part-header">수량</div>
-      <div className="mold-part-header">금형번호</div>
-      {!readOnly && <div className="mold-part-header">관리</div>}
-      {rows.map((part, index) => (
-        <div className="mold-part-row" key={index}>
-          <input readOnly={readOnly} value={part.partName} onChange={(event) => update(index, "partName", event.target.value)} />
-          <input readOnly={readOnly} value={part.cavity} onChange={(event) => update(index, "cavity", event.target.value)} />
-          <input readOnly={readOnly} value={part.material} onChange={(event) => update(index, "material", event.target.value)} />
-          <input readOnly={readOnly} value={part.quantity} onChange={(event) => update(index, "quantity", event.target.value)} />
-          <input readOnly={readOnly} value={part.moldNo} onChange={(event) => update(index, "moldNo", event.target.value)} />
-          {!readOnly && (
-            <button type="button" className="ghost mold-part-remove" onClick={() => remove(index)}>
-              <Trash2 size={14} /> 삭제
-            </button>
-          )}
-        </div>
-      ))}
-      {!readOnly && (
-        <button type="button" className="ghost mold-part-add" onClick={add}>
-          <Plus size={14} /> 부품 추가
-        </button>
-      )}
+      <div className={`mold-part-grid${readOnly ? " readonly" : ""}`}>
+        <div className="mold-part-header">부품명</div>
+        <div className="mold-part-header">CAVITY</div>
+        <div className="mold-part-header">재질</div>
+        <div className="mold-part-header">수량</div>
+        <div className="mold-part-header">금형번호</div>
+        {!readOnly && <div className="mold-part-header">관리</div>}
+        {rows.map((part, index) => (
+          <div className="mold-part-row" key={index}>
+            <input readOnly={readOnly} value={part.partName} onChange={(event) => update(index, "partName", event.target.value)} />
+            <input readOnly={readOnly} value={part.cavity} onChange={(event) => update(index, "cavity", event.target.value)} />
+            <input readOnly={readOnly} value={part.material} onChange={(event) => update(index, "material", event.target.value)} />
+            <input readOnly={readOnly} value={part.quantity} onChange={(event) => update(index, "quantity", event.target.value)} />
+            <input readOnly={readOnly} value={part.moldNo} onChange={(event) => update(index, "moldNo", event.target.value)} />
+            {!readOnly && (
+              <button type="button" className="ghost mold-part-remove" onClick={() => remove(index)}>
+                <Trash2 size={14} /> 삭제
+              </button>
+            )}
+          </div>
+        ))}
+        {!readOnly && (
+          <button type="button" className="ghost mold-part-add" onClick={add}>
+            <Plus size={14} /> 부품 추가
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -2662,6 +2664,38 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
   previewDeptName: string;
   previewRequesterName: string;
 }) {
+  if (isMoldFixtureTemplateCode(template.code)) {
+    return (
+      <div className="template-paper template-equipment-preview template-mold-preview">
+        <div className="template-equipment-top">
+          <TemplateMiniStamp label="사용부서" writer={previewRequesterName} />
+          <div className="template-equipment-title">
+            <strong>금형 치공구 품의서</strong>
+            <span>작성일자: {todayDate()}</span>
+          </div>
+          <TemplateMiniStamp label="주관부서" writer="" />
+        </div>
+        <div className="template-mold-info">
+          <strong>품목</strong><span>□ 금형&nbsp;&nbsp; □ 치공구</span>
+          <strong>사용부서</strong><span>{previewDeptName}</span>
+          <strong>제품(기종)명</strong><span></span>
+          <strong>제작유형</strong><span>□ 고객지급&nbsp;&nbsp; □ 투자&nbsp;&nbsp; □ 설계 및 제작&nbsp;&nbsp; □ 구매&nbsp;&nbsp; □ 수리</span>
+          <strong>사유</strong><span className="large"></span>
+        </div>
+        <div className="template-mold-parts">
+          <strong>부품 정보</strong>
+          <span>부품명</span><span>CAVITY</span><span>재질</span><span>수량</span><span>금형번호</span>
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div className="template-equipment-body">
+          <div>요구사항</div><div>지시사항</div>
+          <div>설계 의견</div><div>구매 의견</div>
+        </div>
+        <div className="template-attachment">첨부&nbsp;&nbsp; □ 분말금형기초자료&nbsp;&nbsp; □ 제품도면&nbsp;&nbsp; □ 부품도면&nbsp;&nbsp; □ 견적서</div>
+      </div>
+    );
+  }
+
   if (isEquipmentProposalTemplateCode(template.code)) {
     const title = equipmentProposalTitle(template.code);
     return (

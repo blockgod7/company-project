@@ -1606,6 +1606,49 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   border-left: 1px solid #111827;
   font-weight: 900;
 }
+.template-mold-preview .template-equipment-title strong {
+  font-size: 18px;
+}
+.template-mold-info {
+  display: grid;
+  grid-template-columns: 82px 1fr 92px 1fr;
+  border-top: 1px solid #111827;
+  border-left: 1px solid #111827;
+}
+.template-mold-info > * {
+  min-height: 28px;
+  padding: 5px 7px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+}
+.template-mold-info strong {
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+}
+.template-mold-info .large {
+  grid-column: span 3;
+  min-height: 76px;
+}
+.template-mold-parts {
+  display: grid;
+  grid-template-columns: 82px repeat(5, minmax(0, 1fr));
+  border-left: 1px solid #111827;
+}
+.template-mold-parts > * {
+  display: grid;
+  place-items: center;
+  min-height: 28px;
+  padding: 5px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+  font-weight: 900;
+  text-align: center;
+}
+.template-mold-parts strong {
+  grid-row: span 2;
+  background: #f8fafc;
+}
 .template-draft-preview {
   padding: 18px;
 }
@@ -2213,22 +2256,27 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 }
 .mold-part-table {
   display: grid;
-  grid-template-columns: 120px repeat(4, minmax(0, 1fr)) 1.2fr 92px;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: stretch;
   border-right: 1px solid #cbd5e1;
   border-bottom: 1px solid #cbd5e1;
 }
-.mold-part-table.readonly {
-  grid-template-columns: 120px repeat(4, minmax(0, 1fr)) 1.2fr;
-}
 .mold-part-title {
-  grid-row: 1 / span 2;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 8px 10px;
   border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
   background: #f8fafc;
   font-weight: 900;
+}
+.mold-part-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 1.2fr 92px;
+}
+.mold-part-grid.readonly {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 1.2fr;
 }
 .mold-part-header {
   display: flex;
@@ -2267,7 +2315,7 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   justify-content: center;
 }
 .mold-part-add {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
   min-height: 34px;
   border: 0;
   border-right: 1px solid #cbd5e1;
@@ -2354,6 +2402,10 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   }
   .mold-fixture-form,
   .mold-part-table {
+    grid-template-columns: 1fr;
+  }
+  .mold-part-grid,
+  .mold-part-grid.readonly {
     grid-template-columns: 1fr;
   }
   .mold-fixture-form > label,
