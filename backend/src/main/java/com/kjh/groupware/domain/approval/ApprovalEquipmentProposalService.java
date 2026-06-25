@@ -34,7 +34,7 @@ public class ApprovalEquipmentProposalService {
 
     @Transactional
     public void syncFromApprovalRequest(ApprovalDocument document, ApprovalRequest request) {
-        if (!ApprovalEquipmentProposal.TEMPLATE_CODE.equals(document.getTemplateCode())) {
+        if (!ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             return;
         }
         ApprovalEquipmentProposal proposal = proposalRepository.findByApprovalApprovalId(document.getApprovalId())
@@ -50,6 +50,17 @@ public class ApprovalEquipmentProposalService {
             text(fields, "requirements", ""),
             text(fields, "instructions", ""),
             text(fields, "userEconomicReview", "")
+        );
+        proposal.updateMoldFixtureSection(
+            text(fields, "moldFixtureType", ""),
+            text(fields, "customerName", ""),
+            text(fields, "productName", ""),
+            text(fields, "usageText", ""),
+            text(fields, "partName", ""),
+            text(fields, "cavity", ""),
+            text(fields, "material", ""),
+            text(fields, "quantity", ""),
+            text(fields, "moldNo", "")
         );
         proposalRepository.save(proposal);
     }
@@ -76,6 +87,17 @@ public class ApprovalEquipmentProposalService {
                 request.requirements(),
                 request.instructions(),
                 request.userEconomicReview()
+            );
+            proposal.updateMoldFixtureSection(
+                request.moldFixtureType(),
+                request.customerName(),
+                request.productName(),
+                request.usageText(),
+                request.partName(),
+                request.cavity(),
+                request.material(),
+                request.quantity(),
+                request.moldNo()
             );
         }
         if (canEditPeSection(currentEmp, proposal)) {
@@ -211,7 +233,7 @@ public class ApprovalEquipmentProposalService {
 
     @Transactional
     public boolean progressAfterApproval(ApprovalDocument document, List<ApprovalLine> lines, ApprovalLine currentLine) {
-        if (!ApprovalEquipmentProposal.TEMPLATE_CODE.equals(document.getTemplateCode())) {
+        if (!ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             return false;
         }
         ApprovalEquipmentProposal proposal = proposalRepository.findByApprovalApprovalId(document.getApprovalId()).orElse(null);
@@ -243,7 +265,7 @@ public class ApprovalEquipmentProposalService {
 
     @Transactional(readOnly = true)
     public void assertApprovalActionAllowed(ApprovalDocument document) {
-        if (!ApprovalEquipmentProposal.TEMPLATE_CODE.equals(document.getTemplateCode())) {
+        if (!ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             return;
         }
         ApprovalEquipmentProposal proposal = proposalRepository.findByApprovalApprovalId(document.getApprovalId()).orElse(null);

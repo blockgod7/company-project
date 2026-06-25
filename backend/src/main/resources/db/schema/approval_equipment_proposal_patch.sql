@@ -43,6 +43,15 @@ CREATE INDEX IF NOT EXISTS idx_approval_equipment_stage ON approval_equipment_pr
 CREATE INDEX IF NOT EXISTS idx_approval_equipment_pe ON approval_equipment_proposal(pe_assignee_emp_id);
 CREATE INDEX IF NOT EXISTS idx_approval_equipment_purchase ON approval_equipment_proposal(purchase_assignee_emp_id);
 
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS mold_fixture_type VARCHAR(20) NULL;
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS customer_name VARCHAR(200) NULL;
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS product_name VARCHAR(200) NULL;
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS usage_text VARCHAR(300) NULL;
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS part_name VARCHAR(200) NULL;
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS cavity VARCHAR(100) NULL;
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS material VARCHAR(100) NULL;
+ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS mold_no VARCHAR(100) NULL;
+
 INSERT INTO approval_template (
     template_code,
     template_name,
@@ -62,5 +71,27 @@ VALUES (
     '{"layout":"equipment-proposal","sections":["user","pe","purchase","attachments"]}',
     'Y',
     25
+)
+ON CONFLICT (template_code, version) DO NOTHING;
+
+INSERT INTO approval_template (
+    template_code,
+    template_name,
+    version,
+    description,
+    fields_json,
+    print_layout_json,
+    active_yn,
+    sort_order
+)
+VALUES (
+    'MOLD_FIXTURE_PROPOSAL',
+    '금형 치공구 품의서',
+    1,
+    '설비 품의서와 동일한 단계로 사용부서, 주관부서, 구매부서가 작성하는 금형 치공구 품의서',
+    '[{"name":"moldFixtureType","label":"품목","type":"select","options":["금형","치공구"],"required":true},{"name":"customerName","label":"고객사","type":"text"},{"name":"productName","label":"제품(기종)명","type":"text","required":true},{"name":"usageText","label":"용도","type":"text"},{"name":"requestDeptName","label":"사용부서","type":"text","required":true},{"name":"requiredCompletionDate","label":"완료요구일","type":"date","required":true},{"name":"requestType","label":"구분","type":"select","options":["고객지급","투자","설계 및 제작","구매","수리","매각","폐기"],"required":true},{"name":"currentState","label":"사유","type":"textarea","required":true},{"name":"partName","label":"부품명","type":"text"},{"name":"cavity","label":"CAVITY","type":"text"},{"name":"material","label":"재질","type":"text"},{"name":"quantity","label":"수량","type":"text"},{"name":"moldNo","label":"금형번호","type":"text"},{"name":"requirements","label":"요구사항","type":"textarea"},{"name":"instructions","label":"지시사항","type":"textarea"},{"name":"userEconomicReview","label":"경제성 검토 - 사용부서","type":"textarea"}]',
+    '{"layout":"equipment-proposal","sections":["user","pe","purchase","attachments"],"variant":"mold-fixture"}',
+    'Y',
+    26
 )
 ON CONFLICT (template_code, version) DO NOTHING;

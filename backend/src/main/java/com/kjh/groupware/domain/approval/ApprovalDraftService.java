@@ -244,6 +244,7 @@ public class ApprovalDraftService {
             case "PURCHASE" -> "PUR";
             case "TRAINING_REQUEST", "TRAINING_REPORT" -> "EDU";
             case ApprovalEquipmentProposal.TEMPLATE_CODE -> "EQP";
+            case ApprovalEquipmentProposal.MOLD_FIXTURE_TEMPLATE_CODE -> "MFP";
             default -> "APP";
         };
         String prefixYear = prefix + "-" + Year.now().getValue() + "-";

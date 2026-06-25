@@ -21,6 +21,7 @@ import lombok.NoArgsConstructor;
 public class ApprovalEquipmentProposal extends BaseEntity {
 
     public static final String TEMPLATE_CODE = "EQUIPMENT_PROPOSAL";
+    public static final String MOLD_FIXTURE_TEMPLATE_CODE = "MOLD_FIXTURE_PROPOSAL";
     public static final String STAGE_USER_APPROVAL = "USER_APPROVAL";
     public static final String STAGE_PE_INPUT = "PE_INPUT";
     public static final String STAGE_PE_APPROVAL = "PE_APPROVAL";
@@ -31,6 +32,10 @@ public class ApprovalEquipmentProposal extends BaseEntity {
     public static final String TARGET_USER = "APPROVAL_EQUIPMENT_USER";
     public static final String TARGET_PE = "APPROVAL_EQUIPMENT_PE";
     public static final String TARGET_PURCHASE = "APPROVAL_EQUIPMENT_PURCHASE";
+
+    public static boolean isProposalTemplate(String templateCode) {
+        return TEMPLATE_CODE.equals(templateCode) || MOLD_FIXTURE_TEMPLATE_CODE.equals(templateCode);
+    }
 
     @Id
     @Column(name = "approval_id")
@@ -58,6 +63,30 @@ public class ApprovalEquipmentProposal extends BaseEntity {
 
     @Column(name = "request_type", length = 50)
     private String requestType;
+
+    @Column(name = "mold_fixture_type", length = 20)
+    private String moldFixtureType;
+
+    @Column(name = "customer_name", length = 200)
+    private String customerName;
+
+    @Column(name = "product_name", length = 200)
+    private String productName;
+
+    @Column(name = "usage_text", length = 300)
+    private String usageText;
+
+    @Column(name = "part_name", length = 200)
+    private String partName;
+
+    @Column(name = "cavity", length = 100)
+    private String cavity;
+
+    @Column(name = "material", length = 100)
+    private String material;
+
+    @Column(name = "mold_no", length = 100)
+    private String moldNo;
 
     @Column(name = "current_state", columnDefinition = "text")
     private String currentState;
@@ -152,6 +181,28 @@ public class ApprovalEquipmentProposal extends BaseEntity {
         this.requirements = requirements;
         this.instructions = instructions;
         this.userEconomicReview = userEconomicReview;
+    }
+
+    public void updateMoldFixtureSection(
+        String moldFixtureType,
+        String customerName,
+        String productName,
+        String usageText,
+        String partName,
+        String cavity,
+        String material,
+        String quantity,
+        String moldNo
+    ) {
+        this.moldFixtureType = moldFixtureType;
+        this.customerName = customerName;
+        this.productName = productName;
+        this.usageText = usageText;
+        this.partName = partName;
+        this.cavity = cavity;
+        this.material = material;
+        this.quantity = quantity;
+        this.moldNo = moldNo;
     }
 
     public void updatePeSection(String peOpinion, String designOpinion, String peEconomicReview) {

@@ -80,13 +80,13 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDraftService.java": {
-    "mtime": 1782110087.2286282,
-    "ast_hash": "ceabd91b6aee0ebdf5113ea257624464",
+    "mtime": 1782350376.7170632,
+    "ast_hash": "f942ab30b1de50727116326d7298d240",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalEquipmentProposal.java": {
-    "mtime": 1782114194.525443,
-    "ast_hash": "a943ae5b56a433c4280376237c48d38c",
+    "mtime": 1782350744.9247112,
+    "ast_hash": "1b265f375b2fa2b216d4e73a779d2b9c",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalEquipmentProposalController.java": {
@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalEquipmentProposalService.java": {
-    "mtime": 1782172718.299337,
-    "ast_hash": "9f4fd00de3822a10f00258d479aa48f2",
+    "mtime": 1782350767.8457773,
+    "ast_hash": "b3d8d064464b1b21c7598a0c0b6ca2ae",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalLine.java": {
@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalPdfService.java": {
-    "mtime": 1782271823.003178,
-    "ast_hash": "bc3ea15b0e8371c879ea579227dca35b",
+    "mtime": 1782350906.1264338,
+    "ast_hash": "6750903d20547ad44b858fab69871705",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalPermissionService.java": {
@@ -335,13 +335,13 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\dto\\EquipmentProposalRequest.java": {
-    "mtime": 1782109802.9233894,
-    "ast_hash": "172d48035f97c4bc36410166d315830e",
+    "mtime": 1782350495.5068934,
+    "ast_hash": "47380417bdffb3d851b05aea680bbb1b",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\dto\\EquipmentProposalResponse.java": {
-    "mtime": 1782109817.49492,
-    "ast_hash": "326ce6c26e14f47fdbb7a8945a6c2838",
+    "mtime": 1782350515.7765262,
+    "ast_hash": "f7a96a08476884ea70f6ce15ddd0e6ad",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\auth\\AuthController.java": {
@@ -860,8 +860,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\approval_equipment_proposal_patch.sql": {
-    "mtime": 1782110265.2778378,
-    "ast_hash": "03116bddcd17153c3c14957568384c7b",
+    "mtime": 1782350572.23789,
+    "ast_hash": "3fc2943bca65f1b7e32a2eb0ac20baad",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\approval_operation_setting_patch.sql": {
@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\App.tsx": {
-    "mtime": 1782279399.893649,
-    "ast_hash": "2b7694da5d627c39b05beff4ebb672c2",
+    "mtime": 1782350792.2553182,
+    "ast_hash": "229140cb1a7d04053ab3fb435d67bea7",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\main.tsx": {
@@ -950,8 +950,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\types.ts": {
-    "mtime": 1782111439.7159843,
-    "ast_hash": "aa304cf420c18e4cce455779e8cfd137",
+    "mtime": 1782350593.4393551,
+    "ast_hash": "99086183a6b65453cc1a2b028f9adb41",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\vite-env.d.ts": {

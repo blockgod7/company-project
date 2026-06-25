@@ -298,6 +298,14 @@ export type EquipmentProposal = {
   requiredCompletionDate: string | null;
   equipmentCapacity: string | null;
   requestType: string | null;
+  moldFixtureType: string | null;
+  customerName: string | null;
+  productName: string | null;
+  usageText: string | null;
+  partName: string | null;
+  cavity: string | null;
+  material: string | null;
+  moldNo: string | null;
   currentState: string | null;
   requirements: string | null;
   instructions: string | null;

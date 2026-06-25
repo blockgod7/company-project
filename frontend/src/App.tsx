@@ -111,6 +111,7 @@ const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
   { code: "GENERAL", name: "일반문서", description: "일반 업무 기안", version: 1 },
   { code: "PURCHASE", name: "구매요청서", description: "물품 또는 서비스 구매 요청", version: 1 },
   { code: "EQUIPMENT_PROPOSAL", name: "설비 품의서", description: "사용부서, 생산기술팀, 구매팀이 단계별로 작성하는 설비 품의서", version: 1 },
+  { code: "MOLD_FIXTURE_PROPOSAL", name: "금형 치공구 품의서", description: "설비 품의서와 동일한 단계로 작성하는 금형 치공구 품의서", version: 1 },
   { code: "TRAINING_REQUEST", name: "교육계획서", description: "교육 계획 및 비용 승인", version: 1 },
   { code: "TRAINING_REPORT", name: "교육기록서", description: "교육 결과 및 참석 기록", version: 1 },
   { code: "MONTHLY_MAINTENANCE", name: "월간보전계획서", description: "월간 보전 계획", version: 1 },
@@ -197,7 +198,27 @@ function isDraftTemplateCode(templateCode: string | null | undefined) {
 }
 
 function isEquipmentProposalTemplateCode(templateCode: string | null | undefined) {
-  return templateCode === "EQUIPMENT_PROPOSAL";
+  return templateCode === "EQUIPMENT_PROPOSAL" || templateCode === "MOLD_FIXTURE_PROPOSAL";
+}
+
+function equipmentProposalTitle(templateCode: string | null | undefined) {
+  return templateCode === "MOLD_FIXTURE_PROPOSAL" ? "금형 치공구 품의서" : "설비 품의서";
+}
+
+function equipmentProposalItemLabel(templateCode: string | null | undefined) {
+  return templateCode === "MOLD_FIXTURE_PROPOSAL" ? "금형/치공구명" : "설비명";
+}
+
+function equipmentProposalCapacityLabel(templateCode: string | null | undefined) {
+  return templateCode === "MOLD_FIXTURE_PROPOSAL" ? "규격/용도" : "설비용량(능력)";
+}
+
+function equipmentProposalItemFallback(templateCode: string | null | undefined) {
+  return templateCode === "MOLD_FIXTURE_PROPOSAL" ? "금형 치공구" : "설비";
+}
+
+function isMoldFixtureTemplateCode(templateCode: string | null | undefined) {
+  return templateCode === "MOLD_FIXTURE_PROPOSAL";
 }
 
 function employeeDisplay(employee?: Employee) {
@@ -1670,11 +1691,11 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     try {
       const payload = {
         title: form.title.trim() || template.name,
-        content: isEquipmentProposalTemplateCode(template.code) ? equipmentProposalContent(fieldValues) : form.content,
+        content: isEquipmentProposalTemplateCode(template.code) ? equipmentProposalContent(fieldValues, template.code) : form.content,
         templateCode: template.code,
         templateVersion: template.version ?? form.templateVersion,
         formDataJson: JSON.stringify({
-          content: isEquipmentProposalTemplateCode(template.code) ? equipmentProposalContent(fieldValues) : form.content,
+          content: isEquipmentProposalTemplateCode(template.code) ? equipmentProposalContent(fieldValues, template.code) : form.content,
           fields: fieldValues,
           agreementEmpIds: form.agreementEmpIds,
           approverEmpIds: form.approverEmpIds,
@@ -2229,37 +2250,41 @@ function TemplateFieldInputs({
 
 function EquipmentProposalEditor({ user, employees, form, onChange }: { user: User; employees: Employee[]; form: ApprovalForm; onChange: (form: ApprovalForm) => void }) {
   const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
-  const isAutoTitle = form.title.trim() === "설비 품의서";
+  const proposalTitle = equipmentProposalTitle(form.templateCode);
+  const isAutoTitle = form.title.trim() === proposalTitle;
   function value(name: string) {
     if (name === "requestDeptName") return requesterDeptName;
     return form.fieldValues[name] ?? "";
   }
   function setValue(name: string, next: string) {
     const fieldValues = { ...form.fieldValues, requestDeptName: requesterDeptName, [name]: next };
-    const title = name === "equipmentName" && (!form.title || form.title === "설비 품의서") ? `${next || "설비"} 품의서` : form.title;
-    onChange({ ...form, title, content: equipmentProposalContent(fieldValues), fieldValues });
+    const titleSourceName = isMoldFixtureTemplateCode(form.templateCode) ? "productName" : "equipmentName";
+    const title = name === titleSourceName && (!form.title || form.title === proposalTitle) ? `${next || equipmentProposalItemFallback(form.templateCode)} 품의서` : form.title;
+    onChange({ ...form, title, content: equipmentProposalContent(fieldValues, form.templateCode), fieldValues });
   }
 
   return (
     <article className="approval-template-editor equipment-proposal-editor equipment-proposal-detail">
       <section className="approval-detail-section">
-        <h3>설비 품의서</h3>
+        <h3>{proposalTitle}</h3>
         <div className="approval-form-grid">
           <label className="wide">{requiredLabel("문서 제목")}<input className={isAutoTitle ? "auto-title-input" : ""} required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="검색에 사용할 품의서 제목을 입력하세요." /></label>
         </div>
       </section>
-      <EquipmentProposalUserSection value={value} onChange={setValue} />
+      <EquipmentProposalUserSection templateCode={form.templateCode} value={value} onChange={setValue} />
     </article>
   );
 }
 
 function EquipmentProposalUserSection({
+  templateCode,
   value,
   onChange,
   readOnly = false,
   stamp,
   children
 }: {
+  templateCode?: string | null;
   value: (name: string) => string;
   onChange?: (name: string, next: string) => void;
   readOnly?: boolean;
@@ -2269,6 +2294,7 @@ function EquipmentProposalUserSection({
   const change = (name: string) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     onChange?.(name, event.target.value);
   };
+  const moldFixture = isMoldFixtureTemplateCode(templateCode);
 
   return (
     <section className="approval-detail-section">
@@ -2277,23 +2303,47 @@ function EquipmentProposalUserSection({
         {stamp}
       </div>
       <div className="approval-form-grid">
-        <label>{requiredLabel("요청부서")}<input required readOnly value={value("requestDeptName")} title="작성자 소속부서로 자동 지정됩니다." /></label>
+        {moldFixture && (
+          <>
+            <label>{requiredLabel("품목")}
+              <select required disabled={readOnly} value={value("moldFixtureType")} onChange={change("moldFixtureType")}>
+                <option value="">선택</option>
+                <option value="금형">금형</option>
+                <option value="치공구">치공구</option>
+              </select>
+            </label>
+            <label><span>고객사</span><input readOnly={readOnly} value={value("customerName")} onChange={change("customerName")} /></label>
+            <label>{requiredLabel("제품(기종)명")}<input required readOnly={readOnly} value={value("productName")} onChange={change("productName")} /></label>
+            <label><span>용도</span><input readOnly={readOnly} value={value("usageText")} onChange={change("usageText")} /></label>
+          </>
+        )}
+        <label>{requiredLabel(moldFixture ? "사용부서" : "요청부서")}<input required readOnly value={value("requestDeptName")} title="작성자 소속부서로 자동 지정됩니다." /></label>
         <label>{requiredLabel("완료요구일")}<input required type="date" readOnly={readOnly} value={value("requiredCompletionDate")} onChange={change("requiredCompletionDate")} /></label>
-        <label>{requiredLabel("설비명")}<input required readOnly={readOnly} value={value("equipmentName")} onChange={change("equipmentName")} /></label>
-        <label><span>설비용량(능력)</span><input readOnly={readOnly} value={value("equipmentCapacity")} onChange={change("equipmentCapacity")} /></label>
+        {!moldFixture && (
+          <>
+            <label>{requiredLabel(equipmentProposalItemLabel(templateCode))}<input required readOnly={readOnly} value={value("equipmentName")} onChange={change("equipmentName")} /></label>
+            <label><span>{equipmentProposalCapacityLabel(templateCode)}</span><input readOnly={readOnly} value={value("equipmentCapacity")} onChange={change("equipmentCapacity")} /></label>
+          </>
+        )}
         <label>{requiredLabel("구분")}
           <select required disabled={readOnly} value={value("requestType")} onChange={change("requestType")}>
             <option value="">선택</option>
-            <option value="구입">구입</option>
-            <option value="제작">제작</option>
-            <option value="개선">개선</option>
-            <option value="수리">수리</option>
-            <option value="매각">매각</option>
-            <option value="폐기">폐기</option>
+            {(moldFixture ? ["고객지급", "투자", "설계 및 제작", "구매", "수리", "매각", "폐기"] : ["구입", "제작", "개선", "수리", "매각", "폐기"]).map((option) => (
+              <option key={option} value={option}>{option}</option>
+            ))}
           </select>
         </label>
-        <label className="wide">{requiredLabel("현상")}<textarea required readOnly={readOnly} value={value("currentState")} onChange={change("currentState")} /></label>
-        <label className="wide">{requiredLabel("요구사항")}<textarea required readOnly={readOnly} value={value("requirements")} onChange={change("requirements")} /></label>
+        <label className="wide">{requiredLabel(moldFixture ? "사유" : "현상")}<textarea required readOnly={readOnly} value={value("currentState")} onChange={change("currentState")} /></label>
+        {moldFixture && (
+          <>
+            <label><span>부품명</span><input readOnly={readOnly} value={value("partName")} onChange={change("partName")} /></label>
+            <label><span>CAVITY</span><input readOnly={readOnly} value={value("cavity")} onChange={change("cavity")} /></label>
+            <label><span>재질</span><input readOnly={readOnly} value={value("material")} onChange={change("material")} /></label>
+            <label><span>수량</span><input readOnly={readOnly} value={value("quantity")} onChange={change("quantity")} /></label>
+            <label><span>금형번호</span><input readOnly={readOnly} value={value("moldNo")} onChange={change("moldNo")} /></label>
+          </>
+        )}
+        <label className="wide">{requiredLabel("요구사항")}<textarea required={!moldFixture} readOnly={readOnly} value={value("requirements")} onChange={change("requirements")} /></label>
         <label className="wide"><span>지시 사항</span><textarea readOnly={readOnly} value={value("instructions")} onChange={change("instructions")} /></label>
         <label className="wide"><span>경제성 검토 - 사용부서</span><textarea readOnly={readOnly} value={value("userEconomicReview")} onChange={change("userEconomicReview")} /></label>
       </div>
@@ -2306,10 +2356,40 @@ function requiredLabel(label: string) {
   return <span className="required-label">{label}<em>필수</em></span>;
 }
 
-function equipmentProposalContent(values: Record<string, string>) {
+function equipmentProposalContent(values: Record<string, string>, templateCode?: string | null) {
+  if (isMoldFixtureTemplateCode(templateCode)) {
+    return [
+      `품목: ${values.moldFixtureType ?? ""}`,
+      `고객사: ${values.customerName ?? ""}`,
+      `제품(기종)명: ${values.productName ?? ""}`,
+      `사용부서: ${values.requestDeptName ?? ""}`,
+      `용도: ${values.usageText ?? ""}`,
+      `완료요구일: ${values.requiredCompletionDate ?? ""}`,
+      `구분: ${values.requestType ?? ""}`,
+      "",
+      "[사유]",
+      values.currentState ?? "",
+      "",
+      "[부품 정보]",
+      `부품명: ${values.partName ?? ""}`,
+      `CAVITY: ${values.cavity ?? ""}`,
+      `재질: ${values.material ?? ""}`,
+      `수량: ${values.quantity ?? ""}`,
+      `금형번호: ${values.moldNo ?? ""}`,
+      "",
+      "[요구사항]",
+      values.requirements ?? "",
+      "",
+      "[지시 사항]",
+      values.instructions ?? "",
+      "",
+      "[경제성 검토 - 사용부서]",
+      values.userEconomicReview ?? ""
+    ].join("\n");
+  }
   return [
     `요청부서: ${values.requestDeptName ?? ""}`,
-    `설비명: ${values.equipmentName ?? ""}`,
+    `${equipmentProposalItemLabel(templateCode)}: ${values.equipmentName ?? ""}`,
     `완료요구일: ${values.requiredCompletionDate ?? ""}`,
     `구분: ${values.requestType ?? ""}`,
     "",
@@ -2399,12 +2479,13 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
   previewRequesterName: string;
 }) {
   if (isEquipmentProposalTemplateCode(template.code)) {
+    const title = equipmentProposalTitle(template.code);
     return (
       <div className="template-paper template-equipment-preview">
         <div className="template-equipment-top">
           <TemplateMiniStamp label="사용부서" writer={previewRequesterName} />
           <div className="template-equipment-title">
-            <strong>설 비 품 의 서</strong>
+            <strong>{title}</strong>
             <span>작성일 : {todayDate()}</span>
           </div>
           <TemplateMiniStamp label="주관부서" writer="" />
@@ -2413,8 +2494,8 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
           <strong>요청부서</strong><span>{previewDeptName}</span>
           <strong>완료요구일</strong><span></span>
           <strong className="type-label">구분</strong><span className="type-options">□구입 □제작 □개선<br />□수리 □매각 □폐기</span>
-          <strong>설비명</strong><span></span>
-          <strong>설비용량(능력)</strong><span></span>
+          <strong>{equipmentProposalItemLabel(template.code)}</strong><span></span>
+          <strong>{equipmentProposalCapacityLabel(template.code)}</strong><span></span>
         </div>
         <div className="template-equipment-body">
           <div>현상</div><div>주관부서(PE) 의견</div>
@@ -2615,11 +2696,12 @@ function ApprovalDetailView({
     );
   }
   if (isEquipmentProposalTemplateCode(approval.templateCode)) {
+    const title = equipmentProposalTitle(approval.templateCode);
     return (
       <article className="approval-detail equipment-proposal-detail">
         <section className="approval-detail-section">
-          <h3>설비 품의서</h3>
-          <p className="muted-text">{equipmentProposalLoading ? "설비 품의서 양식을 불러오는 중입니다." : "설비 품의서 양식을 불러오지 못했습니다. 새로고침 후 다시 확인해 주세요."}</p>
+          <h3>{title}</h3>
+          <p className="muted-text">{equipmentProposalLoading ? `${title} 양식을 불러오는 중입니다.` : `${title} 양식을 불러오지 못했습니다. 새로고침 후 다시 확인해 주세요.`}</p>
         </section>
       </article>
     );
@@ -2721,6 +2803,7 @@ function EquipmentProposalDetailView({
   const canAssignPe = draft.canAssignPe && isDeptManagerUser(user, employees, "생산기술");
   const purchaseAgreementDisabledIds = [approval.requesterEmpId, draft.purchaseAssigneeEmpId, ...purchaseApproverIds].filter((id): id is number => typeof id === "number");
   const approvalGroups = equipmentApprovalGroups(approval, draft);
+  const proposalTitle = equipmentProposalTitle(approval.templateCode);
 
   function change<K extends keyof EquipmentProposal>(key: K, value: EquipmentProposal[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -2729,7 +2812,7 @@ function EquipmentProposalDetailView({
   return (
     <article className="approval-detail equipment-proposal-detail">
       <section className="approval-detail-section">
-        <h3>설비 품의서</h3>
+        <h3>{proposalTitle}</h3>
         <dl className="approval-meta-grid">
           <dt>문서번호</dt><dd>{approval.documentNo ?? "상신 시 자동 생성"}</dd>
           <dt>제목</dt><dd>{approval.title}</dd>
@@ -2740,6 +2823,7 @@ function EquipmentProposalDetailView({
       </section>
 
       <EquipmentProposalUserSection
+        templateCode={approval.templateCode}
         readOnly
         value={(name) => String(draft[name as keyof EquipmentProposal] ?? "")}
         stamp={<EquipmentSectionStamp requester={approval} lines={approvalGroups.userLines} />}
@@ -3247,6 +3331,7 @@ function documentPrefix(templateCode: string | null | undefined) {
   if (templateCode === "PURCHASE") return "PUR";
   if (templateCode === "TRAINING_REQUEST" || templateCode === "TRAINING_REPORT") return "EDU";
   if (templateCode === "EQUIPMENT_PROPOSAL") return "EQP";
+  if (templateCode === "MOLD_FIXTURE_PROPOSAL") return "MFP";
   return "APP";
 }
 

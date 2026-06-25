@@ -134,7 +134,7 @@ public class ApprovalPdfService {
         if (!ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus()) || document.getPdfFile() == null) {
             throw BusinessException.notFound("PDF_NOT_FOUND", "PDF has not been generated");
         }
-        if (ApprovalEquipmentProposal.TEMPLATE_CODE.equals(document.getTemplateCode())) {
+        if (ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             refreshEquipmentProposalPdf(document, currentEmp);
         }
         Long pdfFileId = document.getPdfFile().getFileId();
@@ -159,7 +159,7 @@ public class ApprovalPdfService {
         if ("DRAFT".equals(document.getTemplateCode())) {
             return renderClassicDraft(document, lines);
         }
-        if (ApprovalEquipmentProposal.TEMPLATE_CODE.equals(document.getTemplateCode())) {
+        if (ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             return renderEquipmentProposal(document, lines);
         }
         try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
@@ -232,6 +232,9 @@ public class ApprovalPdfService {
     private GeneratedPdf renderEquipmentProposal(ApprovalDocument document, List<ApprovalLine> lines) {
         ApprovalEquipmentProposal proposal = equipmentProposalRepository.findByApprovalApprovalId(document.getApprovalId())
             .orElseThrow(() -> BusinessException.notFound("EQUIPMENT_PROPOSAL_NOT_FOUND", "Equipment proposal was not found"));
+        if (ApprovalEquipmentProposal.MOLD_FIXTURE_TEMPLATE_CODE.equals(document.getTemplateCode())) {
+            return renderMoldFixtureProposal(document, lines, proposal);
+        }
         try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PDPage page = new PDPage(PDRectangle.A4);
             pdf.addPage(page);
@@ -245,7 +248,7 @@ public class ApprovalPdfService {
                 float middle = left + width / 2f;
 
                 drawDepartmentStamp(content, font, left, 748, 190, "사용부서", requesterStamp(document), groups.userLines());
-                drawEquipmentTitle(content, font, 210, 748, 180, dateText(document.getRequestedAt()));
+                drawEquipmentTitle(content, font, 210, 748, 180, equipmentProposalTitle(document), dateText(document.getRequestedAt()));
                 drawDepartmentStamp(content, font, 390, 748, 185, "주관부서", sectionLeadStamp(proposal.getPeAssignee(), groups.peSubmitterLine()), groups.peLines());
 
                 drawInfoRow(content, font, left, 724, 70, 115, 24, "요청부서", safe(proposal.getRequestDeptName()));
@@ -277,6 +280,56 @@ public class ApprovalPdfService {
             return new GeneratedPdf(bytes, sha256(bytes));
         } catch (IOException ex) {
             throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate equipment proposal PDF");
+        }
+    }
+
+    private GeneratedPdf renderMoldFixtureProposal(ApprovalDocument document, List<ApprovalLine> lines, ApprovalEquipmentProposal proposal) {
+        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+            PDFont font = loadFont(pdf);
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+                content.setLineWidth(1.0f);
+                EquipmentApprovalGroups groups = equipmentApprovalGroups(lines, proposal);
+                float left = 24;
+                float right = 571;
+                float width = right - left;
+                float middle = left + width / 2f;
+
+                drawDepartmentStamp(content, font, left, 746, 180, "사용부서", requesterStamp(document), groups.userLines());
+                drawMoldTitle(content, font, left + 180, 746, 190, proposal, dateText(document.getRequestedAt()));
+                drawDepartmentStamp(content, font, left + 370, 746, 177, "주관부서", sectionLeadStamp(proposal.getPeAssignee(), groups.peSubmitterLine()), groups.peLines());
+
+                drawInfoRow(content, font, left, 722, 72, 108, 18, "고객사", safe(proposal.getCustomerName()));
+                drawInfoRow(content, font, left + 180, 722, 72, 118, 18, "설비명", safe(proposal.getEquipmentName()));
+                drawMoldTypeBox(content, font, left + 370, 686, 177, 54, proposal.getRequestType());
+                drawInfoRow(content, font, left, 704, 72, 108, 18, "제품(기종)명", safe(proposal.getProductName()));
+                drawInfoRow(content, font, left + 180, 704, 72, 118, 18, "사용부서", safe(proposal.getRequestDeptName()));
+                drawInfoRow(content, font, left, 686, 72, 108, 18, "용도", safe(proposal.getUsageText()));
+                drawInfoRow(content, font, left + 180, 686, 72, 118, 18, "완료요구일", safe(proposal.getRequiredCompletionDate()));
+
+                drawLabeledBox(content, font, left, 610, width, 76, "사유", proposal.getCurrentState(), 4);
+                drawMoldPartTable(content, font, proposal, left, 536, width);
+                drawLabeledBox(content, font, left, 386, middle - left, 150, "요구사항", proposal.getRequirements(), 7);
+                drawLabeledBox(content, font, middle, 386, right - middle, 150, "주관(설계)부서 의견", proposal.getPeOpinion(), 7);
+                drawLabeledBox(content, font, left, 310, middle - left, 76, "지시사항", proposal.getInstructions(), 3);
+                drawLabeledBox(content, font, middle, 310, right - middle, 76, "구매 의견", proposal.getPurchaseOpinion(), 3);
+                drawEconomicReviewBox(content, font, left, 246, width, 64, proposal);
+                drawMoldAttachmentChecklist(content, font, left, 222, width, proposal);
+
+                drawText(content, font, "* 구매부서에서 작성_사용부서 경우, 확인 후 발주서 송부 *", left + 18, 148, 8);
+                drawDepartmentStamp(content, font, 390, 126, 181, "발주", sectionLeadStamp(proposal.getPurchaseAssignee(), groups.purchaseSubmitterLine()), groups.purchaseLines());
+                drawMoldPurchaseBox(content, font, proposal, left, 28, width);
+
+                drawCenteredText(content, font, "SCTQE-PD-08-09-01(2023.01.05)", left, 10, 180, 7, 34);
+                drawCenteredText(content, font, "승크카본테크놀로지 (유)", 210, 10, 180, 7, 24);
+                drawCenteredText(content, font, "A4 (210 x 297)", 480, 10, 90, 7, 12);
+            }
+            pdf.save(output);
+            byte[] bytes = output.toByteArray();
+            return new GeneratedPdf(bytes, sha256(bytes));
+        } catch (IOException ex) {
+            throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate mold fixture proposal PDF");
         }
     }
 
@@ -329,15 +382,109 @@ public class ApprovalPdfService {
         return index == columnCount - 1 ? "승인" : "검토";
     }
 
-    private void drawEquipmentTitle(PDPageContentStream content, PDFont font, float x, float y, float width, String date) throws IOException {
+    private String equipmentProposalTitle(ApprovalDocument document) {
+        if (ApprovalEquipmentProposal.MOLD_FIXTURE_TEMPLATE_CODE.equals(document.getTemplateCode())) {
+            return "금형 치공구 품의서";
+        }
+        return "설 비 품 의 서";
+    }
+
+    private void drawEquipmentTitle(PDPageContentStream content, PDFont font, float x, float y, float width, String title, String date) throws IOException {
         drawBox(content, x, y, width, 72);
-        drawCenteredText(content, font, "설 비 품 의 서", x, y + 42, width, 16, 20);
+        drawCenteredText(content, font, title, x, y + 42, width, 16, 20);
         content.setLineWidth(1.4f);
         content.moveTo(x + 18, y + 36);
         content.lineTo(x + width - 18, y + 36);
         content.stroke();
         content.setLineWidth(1.0f);
         drawCenteredText(content, font, "작성일 : " + safe(date), x, y + 14, width, 8, 22);
+    }
+
+    private void drawMoldTitle(PDPageContentStream content, PDFont font, float x, float y, float width, ApprovalEquipmentProposal proposal, String date) throws IOException {
+        drawBox(content, x, y, width, 72);
+        drawText(content, font, checkboxLabel(proposal.getMoldFixtureType(), "금형"), x + 14, y + 56, 8);
+        drawText(content, font, checkboxLabel(proposal.getMoldFixtureType(), "치공구"), x + 14, y + 40, 8);
+        drawCenteredText(content, font, "품 의 서", x + 42, y + 42, width - 50, 16, 16);
+        content.setLineWidth(1.2f);
+        content.moveTo(x + 44, y + 34);
+        content.lineTo(x + width - 18, y + 34);
+        content.stroke();
+        content.setLineWidth(1.0f);
+        drawCenteredText(content, font, "작성일", x + 44, y + 13, 54, 8, 8);
+        drawCenteredText(content, font, safe(date), x + 100, y + 13, width - 112, 8, 20);
+    }
+
+    private void drawMoldTypeBox(PDPageContentStream content, PDFont font, float x, float y, float width, float height, String selectedType) throws IOException {
+        float labelWidth = 36;
+        drawBox(content, x, y, width, height);
+        drawCenteredText(content, font, "구", x, y + 34, labelWidth, 9, 2);
+        drawCenteredText(content, font, "분", x, y + 14, labelWidth, 9, 2);
+        String[] types = {"고객지급", "투자", "설계 및 제작", "구매", "수리", "매각", "폐기"};
+        float[] dx = {labelWidth + 6, labelWidth + 72, labelWidth + 6, labelWidth + 120, labelWidth + 6, labelWidth + 72, labelWidth + 120};
+        float[] dy = {36, 36, 20, 20, 4, 4, 4};
+        for (int i = 0; i < types.length; i++) {
+            drawText(content, font, checkboxLabel(selectedType, types[i]), x + dx[i], y + dy[i], 7);
+        }
+    }
+
+    private void drawMoldPartTable(PDPageContentStream content, PDFont font, ApprovalEquipmentProposal proposal, float x, float y, float width) throws IOException {
+        float row = 18;
+        float[] cols = {126, 92, 92, 52, width - 362};
+        String[] headers = {"부품명", "CAVITY", "재질", "수량", "금형번호"};
+        drawBox(content, x, y, width, row * 4);
+        float cx = x;
+        for (int i = 0; i < cols.length; i++) {
+            drawBox(content, cx, y + row * 3, cols[i], row);
+            drawCenteredText(content, font, headers[i], cx, y + row * 3 + 5, cols[i], 8, 16);
+            drawBox(content, cx, y, cols[i], row * 3);
+            cx += cols[i];
+        }
+        String[] values = {proposal.getPartName(), proposal.getCavity(), proposal.getMaterial(), proposal.getQuantity(), proposal.getMoldNo()};
+        cx = x;
+        for (int i = 0; i < cols.length; i++) {
+            drawCenteredText(content, font, safe(values[i]), cx, y + row * 2 + 5, cols[i], 8, 22);
+            cx += cols[i];
+        }
+    }
+
+    private void drawMoldAttachmentChecklist(PDPageContentStream content, PDFont font, float x, float y, float width, ApprovalEquipmentProposal proposal) throws IOException {
+        drawBox(content, x, y, width, 24);
+        drawText(content, font, "첨부 :", x + 8, y + 8, 8);
+        drawText(content, font, checkboxLabel(proposal.getAttachmentContractYn(), "분말금형기초자료"), x + 42, y + 8, 8);
+        drawText(content, font, checkboxLabel(proposal.getAttachmentQuoteYn(), "제품도면"), x + 150, y + 8, 8);
+        drawText(content, font, checkboxLabel(proposal.getAttachmentDrawingYn(), "부품도면"), x + 222, y + 8, 8);
+        drawText(content, font, checkboxLabel(proposal.getAttachmentSpecYn(), "기타"), x + 294, y + 8, 8);
+        drawText(content, font, "( " + safe(proposal.getAttachmentEtc()) + " )", x + 332, y + 8, 8);
+    }
+
+    private void drawMoldPurchaseBox(PDPageContentStream content, PDFont font, ApprovalEquipmentProposal proposal, float x, float y, float w) throws IOException {
+        float row = 14;
+        float noteHeight = 56;
+        drawBox(content, x, y, w, row * 4 + noteHeight + 22);
+        float half = w / 2f;
+        float labelWidth = 74;
+        float mainY = y + noteHeight + 22;
+        drawPurchaseInfoRow(content, font, x, mainY + row * 2, labelWidth, half - labelWidth, row, "제작업체", safe(proposal.getVendorName()));
+        drawPurchaseInfoRow(content, font, x + half, mainY + row * 2, labelWidth, half - labelWidth, row, "납기(예정일)", safe(proposal.getDeliveryDueDate()));
+        drawPurchaseInfoRow(content, font, x, mainY + row, labelWidth, half - labelWidth, row, "제품(기종)명", safe(blankToDash(proposal.getPurchaseItemName(), proposal.getProductName())));
+        drawPurchaseInfoRow(content, font, x + half, mainY + row, labelWidth, half - labelWidth, row, "제작수량", safe(proposal.getQuantity()));
+        drawPurchaseInfoRow(content, font, x, mainY, labelWidth, half - labelWidth, row, "CAVITY", safe(proposal.getCavity()));
+        drawPurchaseInfoRow(content, font, x + half, mainY, labelWidth, half - labelWidth, row, "가격", safe(proposal.getPrice()));
+        drawBox(content, x, y + 22, w, noteHeight);
+        drawText(content, font, "제작사양", x + 8, y + noteHeight + 8, 8);
+        drawWrappedText(content, font, safe(proposal.getPurchaseNote()), x + 8, y + noteHeight - 8, w - 16, 7, 4);
+        drawBox(content, x, y, half + 100, 22);
+        drawBox(content, x + half + 100, y, w - half - 100, 22);
+        drawText(content, font, "첨부 :", x + 8, y + 8, 7);
+        drawText(content, font, "[ ] 부품도면, [ ] 제품도면, [ ] 견적서, [ ] 기타 ( " + safe(proposal.getAttachmentEtc()) + " )", x + 40, y + 8, 7);
+        drawText(content, font, "경유·협조 :", x + half + 112, y + 8, 8);
+    }
+
+    private String blankToDash(String value, String fallback) {
+        if (value != null && !value.isBlank()) {
+            return value;
+        }
+        return fallback == null || fallback.isBlank() ? "-" : fallback;
     }
 
     private void drawEquipmentTypeBox(PDPageContentStream content, PDFont font, float x, float y, float width, float height, String selectedType) throws IOException {
