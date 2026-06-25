@@ -320,13 +320,13 @@ public class ApprovalPdfService {
                 drawEconomicReviewBox(content, font, left, 246, width, 64, proposal);
                 drawMoldAttachmentChecklist(content, font, left, 222, width, proposal);
 
-                drawText(content, font, "* 구매부서에서 작성_사용부서 경우, 확인 후 발주서 송부 *", left + 18, 148, 8);
-                drawDepartmentStamp(content, font, 390, 126, 181, "발주", sectionLeadStamp(proposal.getPurchaseAssignee(), groups.purchaseSubmitterLine()), groups.purchaseLines());
-                drawMoldPurchaseBox(content, font, proposal, left, 28, width);
+                drawText(content, font, "* 구매부서에서 작성_사용부서 경우, 확인 후 발주서 송부 *", left + 18, 150, 8);
+                drawDepartmentStamp(content, font, 390, 150, 181, "발주", sectionLeadStamp(proposal.getPurchaseAssignee(), groups.purchaseSubmitterLine()), groups.purchaseLines());
+                drawMoldPurchaseBox(content, font, proposal, left, 14, width);
 
-                drawCenteredText(content, font, "SCTQE-PD-08-09-01(2023.01.05)", left, 10, 180, 7, 34);
-                drawCenteredText(content, font, "승크카본테크놀로지 (유)", 210, 10, 180, 7, 24);
-                drawCenteredText(content, font, "A4 (210 x 297)", 480, 10, 90, 7, 12);
+                drawCenteredText(content, font, "SCTQE-PD-08-09-01(2023.01.05)", left, 2, 180, 7, 34);
+                drawCenteredText(content, font, "승크카본테크놀로지 (유)", 210, 2, 180, 7, 24);
+                drawCenteredText(content, font, "A4 (210 x 297)", 472, 2, 99, 7, 14);
             }
             pdf.save(output);
             byte[] bytes = output.toByteArray();
@@ -418,15 +418,15 @@ public class ApprovalPdfService {
     }
 
     private void drawMoldTypeBox(PDPageContentStream content, PDFont font, float x, float y, float width, float height, String selectedType) throws IOException {
-        float labelWidth = 36;
+        float labelWidth = 38;
         drawBox(content, x, y, width, height);
         drawCenteredText(content, font, "구", x, y + 34, labelWidth, 9, 2);
         drawCenteredText(content, font, "분", x, y + 14, labelWidth, 9, 2);
         String[] types = {"고객지급", "투자", "설계 및 제작", "구매", "수리", "매각", "폐기"};
-        float[] dx = {labelWidth + 6, labelWidth + 72, labelWidth + 6, labelWidth + 120, labelWidth + 6, labelWidth + 72, labelWidth + 120};
-        float[] dy = {36, 36, 20, 20, 4, 4, 4};
+        float[] dx = {labelWidth + 8, labelWidth + 70, labelWidth + 8, labelWidth + 100, labelWidth + 8, labelWidth + 70, labelWidth + 100};
+        float[] dy = {37, 37, 22, 22, 7, 7, 7};
         for (int i = 0; i < types.length; i++) {
-            drawText(content, font, checkboxLabel(selectedType, types[i]), x + dx[i], y + dy[i], 7);
+            drawText(content, font, checkboxLabel(selectedType, types[i]), x + dx[i], y + dy[i], 6);
         }
     }
 
@@ -618,7 +618,7 @@ public class ApprovalPdfService {
         drawBox(content, x, y, labelWidth, height);
         drawBox(content, x + labelWidth, y, valueWidth, height);
         drawCenteredText(content, font, label, x, y + height / 2 - 3, labelWidth, 8, 12);
-        drawText(content, font, value, x + labelWidth + 8, y + height / 2 - 3, 7);
+        drawFittedText(content, font, value, x + labelWidth + 6, y + height / 2 - 3, valueWidth - 12, 7);
     }
 
     private String equipmentAttachmentText(ApprovalEquipmentProposal proposal) {
@@ -750,8 +750,9 @@ public class ApprovalPdfService {
     private void drawInfoRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value) throws IOException {
         drawBox(content, x, y, labelWidth, height);
         drawBox(content, x + labelWidth, y, valueWidth, height);
-        drawCenteredText(content, font, label, x, y + 12, labelWidth, 9, 12);
-        drawText(content, font, value, x + labelWidth + 8, y + 12, 9);
+        float textY = y + Math.max(3, height / 2 - 6);
+        drawCenteredText(content, font, label, x, textY, labelWidth, 8, 12);
+        drawFittedText(content, font, value, x + labelWidth + 6, textY, valueWidth - 12, 8);
     }
 
     private void drawClassicApprovalBox(PDPageContentStream content, PDFont font, ApprovalDocument document, List<ApprovalLine> lines) throws IOException {
@@ -895,6 +896,11 @@ public class ApprovalPdfService {
         content.endText();
     }
 
+    private void drawFittedText(PDPageContentStream content, PDFont font, String text, float x, float y, float width, float fontSize) throws IOException {
+        String value = fitToWidth(font, safe(text), fontSize, Math.max(4, width));
+        drawText(content, font, value, x, y, fontSize);
+    }
+
     private void drawVerticalText(PDPageContentStream content, PDFont font, String text, float x, float y, float width, float fontSize) throws IOException {
         String value = text == null ? "" : text;
         float lineY = y;
@@ -1008,12 +1014,21 @@ public class ApprovalPdfService {
         if (value.length() > maxChars) {
             value = value.substring(0, maxChars);
         }
+        value = fitToWidth(font, value, fontSize, Math.max(4, width - 4));
         float textWidth = font.getStringWidth(value) / 1000 * fontSize;
         content.beginText();
         content.setFont(font, fontSize);
         content.newLineAtOffset(x + Math.max(2, (width - textWidth) / 2), y);
         content.showText(value);
         content.endText();
+    }
+
+    private String fitToWidth(PDFont font, String text, float fontSize, float width) throws IOException {
+        String value = text == null ? "" : text;
+        while (!value.isEmpty() && font.getStringWidth(value) / 1000 * fontSize > width) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value;
     }
 
     private String signatureDisplayName(ApprovalLine line) {
