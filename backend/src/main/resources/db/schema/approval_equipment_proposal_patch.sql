@@ -53,6 +53,7 @@ ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS material VARCHA
 ALTER TABLE approval_equipment_proposal ADD COLUMN IF NOT EXISTS mold_no VARCHAR(100) NULL;
 
 INSERT INTO approval_template (
+    created_at,
     template_code,
     template_name,
     version,
@@ -62,7 +63,8 @@ INSERT INTO approval_template (
     active_yn,
     sort_order
 )
-VALUES (
+SELECT
+    NOW(),
     'EQUIPMENT_PROPOSAL',
     '설비 품의서',
     1,
@@ -71,10 +73,12 @@ VALUES (
     '{"layout":"equipment-proposal","sections":["user","pe","purchase","attachments"]}',
     'Y',
     25
-)
-ON CONFLICT (template_code, version) DO NOTHING;
+WHERE NOT EXISTS (
+    SELECT 1 FROM approval_template WHERE template_code = 'EQUIPMENT_PROPOSAL' AND version = 1
+);
 
 INSERT INTO approval_template (
+    created_at,
     template_code,
     template_name,
     version,
@@ -84,7 +88,8 @@ INSERT INTO approval_template (
     active_yn,
     sort_order
 )
-VALUES (
+SELECT
+    NOW(),
     'MOLD_FIXTURE_PROPOSAL',
     '금형 치공구 품의서',
     1,
@@ -93,5 +98,6 @@ VALUES (
     '{"layout":"equipment-proposal","sections":["user","pe","purchase","attachments"],"variant":"mold-fixture"}',
     'Y',
     26
-)
-ON CONFLICT (template_code, version) DO NOTHING;
+WHERE NOT EXISTS (
+    SELECT 1 FROM approval_template WHERE template_code = 'MOLD_FIXTURE_PROPOSAL' AND version = 1
+);
