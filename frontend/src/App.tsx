@@ -167,6 +167,12 @@ function defaultApprovalForm(templates = DEFAULT_APPROVAL_TEMPLATES): ApprovalFo
   };
 }
 
+function approvalTemplateByCode(templates: ApprovalTemplateOption[], templateCode: string | null | undefined) {
+  if (!templateCode) return undefined;
+  return templates.find((item) => item.code === templateCode)
+    ?? DEFAULT_APPROVAL_TEMPLATES.find((item) => item.code === templateCode);
+}
+
 function idsFromJson(value: unknown) {
   return Array.isArray(value) ? value.filter((id): id is number => typeof id === "number") : [];
 }
@@ -1678,7 +1684,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   function editDraft() {
     if (!selected || !selected.permissions?.canEditDraft) return;
     const draftData = approvalDraftData(selected);
-    const template = templates.find((item) => item.code === selected.templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
+    const template = approvalTemplateByCode(templates, selected.templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
     setForm({
       title: selected.title,
       content: draftData.content,
@@ -1719,7 +1725,11 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
 
   async function save(submit = true) {
     setApprovalError("");
-    const template = templates.find((item) => item.code === form.templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
+    const template = approvalTemplateByCode(templates, form.templateCode);
+    if (!template) {
+      setApprovalError("선택한 결재 양식을 찾을 수 없습니다. 양식을 다시 선택해 주세요.");
+      return;
+    }
     const isEquipmentProposal = isEquipmentProposalTemplateCode(template.code);
     const peManagerId = productionEngineeringManagerId(employees);
     const receiverEmpIds = isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
@@ -1927,8 +1937,8 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   }
 
   function changeTemplate(templateCode: string) {
-    const nextTemplate = templates.find((item) => item.code === templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
-    const currentTemplate = templates.find((item) => item.code === form.templateCode);
+    const nextTemplate = approvalTemplateByCode(templates, templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
+    const currentTemplate = approvalTemplateByCode(templates, form.templateCode);
     const shouldUseTemplateTitle = !form.title.trim() || form.title === currentTemplate?.name;
     const isEquipmentProposal = isEquipmentProposalTemplateCode(templateCode);
     const peManagerId = productionEngineeringManagerId(employees);
@@ -1945,7 +1955,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     void applyDefaultLine(templateCode);
   }
 
-  const selectedTemplate = templates.find((item) => item.code === form.templateCode) ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
+  const selectedTemplate = approvalTemplateByCode(templates, form.templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
   const isClassicDraftForm = isDraftTemplateCode(selectedTemplate.code);
   const isEquipmentProposalForm = isEquipmentProposalTemplateCode(selectedTemplate.code);
   const restrictedIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
