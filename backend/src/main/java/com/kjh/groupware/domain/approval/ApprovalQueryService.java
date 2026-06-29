@@ -152,22 +152,44 @@ public class ApprovalQueryService {
                 .orElseThrow(() -> BusinessException.notFound("REQUESTER_NOT_FOUND", "Requester was not found"));
             LocalDateTime from = dateFrom == null ? null : dateFrom.atStartOfDay();
             LocalDateTime to = dateTo == null ? null : dateTo.plusDays(1).atStartOfDay();
+            List<Emp> decisionAssignees = decisionAssigneesFor(currentEmp);
             return PageResponse.from(documentRepository.searchVisible(
-                blankToNull(keyword),
-                blankToNull(templateCode),
-                blankToNull(status),
-                requester,
+                hasText(keyword),
+                valueOrEmpty(keyword),
+                hasText(templateCode),
+                valueOrEmpty(templateCode),
+                hasText(status),
+                valueOrEmpty(status),
+                requesterEmpId != null,
+                requester == null ? currentEmp : requester,
                 currentEmp,
+                decisionAssignees,
                 permissionService.canViewAllDocuments(currentEmp),
-                from,
-                to,
+                BOX_AGREEMENT.equals(normalizedBox),
+                BOX_PENDING.equals(normalizedBox),
+                BOX_RECEIVED.equals(normalizedBox),
+                BOX_SHARED.equals(normalizedBox),
+                BOX_PROCESSED.equals(normalizedBox),
+                BOX_REQUESTED.equals(normalizedBox),
+                BOX_ALL.equals(normalizedBox),
+                !BOX_AGREEMENT.equals(normalizedBox)
+                    && !BOX_PENDING.equals(normalizedBox)
+                    && !BOX_RECEIVED.equals(normalizedBox)
+                    && !BOX_SHARED.equals(normalizedBox)
+                    && !BOX_PROCESSED.equals(normalizedBox)
+                    && !BOX_REQUESTED.equals(normalizedBox)
+                    && !BOX_ALL.equals(normalizedBox),
+                from != null,
+                from == null ? LocalDateTime.now() : from,
+                to != null,
+                to == null ? LocalDateTime.now() : to,
                 documentPageRequest
             ).map(this::summary));
         }
 
         if (BOX_AGREEMENT.equals(normalizedBox)) {
             return PageResponse.from(lineRepository.findByAssignedEmpInAndLineTypeAndStatusOrderByLineIdDesc(
-                delegationService.decisionAssigneesFor(currentEmp),
+                decisionAssigneesFor(currentEmp),
                 ApprovalLine.TYPE_AGREEMENT,
                 ApprovalLine.STATUS_PENDING,
                 linePageRequest
@@ -175,7 +197,7 @@ public class ApprovalQueryService {
         }
         if (BOX_PENDING.equals(normalizedBox)) {
             return PageResponse.from(lineRepository.findByAssignedEmpInAndLineTypeAndStatusOrderByLineIdDesc(
-                delegationService.decisionAssigneesFor(currentEmp),
+                decisionAssigneesFor(currentEmp),
                 ApprovalLine.TYPE_APPROVAL,
                 ApprovalLine.STATUS_PENDING,
                 linePageRequest
@@ -199,7 +221,7 @@ public class ApprovalQueryService {
         }
         if (BOX_PROCESSED.equals(normalizedBox)) {
             return PageResponse.from(lineRepository.findByAssignedEmpInAndStatusInOrderByLineIdDesc(
-                delegationService.decisionAssigneesFor(currentEmp),
+                decisionAssigneesFor(currentEmp),
                 List.of(ApprovalLine.STATUS_APPROVED, ApprovalLine.STATUS_REJECTED, ApprovalLine.STATUS_RECEIPT_COMPLETED),
                 linePageRequest
             ).map(line -> summary(line.getDocument())));
@@ -298,6 +320,11 @@ public class ApprovalQueryService {
         };
     }
 
+    private List<Emp> decisionAssigneesFor(Emp currentEmp) {
+        List<Emp> found = delegationService.decisionAssigneesFor(currentEmp);
+        return found == null || found.isEmpty() ? List.of(currentEmp) : found;
+    }
+
     private ApprovalSummaryResponse summary(ApprovalDocument document) {
         return ApprovalSummaryResponse.from(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
     }
@@ -357,5 +384,9 @@ public class ApprovalQueryService {
 
     private String blankToNull(String value) {
         return hasText(value) ? value.trim() : null;
+    }
+
+    private String valueOrEmpty(String value) {
+        return hasText(value) ? value.trim() : "";
     }
 }

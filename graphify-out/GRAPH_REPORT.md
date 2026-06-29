@@ -1,7 +1,7 @@
 # Graph Report - Groupware  (2026-06-25)
 
 ## Corpus Check
-- 198 files · ~67,691 words
+- 198 files · ~67,758 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1deb0002`
+- Built from commit: `da3b1464`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -458,7 +458,7 @@ Cohesion: 0.50
 Nodes (4): Page, PageResponse, T, from()
 
 ### Community 76 - "Community 76"
-Cohesion: 0.32
+Cohesion: 0.28
 Nodes (6): AuditLogService, AuditActionType, JsonNode, Long, String, Transactional
 
 ### Community 77 - "Community 77"
@@ -522,7 +522,7 @@ Cohesion: 0.39
 Nodes (6): HttpServletRequest, HttpServletResponse, Override, FilterChain, OncePerRequestFilter, JwtAuthenticationFilter
 
 ### Community 139 - "Community 139"
-Cohesion: 0.32
+Cohesion: 0.47
 Nodes (3): Emp, Long, CurrentEmpProvider
 
 ### Community 140 - "Community 140"

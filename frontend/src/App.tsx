@@ -89,6 +89,13 @@ type ApprovalTemplateField = {
 type ApprovalBox = "agreement" | "pending" | "received" | "shared" | "requested" | "processed" | "all";
 type ApprovalDashboardFilter = "myPending" | "delegatedPending" | "overdue" | "requestedInProgress" | "recentCompleted";
 type ApprovalLaunch = { box: ApprovalBox; dashboardFilter?: ApprovalDashboardFilter; label: string };
+type ApprovalSearchForm = {
+  keyword: string;
+  status: string;
+  templateCode: string;
+  dateFrom: string;
+  dateTo: string;
+};
 type ApprovalForm = {
   title: string;
   content: string;
@@ -125,6 +132,14 @@ const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
   { code: "ANNUAL_MAINTENANCE", name: "연간보전계획서", description: "연간 보전 계획", version: 1 },
   { code: "EQUIPMENT_REPAIR", name: "설비수리보고서", description: "설비 수리 결과 보고", version: 1 }
 ];
+
+const DEFAULT_APPROVAL_SEARCH: ApprovalSearchForm = {
+  keyword: "",
+  status: "",
+  templateCode: "",
+  dateFrom: "",
+  dateTo: ""
+};
 const ENABLE_TEMPLATE_FALLBACK = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEMPLATE_FALLBACK === "true";
 
 function todayDate() {
@@ -1072,11 +1087,21 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   const [operationSettings, setOperationSettings] = useState<ApprovalOperationSettings | null>(null);
   const [operationSettingsMessage, setOperationSettingsMessage] = useState("");
   const [approvalActionComment, setApprovalActionComment] = useState("");
+  const [approvalSearch, setApprovalSearch] = useState<ApprovalSearchForm>(DEFAULT_APPROVAL_SEARCH);
   const isApprovalAdmin = user.roleCode === "ADMIN" || user.roleCode === "APPROVAL_ADMIN";
 
-  async function load(targetBox: ApprovalBox, targetFilter: ApprovalDashboardFilter | null | undefined = dashboardFilter?.dashboardFilter) {
-    const filterQuery = targetFilter ? `&dashboardFilter=${encodeURIComponent(targetFilter)}` : "";
-    const page = await api<PageResponse<ApprovalSummary>>(`/approvals?box=${targetBox}&size=30${filterQuery}`);
+  async function load(
+    targetBox: ApprovalBox,
+    targetFilter: ApprovalDashboardFilter | null | undefined = dashboardFilter?.dashboardFilter,
+    search: ApprovalSearchForm = approvalSearch
+  ) {
+    const params = new URLSearchParams({ box: targetBox, size: "30" });
+    if (targetFilter) params.set("dashboardFilter", targetFilter);
+    Object.entries(search).forEach(([key, value]) => {
+      const trimmed = value.trim();
+      if (trimmed) params.set(key, trimmed);
+    });
+    const page = await api<PageResponse<ApprovalSummary>>(`/approvals?${params.toString()}`);
     setItems(page.content);
   }
 
@@ -1645,6 +1670,31 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     await load(nextBox, null);
   }
 
+  async function applyApprovalSearch(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    await applyApprovalSearchValues(approvalSearch);
+  }
+
+  async function applyApprovalSearchValues(search: ApprovalSearchForm) {
+    setApprovalError("");
+    setDashboardFilter(null);
+    setSelected(null);
+    setMode("list");
+    setItems([]);
+    await load(box, null, search);
+  }
+
+  async function resetApprovalSearch() {
+    const nextSearch = DEFAULT_APPROVAL_SEARCH;
+    setApprovalSearch(nextSearch);
+    await applyApprovalSearchValues(nextSearch);
+  }
+
+  async function updateApprovalSearchFilter(nextSearch: ApprovalSearchForm) {
+    setApprovalSearch(nextSearch);
+    await applyApprovalSearchValues(nextSearch);
+  }
+
   async function openTemplateAdmin() {
     setApprovalError("");
     setDashboardFilter(null);
@@ -2152,6 +2202,49 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
       )}
       {mode === "list" && (
         <>
+          <form className="approval-search-panel" onSubmit={applyApprovalSearch}>
+            <label>
+              <span>검색어</span>
+              <input
+                value={approvalSearch.keyword}
+                onChange={(event) => setApprovalSearch({ ...approvalSearch, keyword: event.target.value })}
+                placeholder="문서번호, 제목, 기안자 검색"
+              />
+            </label>
+            <label>
+              <span>상태</span>
+              <select value={approvalSearch.status} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, status: event.target.value })}>
+                <option value="">전체</option>
+                <option value="IN_PROGRESS">진행</option>
+                <option value="APPROVED">승인완료</option>
+                <option value="REJECTED">반려</option>
+                <option value="DRAFT">임시저장</option>
+                <option value="WITHDRAWN">회수</option>
+                <option value="CANCELED">취소</option>
+              </select>
+            </label>
+            <label>
+              <span>양식</span>
+              <select value={approvalSearch.templateCode} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, templateCode: event.target.value })}>
+                <option value="">전체</option>
+                {templates.map((template) => (
+                  <option key={`${template.code}-${template.version ?? "latest"}`} value={template.code}>{template.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>시작일</span>
+              <input type="date" value={approvalSearch.dateFrom} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, dateFrom: event.target.value })} />
+            </label>
+            <label>
+              <span>종료일</span>
+              <input type="date" value={approvalSearch.dateTo} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, dateTo: event.target.value })} />
+            </label>
+            <div className="approval-search-actions">
+              <button type="submit"><Search size={16} /> 검색</button>
+              <button type="button" className="ghost" onClick={() => void resetApprovalSearch()}><RefreshCw size={16} /> 초기화</button>
+            </div>
+          </form>
           {dashboardFilter && (
             <div className="approval-filter-banner">
               <span>{dashboardFilter.label} 기준으로 표시 중</span>

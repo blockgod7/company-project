@@ -303,25 +303,25 @@ public class ApprovalPdfService {
                 drawMoldTitle(content, font, left + 180, 746, 190, proposal, dateText(document.getRequestedAt()));
                 drawDepartmentStamp(content, font, left + 370, 746, 177, "주관부서", sectionLeadStamp(proposal.getPeAssignee(), groups.peSubmitterLine()), groups.peLines());
 
-                drawInfoRow(content, font, left, 722, 72, 108, 18, "고객사", safe(proposal.getCustomerName()));
-                drawInfoRow(content, font, left + 180, 722, 72, 118, 18, "설비명", safe(proposal.getEquipmentName()));
-                drawMoldTypeBox(content, font, left + 370, 686, 177, 54, proposal.getRequestType());
-                drawInfoRow(content, font, left, 704, 72, 108, 18, "제품(기종)명", safe(proposal.getProductName()));
-                drawInfoRow(content, font, left + 180, 704, 72, 118, 18, "사용부서", safe(proposal.getRequestDeptName()));
-                drawInfoRow(content, font, left, 686, 72, 108, 18, "용도", safe(proposal.getUsageText()));
-                drawInfoRow(content, font, left + 180, 686, 72, 118, 18, "완료요구일", safe(proposal.getRequiredCompletionDate()));
+                drawInfoRow(content, font, left, 716, 72, 108, 24, "고객사", safe(proposal.getCustomerName()));
+                drawInfoRow(content, font, left + 180, 716, 72, 118, 24, "설비명", safe(proposal.getEquipmentName()));
+                drawMoldTypeBox(content, font, left + 370, 668, 177, 72, proposal.getRequestType());
+                drawInfoRow(content, font, left, 692, 72, 108, 24, "제품(기종)명", safe(proposal.getProductName()));
+                drawInfoRow(content, font, left + 180, 692, 72, 118, 24, "사용부서", safe(proposal.getRequestDeptName()));
+                drawInfoRow(content, font, left, 668, 72, 108, 24, "용도", safe(proposal.getUsageText()));
+                drawInfoRow(content, font, left + 180, 668, 72, 118, 24, "완료요구일", safe(proposal.getRequiredCompletionDate()));
 
-                drawLabeledBox(content, font, left, 610, width, 76, "사유", proposal.getCurrentState(), 4);
-                drawMoldPartTable(content, font, proposal, left, 536, width);
-                drawLabeledBox(content, font, left, 386, middle - left, 150, "요구사항", proposal.getRequirements(), 7);
-                drawLabeledBox(content, font, middle, 386, right - middle, 150, "주관(설계)부서 의견", proposal.getPeOpinion(), 7);
-                drawLabeledBox(content, font, left, 310, middle - left, 76, "지시사항", proposal.getInstructions(), 3);
-                drawLabeledBox(content, font, middle, 310, right - middle, 76, "구매 의견", proposal.getPurchaseOpinion(), 3);
-                drawEconomicReviewBox(content, font, left, 246, width, 64, proposal);
-                drawMoldAttachmentChecklist(content, font, left, 222, width, proposal);
+                drawLabeledBox(content, font, left, 592, width, 76, "사유", proposal.getCurrentState(), 4);
+                drawMoldPartTable(content, font, proposal, left, 518, width);
+                drawLabeledBox(content, font, left, 368, middle - left, 150, "요구사항", proposal.getRequirements(), 7);
+                drawLabeledBox(content, font, middle, 368, right - middle, 150, "주관(설계)부서 의견", proposal.getPeOpinion(), 7);
+                drawLabeledBox(content, font, left, 292, middle - left, 76, "지시사항", proposal.getInstructions(), 3);
+                drawLabeledBox(content, font, middle, 292, right - middle, 76, "구매 의견", proposal.getPurchaseOpinion(), 3);
+                drawEconomicReviewBox(content, font, left, 228, width, 64, proposal);
+                drawMoldAttachmentChecklist(content, font, left, 204, width, proposal);
 
                 drawText(content, font, "* 구매부서에서 작성_사용부서 경우, 확인 후 발주서 송부 *", left + 18, 150, 8);
-                drawDepartmentStamp(content, font, 390, 150, 181, "발주", sectionLeadStamp(proposal.getPurchaseAssignee(), groups.purchaseSubmitterLine()), groups.purchaseLines());
+                drawDepartmentStamp(content, font, 390, 132, 181, "발주", sectionLeadStamp(proposal.getPurchaseAssignee(), groups.purchaseSubmitterLine()), groups.purchaseLines());
                 drawMoldPurchaseBox(content, font, proposal, left, 14, width);
 
                 drawCenteredText(content, font, "SCTQE-PD-08-09-01(2023.01.05)", left, 2, 180, 7, 34);
@@ -419,14 +419,18 @@ public class ApprovalPdfService {
 
     private void drawMoldTypeBox(PDPageContentStream content, PDFont font, float x, float y, float width, float height, String selectedType) throws IOException {
         float labelWidth = 38;
+        float rowHeight = height / 3f;
+        float textY1 = y + rowHeight * 2 + (rowHeight - 5.5f) / 2f - 1;
+        float textY2 = y + rowHeight + (rowHeight - 5.5f) / 2f - 1;
+        float textY3 = y + (rowHeight - 5.5f) / 2f - 1;
         drawBox(content, x, y, width, height);
-        drawCenteredText(content, font, "구", x, y + 34, labelWidth, 9, 2);
-        drawCenteredText(content, font, "분", x, y + 14, labelWidth, 9, 2);
+        drawCenteredText(content, font, "구", x, y + height * 0.62f, labelWidth, 9, 2);
+        drawCenteredText(content, font, "분", x, y + height * 0.34f, labelWidth, 9, 2);
         String[] types = {"고객지급", "투자", "설계 및 제작", "구매", "수리", "매각", "폐기"};
-        float[] dx = {labelWidth + 8, labelWidth + 70, labelWidth + 8, labelWidth + 100, labelWidth + 8, labelWidth + 70, labelWidth + 100};
-        float[] dy = {37, 37, 22, 22, 7, 7, 7};
+        float[] dx = {labelWidth + 8, labelWidth + 78, labelWidth + 8, labelWidth + 96, labelWidth + 8, labelWidth + 70, labelWidth + 108};
+        float[] dy = {textY1 - y, textY1 - y, textY2 - y, textY2 - y, textY3 - y, textY3 - y, textY3 - y};
         for (int i = 0; i < types.length; i++) {
-            drawText(content, font, checkboxLabel(selectedType, types[i]), x + dx[i], y + dy[i], 6);
+            drawText(content, font, checkboxLabel(selectedType, types[i]), x + dx[i], y + dy[i], 5.5f);
         }
     }
 
@@ -750,9 +754,10 @@ public class ApprovalPdfService {
     private void drawInfoRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value) throws IOException {
         drawBox(content, x, y, labelWidth, height);
         drawBox(content, x + labelWidth, y, valueWidth, height);
-        float textY = y + Math.max(3, height / 2 - 6);
-        drawCenteredText(content, font, label, x, textY, labelWidth, 8, 12);
-        drawFittedText(content, font, value, x + labelWidth + 6, textY, valueWidth - 12, 8);
+        float fontSize = 7f;
+        float textY = y + (height - fontSize) / 2f - 1;
+        drawCenteredText(content, font, label, x, textY, labelWidth, fontSize, 12);
+        drawFittedText(content, font, value, x + labelWidth + 6, textY, valueWidth - 12, fontSize);
     }
 
     private void drawClassicApprovalBox(PDPageContentStream content, PDFont font, ApprovalDocument document, List<ApprovalLine> lines) throws IOException {

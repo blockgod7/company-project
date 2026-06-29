@@ -58,31 +58,84 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
     @Query("""
         select d from ApprovalDocument d
         where d.deletedYn = 'N'
-          and (:keyword is null or lower(coalesce(d.searchText, '')) like lower(concat('%', :keyword, '%')))
-          and (:templateCode is null or d.templateCode = :templateCode)
-          and (:status is null or d.status = :status)
-          and (:requester is null or d.requester = :requester)
+          and (:hasKeyword = false or lower(coalesce(d.searchText, '')) like lower(concat('%', :keyword, '%')))
+          and (:hasTemplateCode = false or d.templateCode = :templateCode)
+          and (:hasStatus = false or d.status = :status)
+          and (:hasRequester = false or d.requester = :requester)
           and (
-            :admin = true
-            or d.requester = :currentEmp
-            or exists (
+            (:boxAll = true and :admin = true)
+            or (:boxRequested = true and d.requester = :currentEmp)
+            or (:boxAgreement = true and exists (
+              select 1 from ApprovalLine agreementLine
+              where agreementLine.document = d
+                and agreementLine.assignedEmp in :decisionAssignees
+                and agreementLine.lineType = 'AGREEMENT'
+                and agreementLine.status = 'PENDING'
+            ))
+            or (:boxPending = true and exists (
+              select 1 from ApprovalLine pendingLine
+              where pendingLine.document = d
+                and pendingLine.assignedEmp in :decisionAssignees
+                and pendingLine.lineType = 'APPROVAL'
+                and pendingLine.status = 'PENDING'
+            ))
+            or (:boxReceived = true and exists (
+              select 1 from ApprovalLine receivedLine
+              where receivedLine.document = d
+                and receivedLine.assignedEmp = :currentEmp
+                and receivedLine.lineType = 'RECEIVER'
+                and receivedLine.status in ('RECEIVED', 'READ', 'RECEIPT_COMPLETED')
+            ))
+            or (:boxShared = true and exists (
+              select 1 from ApprovalLine sharedLine
+              where sharedLine.document = d
+                and sharedLine.assignedEmp = :currentEmp
+                and sharedLine.lineType in ('REFERENCE', 'READER')
+                and sharedLine.status = 'READ'
+            ))
+            or (:boxProcessed = true and exists (
+              select 1 from ApprovalLine processedLine
+              where processedLine.document = d
+                and processedLine.assignedEmp in :decisionAssignees
+                and processedLine.status in ('APPROVED', 'REJECTED', 'RECEIPT_COMPLETED')
+            ))
+            or (:boxVisible = true and (
+              d.requester = :currentEmp
+              or exists (
               select 1 from ApprovalLine visibleLine
               where visibleLine.document = d
                 and visibleLine.assignedEmp = :currentEmp
+              )
+            )
             )
           )
-          and (:dateFrom is null or d.requestedAt >= :dateFrom)
-          and (:dateTo is null or d.requestedAt < :dateTo)
+          and (:hasDateFrom = false or d.requestedAt >= :dateFrom)
+          and (:hasDateTo = false or d.requestedAt < :dateTo)
         order by d.approvalId desc
         """)
     Page<ApprovalDocument> searchVisible(
+        @Param("hasKeyword") boolean hasKeyword,
         @Param("keyword") String keyword,
+        @Param("hasTemplateCode") boolean hasTemplateCode,
         @Param("templateCode") String templateCode,
+        @Param("hasStatus") boolean hasStatus,
         @Param("status") String status,
+        @Param("hasRequester") boolean hasRequester,
         @Param("requester") Emp requester,
         @Param("currentEmp") Emp currentEmp,
+        @Param("decisionAssignees") Collection<Emp> decisionAssignees,
         @Param("admin") boolean admin,
+        @Param("boxAgreement") boolean boxAgreement,
+        @Param("boxPending") boolean boxPending,
+        @Param("boxReceived") boolean boxReceived,
+        @Param("boxShared") boolean boxShared,
+        @Param("boxProcessed") boolean boxProcessed,
+        @Param("boxRequested") boolean boxRequested,
+        @Param("boxAll") boolean boxAll,
+        @Param("boxVisible") boolean boxVisible,
+        @Param("hasDateFrom") boolean hasDateFrom,
         @Param("dateFrom") LocalDateTime dateFrom,
+        @Param("hasDateTo") boolean hasDateTo,
         @Param("dateTo") LocalDateTime dateTo,
         Pageable pageable
     );

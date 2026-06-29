@@ -1989,6 +1989,47 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .approval-filter-banner span {
   min-width: 0;
 }
+.approval-search-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) minmax(120px, .8fr) minmax(150px, 1fr) repeat(2, minmax(130px, .8fr)) auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.approval-search-panel label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.approval-search-panel input,
+.approval-search-panel select {
+  width: 100%;
+  min-height: 36px;
+}
+.approval-search-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+.approval-search-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+}
+.approval-search-actions button[type="submit"] {
+  background: var(--green);
+  color: white;
+  border-color: var(--green);
+}
 .line-picker-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2379,7 +2420,7 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   .two-pane, .org-layout, .login-card { grid-template-columns: 1fr; }
   .login-fields { justify-content: flex-start; }
   .approval-line-library { align-items: stretch; flex-direction: column; }
-  .org-picker-layout, .template-select-layout, .line-picker-grid, .approval-form-grid, .template-field-grid { grid-template-columns: 1fr; }
+  .org-picker-layout, .template-select-layout, .line-picker-grid, .approval-form-grid, .template-field-grid, .approval-search-panel { grid-template-columns: 1fr; }
   .approval-form-grid .wide, .template-field-grid .wide { grid-column: auto; }
   .equipment-section-head { flex-direction: column; }
   .equipment-section-stamp { width: 100%; flex-basis: auto; }
@@ -2461,5 +2502,7 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   .side-nav { grid-template-columns: 1fr; }
   .topbar { align-items: flex-start; flex-direction: column; gap: 8px; }
   .actions, .action-pair, .approval-preview { grid-template-columns: 1fr; flex-wrap: wrap; }
+  .approval-search-actions { justify-content: stretch; flex-wrap: wrap; }
+  .approval-search-actions button { flex: 1 1 120px; justify-content: center; }
   .feed-row { grid-template-columns: 1fr; }
 }
