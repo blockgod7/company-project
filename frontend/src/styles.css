@@ -1652,8 +1652,19 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .template-draft-preview {
   padding: 18px;
 }
+.template-draft-logo-wrap {
+  width: 168px;
+  min-height: 58px;
+  display: flex;
+  align-items: flex-start;
+}
+.template-draft-logo-wrap img {
+  width: 168px;
+  height: auto;
+  display: block;
+}
 .template-draft-preview h2 {
-  margin: 4px 0 18px;
+  margin: -18px 0 18px;
   text-align: center;
   font-size: 24px;
   color: #111827;

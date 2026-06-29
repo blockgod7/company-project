@@ -2835,6 +2835,9 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
 
   return (
     <div className="template-paper template-draft-preview">
+      <div className="template-draft-logo-wrap">
+        <img src={schunkLogo} alt="SCHUNK" />
+      </div>
       <h2>{template.name}</h2>
       <div className="template-draft-head">
         <div className="template-draft-info">
