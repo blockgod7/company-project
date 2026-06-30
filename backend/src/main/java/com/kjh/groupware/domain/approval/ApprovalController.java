@@ -7,6 +7,7 @@ import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalSummaryResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageResponse;
+import com.kjh.groupware.domain.approval.dto.PurchaseRequestUpdateRequest;
 import com.kjh.groupware.domain.file.AttachFile;
 import com.kjh.groupware.domain.file.FileService;
 import com.kjh.groupware.global.response.ApiResponse;
@@ -23,6 +24,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -190,6 +192,24 @@ public class ApprovalController {
         HttpServletRequest httpRequest
     ) {
         return ApiResponse.ok(approvalWorkflowService.completeReceipt(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
+    @PatchMapping("/{approvalId}/purchase-request")
+    public ApiResponse<ApprovalResponse> updatePurchaseRequest(
+        @PathVariable Long approvalId,
+        @Valid @RequestBody PurchaseRequestUpdateRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalWorkflowService.updatePurchaseRequest(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
+    @PostMapping("/{approvalId}/purchase-request/submit-approval")
+    public ApiResponse<ApprovalResponse> submitPurchaseApproval(
+        @PathVariable Long approvalId,
+        @Valid @RequestBody PurchaseRequestUpdateRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalWorkflowService.submitPurchaseApproval(approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
     @GetMapping("/{approvalId}/pdf")

@@ -4,7 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kjh.groupware.domain.approval.dto.ApprovalActionRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
+import com.kjh.groupware.domain.approval.dto.PurchaseRequestUpdateRequest;
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.emp.EmpSignatureService;
 import com.kjh.groupware.domain.file.AttachFile;
 import com.kjh.groupware.domain.notification.NotificationService;
@@ -12,8 +14,12 @@ import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +34,7 @@ public class ApprovalWorkflowService {
     private final CurrentEmpProvider currentEmpProvider;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
+    private final EmpRepository empRepository;
     private final EmpSignatureService signatureService;
     private final ApprovalPdfService pdfService;
     private final ApprovalPermissionService permissionService;
@@ -39,17 +46,32 @@ public class ApprovalWorkflowService {
 
     @Transactional
     public ApprovalResponse act(Long approvalId, String action, ApprovalActionRequest request, String ipAddress, String userAgent) {
-        return switch (ApprovalActionCode.from(action)) {
-            case APPROVE -> approve(approvalId, request, ipAddress, userAgent);
-            case REJECT -> reject(approvalId, request, ipAddress, userAgent);
-            case WITHDRAW -> withdraw(approvalId, request, ipAddress, userAgent);
-            case CANCEL -> cancel(approvalId, ipAddress, userAgent);
-            case REDRAFT -> redraft(approvalId, ipAddress, userAgent);
-            case RECEIVE -> receive(approvalId, ipAddress, userAgent);
-            case COMPLETE_RECEIPT -> completeReceipt(approvalId, request, ipAddress, userAgent);
-            case STATUS_CORRECTION -> correctStatus(approvalId, request, ipAddress, userAgent);
-            case REGENERATE_PDF -> regeneratePdf(approvalId, request);
-        };
+        ApprovalActionCode actionCode = ApprovalActionCode.from(action);
+        if (actionCode == ApprovalActionCode.APPROVE) {
+            return approve(approvalId, request, ipAddress, userAgent);
+        }
+        if (actionCode == ApprovalActionCode.REJECT) {
+            return reject(approvalId, request, ipAddress, userAgent);
+        }
+        if (actionCode == ApprovalActionCode.WITHDRAW) {
+            return withdraw(approvalId, request, ipAddress, userAgent);
+        }
+        if (actionCode == ApprovalActionCode.CANCEL) {
+            return cancel(approvalId, ipAddress, userAgent);
+        }
+        if (actionCode == ApprovalActionCode.REDRAFT) {
+            return redraft(approvalId, ipAddress, userAgent);
+        }
+        if (actionCode == ApprovalActionCode.RECEIVE) {
+            return receive(approvalId, ipAddress, userAgent);
+        }
+        if (actionCode == ApprovalActionCode.COMPLETE_RECEIPT) {
+            return completeReceipt(approvalId, request, ipAddress, userAgent);
+        }
+        if (actionCode == ApprovalActionCode.STATUS_CORRECTION) {
+            return correctStatus(approvalId, request, ipAddress, userAgent);
+        }
+        return regeneratePdf(approvalId, request);
     }
 
     @Transactional
@@ -175,7 +197,7 @@ public class ApprovalWorkflowService {
     @Transactional
     public ApprovalResponse receive(Long approvalId, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        ApprovalDocument document = getApprovedDocumentForUpdate(approvalId);
+        ApprovalDocument document = getPurchaseReceivableDocumentForUpdate(approvalId);
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
         ApprovalLine receiverLine = linePolicyService.receiverLineForUpdate(lines, currentEmp);
         if (!ApprovalLine.STATUS_RECEIVED.equals(receiverLine.getStatus())) {
@@ -197,6 +219,65 @@ public class ApprovalWorkflowService {
         }
         receiverLine.completeReceipt(currentEmp, request == null ? null : request.comment());
         auditApproval(currentEmp, AuditActionType.COMPLETE_RECEIPT, document, request == null ? null : request.comment(), true, ipAddress, userAgent);
+        return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), currentEmp);
+    }
+
+    @Transactional
+    public ApprovalResponse updatePurchaseRequest(Long approvalId, PurchaseRequestUpdateRequest request, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        ApprovalDocument document = getPurchaseReceivableDocumentForUpdate(approvalId);
+        if (!"PURCHASE".equals(document.getTemplateCode())) {
+            throw BusinessException.badRequest("APPROVAL_PURCHASE_ONLY", "Only purchase request documents can be updated here");
+        }
+        List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
+        linePolicyService.receiverLineForUpdate(lines, currentEmp);
+        ApprovalTemplate template = activeTemplate(document.getTemplateCode());
+        String formDataJson = updateFormField(document.getFormDataJson(), "deliveryDate", request == null ? null : request.deliveryDate());
+        document.updateFormDataJson(formDataJson, buildSearchText(document.getDocumentNo(), document.getTitle(), document.getRequester(), template, formDataJson));
+        if (ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus()) && document.getPdfFile() != null) {
+            pdfService.generateForFinalApproval(document);
+        }
+        auditApproval(currentEmp, AuditActionType.UPDATE, document, "purchase delivery date updated", true, ipAddress, userAgent);
+        return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), currentEmp);
+    }
+
+    @Transactional
+    public ApprovalResponse submitPurchaseApproval(Long approvalId, PurchaseRequestUpdateRequest request, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
+        if (!"PURCHASE".equals(document.getTemplateCode())) {
+            throw BusinessException.badRequest("APPROVAL_PURCHASE_ONLY", "Only purchase request documents can be processed here");
+        }
+        if (!document.isPending() || !ApprovalDocument.STAGE_RECEIVER_PROGRESS.equals(document.getCurrentStage())) {
+            throw BusinessException.badRequest("APPROVAL_PURCHASE_STAGE_INVALID", "Purchase approval can be submitted only after receiver handoff");
+        }
+        List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
+        ApprovalLine receiverLine = linePolicyService.receiverLineForUpdate(lines, currentEmp);
+        if (!ApprovalLine.STATUS_RECEIVED.equals(receiverLine.getStatus()) && !ApprovalLine.STATUS_READ.equals(receiverLine.getStatus())) {
+            throw BusinessException.badRequest("APPROVAL_PURCHASE_RECEIVE_REQUIRED", "Purchase receiver must receive the document first");
+        }
+        List<Long> agreementIds = ids(request == null ? null : request.agreementEmpIds());
+        List<Long> approverIds = ids(request == null ? null : request.approverEmpIds());
+        if (approverIds.isEmpty()) {
+            throw BusinessException.badRequest("APPROVAL_PURCHASE_APPROVER_REQUIRED", "Purchase approval line is required");
+        }
+        validatePurchaseDecisionLine(currentEmp, agreementIds, approverIds);
+        if (ApprovalLine.STATUS_RECEIVED.equals(receiverLine.getStatus())) {
+            receiverLine.markRead();
+        }
+        int order = nextLineOrder(lines);
+        for (Long empId : agreementIds) {
+            createPurchaseDecisionLine(document, activeEmp(empId), ApprovalLine.TYPE_AGREEMENT, order++, true);
+        }
+        boolean firstApproval = agreementIds.isEmpty();
+        for (Long empId : approverIds) {
+            createPurchaseDecisionLine(document, activeEmp(empId), ApprovalLine.TYPE_APPROVAL, order++, firstApproval);
+            firstApproval = false;
+        }
+        document.moveToApprovalProgress();
+        Emp firstAssignee = activeEmp(agreementIds.isEmpty() ? approverIds.get(0) : agreementIds.get(0));
+        notificationService.notifyEmp(firstAssignee.getEmpId(), "구매요구서 구매팀 결재", "구매팀 결재 요청 문서가 도착했습니다.", "APPROVAL", approvalId);
+        auditApproval(currentEmp, AuditActionType.UPDATE, document, "purchase approval submitted", true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), currentEmp);
     }
 
@@ -252,12 +333,103 @@ public class ApprovalWorkflowService {
         if (equipmentProposalService.progressAfterApproval(document, lines, currentLine)) {
             return;
         }
+        if (progressPurchaseRequestAfterApproval(document, lines)) {
+            return;
+        }
         leaveUsageService.assertNoCompletedLeaveOverlap(document);
         leaveUsageService.assertLeaveCancelTargetsApproved(document);
         document.approve();
         pdfService.generateForFinalApproval(document);
         openPostApprovalLines(document, lines);
         notificationService.notifyEmp(document.getRequester().getEmpId(), "전자결재 완료", "상신한 문서가 최종 승인되었습니다.", "APPROVAL", document.getApprovalId());
+    }
+
+    private boolean progressPurchaseRequestAfterApproval(ApprovalDocument document, List<ApprovalLine> lines) {
+        if (!"PURCHASE".equals(document.getTemplateCode())) {
+            return false;
+        }
+        boolean alreadyReceived = lines.stream()
+            .filter(ApprovalLine::isReceiver)
+            .anyMatch(line -> ApprovalLine.STATUS_RECEIVED.equals(line.getStatus())
+                || ApprovalLine.STATUS_READ.equals(line.getStatus())
+                || ApprovalLine.STATUS_RECEIPT_COMPLETED.equals(line.getStatus()));
+        if (alreadyReceived) {
+            return false;
+        }
+        List<ApprovalLine> receiverLines = lines.stream()
+            .filter(ApprovalLine::isReceiver)
+            .filter(line -> ApprovalLine.STATUS_WAITING.equals(line.getStatus()))
+            .toList();
+        if (receiverLines.isEmpty()) {
+            return false;
+        }
+        receiverLines.forEach(line -> {
+            line.markReceived();
+            notificationService.notifyEmp(line.getAssignedEmp().getEmpId(), "구매요구서 수신", "작성부서 결재가 완료되어 구매팀 수신 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
+        });
+        document.moveToReceiverProgress();
+        notificationService.notifyEmp(document.getRequester().getEmpId(), "구매요구서 구매팀 전달", "구매요구서가 구매팀 수신 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
+        return true;
+    }
+
+    private void validatePurchaseDecisionLine(Emp currentEmp, List<Long> agreementIds, List<Long> approverIds) {
+        requireNoDuplicate("PURCHASE_AGREEMENT_DUPLICATED", agreementIds);
+        requireNoDuplicate("PURCHASE_APPROVER_DUPLICATED", approverIds);
+        Set<Long> combined = new HashSet<>(agreementIds);
+        for (Long approverId : approverIds) {
+            if (!combined.add(approverId)) {
+                throw BusinessException.badRequest("APPROVAL_PURCHASE_LINE_DUPLICATED", "Purchase agreement and approval assignees cannot overlap");
+            }
+        }
+        if (agreementIds.contains(currentEmp.getEmpId()) || approverIds.contains(currentEmp.getEmpId())) {
+            throw BusinessException.badRequest("APPROVAL_PURCHASE_LINE_INVALID", "Purchase receiver cannot approve their own submitted purchase approval line");
+        }
+        agreementIds.forEach(this::activeEmp);
+        approverIds.forEach(this::activeEmp);
+    }
+
+    private void requireNoDuplicate(String code, List<Long> empIds) {
+        if (new HashSet<>(empIds).size() != empIds.size()) {
+            throw BusinessException.badRequest(code, "Approval assignees cannot contain duplicates");
+        }
+    }
+
+    private ApprovalLine createPurchaseDecisionLine(ApprovalDocument document, Emp assignee, String lineType, int order, boolean first) {
+        ApprovalLine line = ApprovalLine.builder()
+            .document(document)
+            .approver(assignee)
+            .lineType(lineType)
+            .lineOrder(order)
+            .first(false)
+            .build();
+        if (first) {
+            line.open(reminderService.decisionDueAt());
+        }
+        return lineRepository.save(line);
+    }
+
+    private int nextLineOrder(List<ApprovalLine> lines) {
+        return lines.stream()
+            .map(ApprovalLine::getLineOrder)
+            .filter(order -> order != null)
+            .max(Integer::compareTo)
+            .orElse(0) + 1;
+    }
+
+    private List<Long> ids(Collection<Long> empIds) {
+        return empIds == null ? List.of() : empIds.stream().toList();
+    }
+
+    private Emp activeEmp(Long empId) {
+        if (empId == null) {
+            throw BusinessException.badRequest("APPROVAL_ASSIGNEE_REQUIRED", "Approval assignee is required");
+        }
+        Emp emp = empRepository.findById(empId)
+            .orElseThrow(() -> BusinessException.notFound("APPROVAL_ASSIGNEE_NOT_FOUND", "Approval assignee was not found"));
+        if (!emp.isActiveUser()) {
+            throw BusinessException.badRequest("APPROVAL_ASSIGNEE_INACTIVE", "재직 중인 사용자만 결재선에 지정할 수 있습니다: " + emp.getEmpName());
+        }
+        return emp;
     }
 
     private String correctedStage(ApprovalDocument document, List<ApprovalLine> lines) {
@@ -358,6 +530,19 @@ public class ApprovalWorkflowService {
         return document;
     }
 
+    private ApprovalDocument getPurchaseReceivableDocumentForUpdate(Long approvalId) {
+        ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
+        if (ApprovalDocument.STATUS_APPROVED.equals(document.getStatus())) {
+            return document;
+        }
+        if ("PURCHASE".equals(document.getTemplateCode())
+            && document.isPending()
+            && ApprovalDocument.STAGE_RECEIVER_PROGRESS.equals(document.getCurrentStage())) {
+            return document;
+        }
+        throw BusinessException.badRequest("APPROVAL_NOT_RECEIVABLE", "Only approved or purchase receiver-progress documents can be received");
+    }
+
     private void assertRequester(Emp currentEmp, ApprovalDocument document) {
         if (!document.getRequester().getEmpId().equals(currentEmp.getEmpId())) {
             throw BusinessException.forbidden("APPROVAL_FORBIDDEN", "Only the requester can change this approval document");
@@ -420,6 +605,26 @@ public class ApprovalWorkflowService {
             ));
         } catch (JsonProcessingException ex) {
             throw BusinessException.badRequest("TEMPLATE_SNAPSHOT_FAILED", "Failed to snapshot approval template");
+        }
+    }
+
+    private String updateFormField(String formDataJson, String fieldName, String value) {
+        try {
+            Map<String, Object> root = formDataJson == null || formDataJson.isBlank()
+                ? new LinkedHashMap<>()
+                : objectMapper.readValue(formDataJson, new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, Object>>() {});
+            Object fieldsObject = root.get("fields");
+            Map<String, Object> fields = new LinkedHashMap<>();
+            if (fieldsObject instanceof Map<?, ?> map) {
+                for (Map.Entry<?, ?> entry : map.entrySet()) {
+                    fields.put(String.valueOf(entry.getKey()), entry.getValue());
+                }
+            }
+            fields.put(fieldName, value == null ? "" : value);
+            root.put("fields", fields);
+            return objectMapper.writeValueAsString(root);
+        } catch (JsonProcessingException ex) {
+            throw BusinessException.badRequest("APPROVAL_FORM_INVALID_JSON", "Approval form data JSON is invalid");
         }
     }
 

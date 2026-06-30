@@ -137,7 +137,7 @@ public class ApprovalPdfService {
         if (!ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus()) || document.getPdfFile() == null) {
             throw BusinessException.notFound("PDF_NOT_FOUND", "PDF has not been generated");
         }
-        if (isLeaveDocument(document) || ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
+        if (isLeaveDocument(document) || isPurchaseDocument(document) || ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             refreshEquipmentProposalPdf(document, currentEmp);
         }
         Long pdfFileId = document.getPdfFile().getFileId();
@@ -164,6 +164,9 @@ public class ApprovalPdfService {
         }
         if (isLeaveDocument(document)) {
             return renderLeaveRequest(document, lines);
+        }
+        if (isPurchaseDocument(document)) {
+            return renderPurchaseRequest(document, lines);
         }
         if (ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             return renderEquipmentProposal(document, lines);
@@ -222,6 +225,174 @@ public class ApprovalPdfService {
         return fields.has("leaveSelectionsJson")
             || fields.has("annualLeaveDays")
             || fields.has("leaveType") && (fields.has("startDate") || fields.has("endDate"));
+    }
+
+    private boolean isPurchaseDocument(ApprovalDocument document) {
+        return "PURCHASE".equals(document.getTemplateCode());
+    }
+
+    private GeneratedPdf renderPurchaseRequest(ApprovalDocument document, List<ApprovalLine> lines) {
+        JsonNode fields = formFields(document.getFormDataJson());
+        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+            PDFont font = loadFont(pdf);
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+                content.setLineWidth(1.0f);
+                List<ApprovalLine> receiverLines = linesOfType(lines, ApprovalLine.TYPE_RECEIVER);
+                Integer firstReceiverOrder = receiverLines.stream()
+                    .map(ApprovalLine::getLineOrder)
+                    .min(Comparator.naturalOrder())
+                    .orElse(Integer.MAX_VALUE);
+                Integer lastReceiverOrder = receiverLines.stream()
+                    .map(ApprovalLine::getLineOrder)
+                    .max(Comparator.naturalOrder())
+                    .orElse(Integer.MIN_VALUE);
+                List<ApprovalLine> approvalLines = lines.stream()
+                    .filter(ApprovalLine::isApproval)
+                    .filter(line -> line.getLineOrder() < firstReceiverOrder)
+                    .sorted(Comparator.comparing(ApprovalLine::getLineOrder))
+                    .toList();
+                List<PdfStampColumn> receiverColumns = new ArrayList<>();
+                receiverLines.stream()
+                    .map(this::purchaseReceiverStamp)
+                    .forEach(receiverColumns::add);
+                lines.stream()
+                    .filter(line -> line.isAgreement() || line.isApproval())
+                    .filter(line -> line.getLineOrder() > lastReceiverOrder)
+                    .sorted(Comparator.comparing(ApprovalLine::getLineOrder))
+                    .map(this::approvalStamp)
+                    .forEach(receiverColumns::add);
+                float stampWidth = 180;
+                drawDepartmentStamp(content, font, 60, 696, stampWidth, "결재", requesterStamp(document), approvalLines);
+                drawCenteredText(content, font, "구매요구서", 240, 728, 116, 17, 20);
+                drawDepartmentStampColumns(content, font, 536 - stampWidth, 696, stampWidth, "수신", null, receiverColumns);
+
+                float x = 60;
+                float y = 622;
+                float width = 476;
+                float row = 26;
+                drawPurchaseRequestInfoRow(content, font, x, y + row, width, "부서명", purchaseField(fields, "requestDeptName", safe(document.getDraftDeptName())), "성명", purchaseField(fields, "requesterName", document.getRequester().getEmpName()));
+                drawPurchaseRequestInfoRow(content, font, x, y, width, "청구일", purchaseField(fields, "requestDate", dateText(document.getRequestedAt())), "요구일", text(fields, "requiredDate"));
+                drawPurchaseRequestInfoRow(content, font, x, y - row, width, "접수일", purchaseReceiptDate(lines), "입고일", text(fields, "deliveryDate"));
+                drawPurchaseSingleInfoRow(content, font, x, y - row * 2, 70, width - 70, row, "제목", safe(document.getTitle()));
+
+                float tableY = y - row * 2 - 30;
+                drawPurchaseItemsTable(content, font, fields, x, tableY, width);
+                float buY = tableY - 242;
+                drawPurchaseBuTable(content, font, fields, x + 44, buY, width - 88);
+                String attachments = attachFileRepository.findByTargetTypeAndTargetIdAndDeletedYnOrderByFileIdAsc("APPROVAL_DOCUMENT", document.getApprovalId(), "N").stream()
+                    .map(AttachFile::getOriginalFileName)
+                    .reduce((left, right) -> left + ", " + right)
+                    .orElse("-");
+                drawPurchaseSingleInfoRow(content, font, x, 82, 70, width - 70, 24, "첨부", attachments);
+            }
+            pdf.save(output);
+            byte[] bytes = output.toByteArray();
+            return new GeneratedPdf(bytes, sha256(bytes));
+        } catch (IOException ex) {
+            throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate purchase request PDF");
+        }
+    }
+
+    private void drawPurchaseRequestInfoRow(PDPageContentStream content, PDFont font, float x, float y, float width, String leftLabel, String leftValue, String rightLabel, String rightValue) throws IOException {
+        float half = width / 2f;
+        drawPurchaseSingleInfoRow(content, font, x, y, 62, half - 62, 26, leftLabel, safe(leftValue));
+        drawPurchaseSingleInfoRow(content, font, x + half, y, 62, half - 62, 26, rightLabel, safe(rightValue));
+    }
+
+    private void drawPurchaseSingleInfoRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value) throws IOException {
+        drawBox(content, x, y, labelWidth, height);
+        drawBox(content, x + labelWidth, y, valueWidth, height);
+        float fontSize = 8f;
+        float textY = y + (height - fontSize) / 2f - 1;
+        drawCenteredText(content, font, label, x, textY, labelWidth, fontSize, 12);
+        drawFittedText(content, font, safe(value), x + labelWidth + 6, textY, valueWidth - 12, fontSize);
+    }
+
+    private void drawPurchaseItemsTable(PDPageContentStream content, PDFont font, JsonNode fields, float x, float y, float width) throws IOException {
+        float[] cols = {78, 160, 64, width - 302};
+        float rowHeight = 22;
+        String[] headers = {"품명", "규격", "수량", "용도"};
+        float cx = x;
+        for (int i = 0; i < headers.length; i++) {
+            drawBox(content, cx, y, cols[i], rowHeight);
+            drawCenteredText(content, font, headers[i], cx, y + 7, cols[i], 9, 8);
+            cx += cols[i];
+        }
+        List<String[]> items = purchaseItems(fields);
+        for (int rowIndex = 0; rowIndex < 8; rowIndex++) {
+            cx = x;
+            String[] item = rowIndex < items.size() ? items.get(rowIndex) : new String[] {"", "", "", ""};
+            for (int i = 0; i < cols.length; i++) {
+                float cy = y - rowHeight * (rowIndex + 1);
+                drawBox(content, cx, cy, cols[i], rowHeight);
+                drawFittedText(content, font, safe(item[i]), cx + 5, cy + 7, cols[i] - 10, 8);
+                cx += cols[i];
+            }
+        }
+    }
+
+    private void drawPurchaseBuTable(PDPageContentStream content, PDFont font, JsonNode fields, float x, float y, float width) throws IOException {
+        drawCenteredText(content, font, "BU 비용분할", x, y + 38, width, 10, 12);
+        String[] codes = {"BU1", "BU2", "BU3", "BU4", "BU5", "BU7", "BU9", "BU20", "EC", "BU60"};
+        float col = width / 5f;
+        float rowHeight = 28;
+        for (int i = 0; i < codes.length; i++) {
+            int row = i / 5;
+            int column = i % 5;
+            float cx = x + column * col;
+            float cy = y - row * rowHeight;
+            drawBox(content, cx, cy, col, rowHeight);
+            drawCenteredText(content, font, codes[i], cx, cy + 17, col, 8, 8);
+            drawCenteredText(content, font, purchaseBuValue(fields, codes[i]), cx, cy + 6, col, 8, 8);
+        }
+    }
+
+    private List<String[]> purchaseItems(JsonNode fields) {
+        List<String[]> items = new ArrayList<>();
+        String raw = text(fields, "purchaseItemsJson");
+        if (!raw.isBlank()) {
+            try {
+                JsonNode root = OBJECT_MAPPER.readTree(raw);
+                if (root.isArray()) {
+                    for (JsonNode node : root) {
+                        String[] row = {
+                            text(node, "itemName"),
+                            text(node, "spec"),
+                            text(node, "quantity"),
+                            text(node, "usage")
+                        };
+                        if (java.util.Arrays.stream(row).anyMatch(value -> value != null && !value.isBlank())) {
+                            items.add(row);
+                        }
+                    }
+                }
+            } catch (IOException ignored) {
+                items.clear();
+            }
+        }
+        return items;
+    }
+
+    private String purchaseField(JsonNode fields, String name, String fallback) {
+        String value = text(fields, name);
+        return value.isBlank() ? safe(fallback) : value;
+    }
+
+    private String purchaseBuValue(JsonNode fields, String code) {
+        String value = text(fields, "bu_" + code);
+        return value.isBlank() ? "0%" : value + "%";
+    }
+
+    private String purchaseReceiptDate(List<ApprovalLine> lines) {
+        return lines.stream()
+            .filter(ApprovalLine::isReceiver)
+            .filter(line -> line.getReadAt() != null || line.getActedAt() != null)
+            .sorted(Comparator.comparing(ApprovalLine::getLineOrder))
+            .map(line -> line.getReadAt() == null ? dateText(line.getActedAt()) : dateText(line.getReadAt()))
+            .findFirst()
+            .orElse("-");
     }
 
     private GeneratedPdf renderClassicDraft(ApprovalDocument document, List<ApprovalLine> lines) {
@@ -418,6 +589,10 @@ public class ApprovalPdfService {
             }
         }
 
+        drawDepartmentStampColumns(content, font, x, y, width, label, writer, approvalColumns);
+    }
+
+    private void drawDepartmentStampColumns(PDPageContentStream content, PDFont font, float x, float y, float width, String label, PdfStampColumn writer, List<PdfStampColumn> approvalColumns) throws IOException {
         drawBox(content, x, y, width, 72);
         float labelWidth = Math.max(30, Math.min(38, width * 0.18f));
         drawVerticalText(content, font, label, x, y + 52, labelWidth, 8);
@@ -858,6 +1033,15 @@ public class ApprovalPdfService {
             safe(line.getPositionSnapshot() == null ? line.getApprover().getPositionName() : line.getPositionSnapshot()),
             signed ? safe(signatureDisplayName(line)) : "",
             signed ? dateText(line.getSignedAt() == null ? line.getActedAt() : line.getSignedAt()) : "",
+            line
+        );
+    }
+
+    private PdfStampColumn purchaseReceiverStamp(ApprovalLine line) {
+        return new PdfStampColumn(
+            safe(line.getPositionSnapshot() == null ? line.getApprover().getPositionName() : line.getPositionSnapshot()),
+            safe(line.getEmpNameSnapshot() == null ? line.getApprover().getEmpName() : line.getEmpNameSnapshot()),
+            dateText(line.getReadAt() == null ? line.getActedAt() : line.getReadAt()),
             line
         );
     }

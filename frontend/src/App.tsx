@@ -126,11 +126,20 @@ type MoldFixturePart = {
   quantity: string;
   moldNo: string;
 };
+type PurchaseRequestItem = {
+  itemName: string;
+  spec: string;
+  quantity: string;
+  usage: string;
+};
 type LeaveSelection = {
   date: string;
   type: string;
   days: number;
 };
+
+const PURCHASE_RECEIVER_LOGIN_ID = "lim.purchase";
+const PURCHASE_BU_CODES = ["BU1", "BU2", "BU3", "BU4", "BU5", "BU7", "BU9", "BU20", "EC", "BU60"] as const;
 
 const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
   { code: "GENERAL", name: "일반문서", description: "일반 업무 기안", version: 1 },
@@ -313,6 +322,10 @@ function isLeaveCancelTemplateCode(templateCode: string | null | undefined) {
   return templateCode === "LEAVE_CANCEL";
 }
 
+function isPurchaseTemplateCode(templateCode: string | null | undefined) {
+  return templateCode === "PURCHASE";
+}
+
 function isEquipmentProposalTemplateCode(templateCode: string | null | undefined) {
   return templateCode === "EQUIPMENT_PROPOSAL" || templateCode === "MOLD_FIXTURE_PROPOSAL";
 }
@@ -331,6 +344,13 @@ function equipmentProposalCapacityLabel(templateCode: string | null | undefined)
 
 function equipmentProposalItemFallback(templateCode: string | null | undefined) {
   return templateCode === "MOLD_FIXTURE_PROPOSAL" ? "금형 치공구" : "설비";
+}
+
+function equipmentProposalGeneratedTitle(values: Record<string, string>, templateCode: string | null | undefined) {
+  const itemName = (isMoldFixtureTemplateCode(templateCode) ? values.moldNo : values.equipmentName)?.trim()
+    || equipmentProposalItemFallback(templateCode);
+  const requestType = values.requestType?.trim();
+  return `${itemName}${requestType ? ` ${requestType}` : ""} 품의서`;
 }
 
 function isMoldFixtureTemplateCode(templateCode: string | null | undefined) {
@@ -383,6 +403,95 @@ function parseMoldFixtureParts(values: Record<string, unknown> | EquipmentPropos
 
 function moldFixturePartsJson(parts: MoldFixturePart[]) {
   return JSON.stringify(normalizeMoldFixtureParts(parts));
+}
+
+function blankPurchaseItem(): PurchaseRequestItem {
+  return { itemName: "", spec: "", quantity: "", usage: "" };
+}
+
+function normalizePurchaseItems(items: PurchaseRequestItem[]) {
+  const normalized = items.length ? items : [blankPurchaseItem()];
+  return normalized.map((item) => ({
+    itemName: item.itemName ?? "",
+    spec: item.spec ?? "",
+    quantity: item.quantity ?? "",
+    usage: item.usage ?? ""
+  }));
+}
+
+function parsePurchaseItems(values: Record<string, unknown>): PurchaseRequestItem[] {
+  const raw = values.purchaseItemsJson;
+  if (typeof raw === "string" && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const rows = parsed.map((item) => ({
+          itemName: String(item?.itemName ?? ""),
+          spec: String(item?.spec ?? ""),
+          quantity: String(item?.quantity ?? ""),
+          usage: String(item?.usage ?? "")
+        }));
+        if (rows.length) return rows;
+      }
+    } catch {
+      return [blankPurchaseItem()];
+    }
+  }
+  return [blankPurchaseItem()];
+}
+
+function purchaseItemsJson(items: PurchaseRequestItem[]) {
+  return JSON.stringify(normalizePurchaseItems(items));
+}
+
+function purchaseBuTotal(values: Record<string, string>) {
+  return PURCHASE_BU_CODES.reduce((sum, code) => sum + Number(values[`bu_${code}`] || 0), 0);
+}
+
+function purchaseDefaultFieldValues(user: User, employees: Employee[], current: Record<string, string> = {}): Record<string, string> {
+  return {
+    requestDeptName: currentUserDeptName(user, employees, current.requestDeptName ?? ""),
+    requesterName: user.empName,
+    requestDate: current.requestDate || todayDate(),
+    requiredDate: current.requiredDate ?? "",
+    receiptDate: current.receiptDate ?? "",
+    deliveryDate: current.deliveryDate ?? "",
+    purchaseItemsJson: current.purchaseItemsJson || purchaseItemsJson([blankPurchaseItem()]),
+    ...(Object.fromEntries(PURCHASE_BU_CODES.map((code) => [`bu_${code}`, current[`bu_${code}`] ?? ""])) as Record<string, string>)
+  };
+}
+
+function purchaseReceiverId(employees: Employee[]) {
+  return employees.find((employee) => employee.loginId === PURCHASE_RECEIVER_LOGIN_ID)?.empId ?? null;
+}
+
+function purchaseReceiptDate(lines: ApprovalLine[]) {
+  const receiver = lines
+    .filter((line) => line.lineType === "RECEIVER")
+    .sort((a, b) => a.lineOrder - b.lineOrder)
+    .find((line) => line.readAt || line.actedAt);
+  return receiver?.readAt ?? receiver?.actedAt ?? "";
+}
+
+function purchaseRequestContent(values: Record<string, string>) {
+  const items = parsePurchaseItems(values).filter((item) => Object.values(item).some((value) => value.trim()));
+  const first = items[0];
+  return [
+    `요구일: ${values.requiredDate ?? ""}`,
+    first ? `대표품목: ${first.itemName || "-"} / ${first.spec || "-"} / ${first.quantity || "-"}` : "",
+    `BU 분할 합계: ${purchaseBuTotal(values)}%`
+  ].filter(Boolean).join("\n");
+}
+
+function validatePurchaseRequest(values: Record<string, string>, title: string) {
+  if (!title.trim()) return "구매요구서 제목을 입력해 주세요.";
+  if (!values.requiredDate?.trim()) return "요구일을 입력해 주세요.";
+  const items = parsePurchaseItems(values).filter((item) => Object.values(item).some((value) => value.trim()));
+  if (!items.length) return "구매 품목을 1건 이상 입력해 주세요.";
+  const invalidItem = items.find((item) => !item.itemName.trim() || !item.spec.trim() || !item.quantity.trim() || !item.usage.trim());
+  if (invalidItem) return "품명, 규격, 수량, 용도를 모두 입력해 주세요.";
+  const total = purchaseBuTotal(values);
+  return Math.abs(total - 100) > 0.0001 ? "BU 비용분할 합계는 100%가 되어야 합니다." : "";
 }
 
 function employeeDisplay(employee?: Employee) {
@@ -1423,10 +1532,17 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
 
   async function applyDefaultLine(templateCode: string) {
     const isEquipmentProposal = isEquipmentProposalTemplateCode(templateCode);
+    const isPurchaseRequest = isPurchaseTemplateCode(templateCode);
     const peManagerId = productionEngineeringManagerId(employees);
+    const purchaseReceiverEmpId = purchaseReceiverId(employees);
     try {
       const defaultLine = await api<ApprovalDefaultLineApi>(`/approval-default-lines/effective?templateCode=${encodeURIComponent(templateCode)}`);
       if (!defaultLine.steps.length) {
+        if (isPurchaseRequest) {
+          setForm((current) => ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
+          setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+          return;
+        }
         if (isEquipmentProposal) {
           setForm((current) => ({ ...current, receiverEmpIds: peManagerId ? [peManagerId] : [] }));
           setDefaultLineMessage(peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요.");
@@ -1440,15 +1556,22 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
           ...current,
           agreementEmpIds: defaultLineIds(defaultLine.steps, "AGREEMENT"),
           approverEmpIds: defaultLineIds(defaultLine.steps, "APPROVAL"),
-          receiverEmpIds: isEquipmentProposal ? (peManagerId ? [peManagerId] : []) : defaultLineIds(defaultLine.steps, "RECEIVER"),
+          receiverEmpIds: isPurchaseRequest ? (purchaseReceiverEmpId ? [purchaseReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER")) : isEquipmentProposal ? (peManagerId ? [peManagerId] : []) : defaultLineIds(defaultLine.steps, "RECEIVER"),
           referenceEmpIds: defaultLineIds(defaultLine.steps, "REFERENCE"),
           readerEmpIds: defaultLineIds(defaultLine.steps, "READER")
         };
       });
-      setDefaultLineMessage(isEquipmentProposal
+      setDefaultLineMessage(isPurchaseRequest
+        ? purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
+        : isEquipmentProposal
         ? peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요."
         : defaultLine.source === "TEMPLATE" ? "양식별 기본 결재선을 적용했습니다." : "개인 기본 결재선을 적용했습니다.");
     } catch {
+      if (isPurchaseRequest) {
+        setForm((current) => ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
+        setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+        return;
+      }
       if (isEquipmentProposal) {
         setForm((current) => ({ ...current, receiverEmpIds: peManagerId ? [peManagerId] : [] }));
         setDefaultLineMessage(peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요.");
@@ -1926,15 +2049,20 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     const requesterDeptName = currentUserDeptName(user, employees);
     const isLeaveRequest = isLeaveTemplateCode(previewTemplate.code);
     const isLeaveCancel = isLeaveCancelTemplateCode(previewTemplate.code);
+    const isPurchaseRequest = isPurchaseTemplateCode(previewTemplate.code);
+    const isEquipmentProposal = isEquipmentProposalTemplateCode(previewTemplate.code);
+    const purchaseReceiverEmpId = purchaseReceiverId(employees);
     setForm({
       ...defaultApprovalForm([previewTemplate]),
-      title: previewTemplate.name,
-      fieldValues: isEquipmentProposalTemplateCode(previewTemplate.code)
+      title: isPurchaseRequest || isEquipmentProposal ? "" : previewTemplate.name,
+      fieldValues: isEquipmentProposal
         ? { requestDeptName: requesterDeptName }
+        : isPurchaseRequest
+          ? purchaseDefaultFieldValues(user, employees)
         : isLeaveRequest || isLeaveCancel
           ? leaveUsageFieldValues(leaveUsage)
           : {},
-      receiverEmpIds: isEquipmentProposalTemplateCode(previewTemplate.code) && peManagerId ? [peManagerId] : []
+      receiverEmpIds: isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
     });
     setDefaultLineMessage("");
     setTemplateModalOpen(false);
@@ -2002,11 +2130,15 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     const isEquipmentProposal = isEquipmentProposalTemplateCode(template.code);
     const isLeaveRequest = isLeaveTemplateCode(template.code);
     const isLeaveCancel = isLeaveCancelTemplateCode(template.code);
+    const isPurchaseRequest = isPurchaseTemplateCode(template.code);
     const peManagerId = productionEngineeringManagerId(employees);
-    const receiverEmpIds = isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
+    const purchaseReceiverEmpId = purchaseReceiverId(employees);
+    const receiverEmpIds = isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     const fieldValues = isEquipmentProposalTemplateCode(template.code)
       ? { ...form.fieldValues, requestDeptName: requesterDeptName }
+      : isPurchaseRequest
+        ? purchaseDefaultFieldValues(user, employees, form.fieldValues)
       : form.fieldValues;
     const content = isEquipmentProposalTemplateCode(template.code)
       ? equipmentProposalContent(fieldValues, template.code)
@@ -2014,11 +2146,20 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
         ? leaveRequestContent(fieldValues)
         : isLeaveCancel
           ? leaveCancelContent(fieldValues)
+          : isPurchaseRequest
+            ? purchaseRequestContent(fieldValues)
         : form.content;
     if (submit) {
-      if (isEquipmentProposalTemplateCode(template.code) && !form.title.trim()) {
+      if ((isEquipmentProposalTemplateCode(template.code) || isPurchaseRequest) && !form.title.trim()) {
         setApprovalError("문서 제목 필수값을 입력해 주세요.");
         return;
+      }
+      if (isPurchaseRequest) {
+        const purchaseValidation = validatePurchaseRequest(fieldValues, form.title);
+        if (purchaseValidation) {
+          setApprovalError(purchaseValidation);
+          return;
+        }
       }
       const validation = validateDraftLine(receiverEmpIds);
       if (validation) {
@@ -2140,6 +2281,40 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     }
   }
 
+  async function savePurchaseDeliveryDate(deliveryDate: string) {
+    if (!selected) return;
+    try {
+      const updated = await api<Approval>(`/approvals/${selected.approvalId}/purchase-request`, {
+        method: "PATCH",
+        body: jsonBody({ deliveryDate })
+      });
+      setSelected(updated);
+      setApprovalError("");
+      await load(box);
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : "구매요구서 입고일 저장 중 오류가 발생했습니다.");
+    }
+  }
+
+  async function submitPurchaseApprovalLine(agreementEmpIds: number[], approverEmpIds: number[]) {
+    if (!selected) return;
+    if (!approverEmpIds.length) {
+      setApprovalError("구매팀 결재자를 1명 이상 선택해 주세요.");
+      return;
+    }
+    try {
+      const updated = await api<Approval>(`/approvals/${selected.approvalId}/purchase-request/submit-approval`, {
+        method: "POST",
+        body: jsonBody({ agreementEmpIds, approverEmpIds })
+      });
+      setSelected(updated);
+      setApprovalError("");
+      await load(box);
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : "구매팀 결재 상신 중 오류가 발생했습니다.");
+    }
+  }
+
   async function saveEquipmentProposalDraft(next: Partial<EquipmentProposal>) {
     if (!selected || !equipmentProposal) return;
     try {
@@ -2224,15 +2399,17 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     const isEquipmentProposal = isEquipmentProposalTemplateCode(templateCode);
     const isLeaveRequest = isLeaveTemplateCode(templateCode);
     const isLeaveCancel = isLeaveCancelTemplateCode(templateCode);
+    const isPurchaseRequest = isPurchaseTemplateCode(templateCode);
     const peManagerId = productionEngineeringManagerId(employees);
+    const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     setForm({
       ...form,
       templateCode,
       templateVersion: nextTemplate.version ?? null,
-      title: shouldUseTemplateTitle ? nextTemplate.name : form.title,
-      fieldValues: isEquipmentProposal ? { requestDeptName: requesterDeptName } : isLeaveRequest || isLeaveCancel ? leaveUsageFieldValues(leaveUsage) : {},
-      receiverEmpIds: isEquipmentProposal && peManagerId ? [peManagerId] : []
+      title: isPurchaseRequest || isEquipmentProposal ? "" : shouldUseTemplateTitle ? nextTemplate.name : form.title,
+      fieldValues: isEquipmentProposal ? { requestDeptName: requesterDeptName } : isPurchaseRequest ? purchaseDefaultFieldValues(user, employees) : isLeaveRequest || isLeaveCancel ? leaveUsageFieldValues(leaveUsage) : {},
+      receiverEmpIds: isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
     });
     setDefaultLineMessage("");
     void applyDefaultLine(templateCode);
@@ -2251,6 +2428,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   const isClassicDraftForm = isDraftTemplateCode(selectedTemplate.code);
   const isLeaveRequestForm = isLeaveTemplateCode(selectedTemplate.code);
   const isLeaveCancelForm = isLeaveCancelTemplateCode(selectedTemplate.code);
+  const isPurchaseRequestForm = isPurchaseTemplateCode(selectedTemplate.code);
   const isEquipmentProposalForm = isEquipmentProposalTemplateCode(selectedTemplate.code);
   const restrictedIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
   const peManagerEmployee = employees.find((employee) => employee.empId === productionEngineeringManagerId(employees));
@@ -2508,6 +2686,8 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
             equipmentProposal={equipmentProposal}
             equipmentProposalLoading={equipmentProposalLoading}
             employees={employees}
+            onSavePurchaseDeliveryDate={savePurchaseDeliveryDate}
+            onSubmitPurchaseApprovalLine={submitPurchaseApprovalLine}
             onSaveEquipment={saveEquipmentProposalDraft}
             onSubmitEquipmentStage={submitEquipmentStage}
             onAssignEquipmentAssignee={assignEquipmentAssignee}
@@ -2546,8 +2726,9 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
             </div>
             {isClassicDraftForm && <ClassicDraftEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} onChange={setForm} />}
+            {isPurchaseRequestForm && <PurchaseRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isEquipmentProposalForm && <EquipmentProposalEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {!isClassicDraftForm && !isLeaveRequestForm && !isLeaveCancelForm && !isEquipmentProposalForm && (
+            {!isClassicDraftForm && !isLeaveRequestForm && !isLeaveCancelForm && !isPurchaseRequestForm && !isEquipmentProposalForm && (
               <>
             <div className="approval-form-grid">
               <label>양식명<select value={form.templateCode} onChange={(event) => changeTemplate(event.target.value)}>{selectableTemplates.map((template) => <option key={template.code} value={template.code}>{template.name}</option>)}</select></label>
@@ -2647,6 +2828,82 @@ function TemplateFieldInputs({
           </label>
         );
       })}
+    </div>
+  );
+}
+
+function PurchaseRequestEditor({ user, employees, form, onChange }: { user: User; employees: Employee[]; form: ApprovalForm; onChange: (form: ApprovalForm) => void }) {
+  const values = purchaseDefaultFieldValues(user, employees, form.fieldValues);
+  const items = parsePurchaseItems(values);
+  const buTotal = purchaseBuTotal(values);
+
+  function setField(name: string, value: string) {
+    onChange({ ...form, fieldValues: { ...values, [name]: value } });
+  }
+
+  function setItem(index: number, name: keyof PurchaseRequestItem, value: string) {
+    const nextItems = normalizePurchaseItems(items);
+    nextItems[index] = { ...nextItems[index], [name]: value };
+    onChange({ ...form, fieldValues: { ...values, purchaseItemsJson: purchaseItemsJson(nextItems) } });
+  }
+
+  function addItem() {
+    onChange({ ...form, fieldValues: { ...values, purchaseItemsJson: purchaseItemsJson([...items, blankPurchaseItem()]) } });
+  }
+
+  function removeItem(index: number) {
+    const nextItems = items.filter((_, itemIndex) => itemIndex !== index);
+    onChange({ ...form, fieldValues: { ...values, purchaseItemsJson: purchaseItemsJson(nextItems.length ? nextItems : [blankPurchaseItem()]) } });
+  }
+
+  return (
+    <div className="purchase-request-form">
+      <div className="approval-form-grid">
+        <label className="wide">{requiredLabel("문서 제목")}<input required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="예: 구매요구서 - 안전장갑 외 3건 - 생산팀" /></label>
+      </div>
+
+      <div className="purchase-paper">
+        <PurchaseDraftStampHeader user={user} employees={employees} form={form} />
+        <div className="purchase-meta-grid">
+          <label><span>부서명</span><input readOnly value={values.requestDeptName} /></label>
+          <label><span>성명</span><input readOnly value={values.requesterName} /></label>
+          <label><span>청구일</span><input readOnly type="date" value={values.requestDate} /></label>
+          <label><span>{requiredLabel("요구일")}</span><input required type="date" value={values.requiredDate} onChange={(event) => setField("requiredDate", event.target.value)} /></label>
+          <label><span>접수일</span><input readOnly value={values.receiptDate || "수신 확인 시 자동 기입"} /></label>
+          <label><span>입고일</span><input readOnly value={values.deliveryDate || "구매부서 입력"} /></label>
+        </div>
+
+        <div className="purchase-items-head">
+          <strong>품목 내역</strong>
+          <button type="button" className="ghost" onClick={addItem}><Plus size={16} /> 행 추가</button>
+        </div>
+        <div className="purchase-item-table">
+          <div className="purchase-item-row purchase-item-header">
+            <span>품명</span><span>규격</span><span>수량</span><span>용도</span><span></span>
+          </div>
+          {items.map((item, index) => (
+            <div className="purchase-item-row" key={index}>
+              <input value={item.itemName} onChange={(event) => setItem(index, "itemName", event.target.value)} />
+              <input value={item.spec} onChange={(event) => setItem(index, "spec", event.target.value)} />
+              <input value={item.quantity} onChange={(event) => setItem(index, "quantity", event.target.value)} />
+              <input value={item.usage} onChange={(event) => setItem(index, "usage", event.target.value)} />
+              <button type="button" className="ghost danger" onClick={() => removeItem(index)} disabled={items.length === 1}><X size={15} /></button>
+            </div>
+          ))}
+        </div>
+
+        <div className="purchase-bu-section">
+          <div className="purchase-items-head">
+            <strong>BU 비용분할</strong>
+            <span className={Math.abs(buTotal - 100) < 0.0001 ? "bu-total ok" : "bu-total"}>합계 {buTotal || 0}%</span>
+          </div>
+          <div className="purchase-bu-grid">
+            {PURCHASE_BU_CODES.map((code) => (
+              <label key={code}><span>{code}</span><input type="number" min="0" max="100" step="0.1" value={values[`bu_${code}`]} onChange={(event) => setField(`bu_${code}`, event.target.value)} /></label>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2963,7 +3220,8 @@ function LeaveDetailStamp({ title, writerName, writerPosition, lines }: { title:
 function EquipmentProposalEditor({ user, employees, form, onChange }: { user: User; employees: Employee[]; form: ApprovalForm; onChange: (form: ApprovalForm) => void }) {
   const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
   const proposalTitle = equipmentProposalTitle(form.templateCode);
-  const isAutoTitle = form.title.trim() === proposalTitle;
+  const generatedTitle = equipmentProposalGeneratedTitle(form.fieldValues, form.templateCode);
+  const isAutoTitle = !form.title.trim() || form.title.trim() === proposalTitle || form.title.trim() === generatedTitle;
   function value(name: string) {
     if (name === "requestDeptName") return requesterDeptName;
     return form.fieldValues[name] ?? "";
@@ -2978,8 +3236,11 @@ function EquipmentProposalEditor({ user, employees, form, onChange }: { user: Us
       fieldValues.quantity = firstPart.quantity;
       fieldValues.moldNo = firstPart.moldNo;
     }
-    const titleSourceName = isMoldFixtureTemplateCode(form.templateCode) ? "productName" : "equipmentName";
-    const title = name === titleSourceName && (!form.title || form.title === proposalTitle) ? `${next || equipmentProposalItemFallback(form.templateCode)} 품의서` : form.title;
+    const oldGeneratedTitle = equipmentProposalGeneratedTitle(form.fieldValues, form.templateCode);
+    const shouldAutoTitle = !form.title.trim() || form.title === proposalTitle || form.title === oldGeneratedTitle;
+    const title = (name === "equipmentName" || name === "moldNo" || name === "moldPartsJson" || name === "requestType") && shouldAutoTitle
+      ? equipmentProposalGeneratedTitle(fieldValues, form.templateCode)
+      : form.title;
     onChange({ ...form, title, content: equipmentProposalContent(fieldValues, form.templateCode), fieldValues });
   }
 
@@ -2988,7 +3249,7 @@ function EquipmentProposalEditor({ user, employees, form, onChange }: { user: Us
       <section className="approval-detail-section">
         <h3>{proposalTitle}</h3>
         <div className="approval-form-grid">
-          <label className="wide">{requiredLabel("문서 제목")}<input className={isAutoTitle ? "auto-title-input" : ""} required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="검색에 사용할 품의서 제목을 입력하세요." /></label>
+          <label className="wide">{requiredLabel("문서 제목")}<input className={isAutoTitle ? "auto-title-input" : ""} required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder={isMoldFixtureTemplateCode(form.templateCode) ? "예: S-BB123 제작 품의서" : "예: 가공기-1 개선 품의서"} /></label>
         </div>
       </section>
       {isMoldFixtureTemplateCode(form.templateCode) ? (
@@ -3338,7 +3599,7 @@ function TemplateSelectModalV2({ templates, selected, fallbackActive, previewDep
             <div className="template-preview">
               <h3>양식 미리보기</h3>
               <TemplatePaperPreview template={selected} previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
-              <div className="paper-preview legacy-template-summary">
+              {!isPurchaseTemplateCode(selected.code) && <div className="paper-preview legacy-template-summary">
                 <h2>{selected.name} - 기안자명</h2>
                 <div className="preview-grid">
                   <strong>기안부서</strong><span>{previewDeptName}</span>
@@ -3346,7 +3607,7 @@ function TemplateSelectModalV2({ templates, selected, fallbackActive, previewDep
                   <strong>문서번호</strong><span>상신 시 자동생성</span>
                   <strong>결재</strong><span>합의/결재자 표시</span>
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
         </div>
@@ -3391,7 +3652,7 @@ function TemplateSelectModal({ templates, selected, fallbackActive, previewDeptN
             <h3>양식 미리보기</h3>
             <p>{selected.description || "등록된 설명이 없습니다."}</p>
             <TemplatePaperPreview template={selected} previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
-            <div className="paper-preview legacy-template-summary">
+            {!isPurchaseTemplateCode(selected.code) && <div className="paper-preview legacy-template-summary">
               <h2>{selected.name} - 기안자명</h2>
               <div className="preview-grid">
                 <strong>기안부서</strong><span>{previewDeptName}</span>
@@ -3399,7 +3660,7 @@ function TemplateSelectModal({ templates, selected, fallbackActive, previewDeptN
                 <strong>문서번호</strong><span>상신 시 자동생성</span>
                 <strong>결재</strong><span>합의/결재선 표시</span>
               </div>
-            </div>
+            </div>}
           </div>
         </div>
         <div className="modal-actions">
@@ -3416,6 +3677,38 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
   previewDeptName: string;
   previewRequesterName: string;
 }) {
+  if (isPurchaseTemplateCode(template.code)) {
+    return (
+      <div className="template-paper template-purchase-preview">
+        <div className="template-purchase-head">
+          <TemplateMiniStamp label="결재" writer={previewRequesterName} />
+          <h2>구매요구서</h2>
+          <TemplateMiniStamp label="수신" writer="임나영" compact />
+        </div>
+        <div className="template-purchase-meta">
+          <strong>부서명</strong><span>{previewDeptName}</span>
+          <strong>성명</strong><span>{previewRequesterName}</span>
+          <strong>청구일</strong><span>{todayDate()}</span>
+          <strong>요구일</strong><span>작성자 입력</span>
+          <strong>접수일</strong><span>수신 확인 시 자동 기입</span>
+          <strong>입고일</strong><span>구매부서 입력</span>
+          <strong>제목</strong><span className="wide">예: 구매요구서 - 안전장갑 외 3건 - 생산팀</span>
+        </div>
+        <div className="template-purchase-items">
+          <span>품명</span><span>규격</span><span>수량</span><span>용도</span>
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <div className="template-purchase-bu-title">BU 비용분할 <b>합계 100%</b></div>
+        <div className="template-purchase-bu">
+          {PURCHASE_BU_CODES.map((code) => <span key={code}>{code}<br />%</span>)}
+        </div>
+        <div className="template-attachment">첨부&nbsp;&nbsp; 견적서 / 사양서 / 참고자료</div>
+      </div>
+    );
+  }
+
   if (isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code)) {
     const cancelMode = isLeaveCancelTemplateCode(template.code);
     return (
@@ -3536,16 +3829,16 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
   );
 }
 
-function TemplateMiniStamp({ label, writer }: { label: string; writer: string }) {
+function TemplateMiniStamp({ label, writer, compact = false }: { label: string; writer: string; compact?: boolean }) {
   return (
-    <div className="template-mini-stamp">
+    <div className={`template-mini-stamp${compact ? " compact" : ""}`}>
       <div className="stamp-side">{label}</div>
       <div className="stamp-cell">작성</div>
-      <div className="stamp-cell">검토</div>
-      <div className="stamp-cell">승인</div>
+      {!compact && <div className="stamp-cell">검토</div>}
+      {!compact && <div className="stamp-cell">승인</div>}
       <div className="stamp-name">{writer}</div>
-      <div className="stamp-name"></div>
-      <div className="stamp-name"></div>
+      {!compact && <div className="stamp-name"></div>}
+      {!compact && <div className="stamp-name"></div>}
     </div>
   );
 }
@@ -3666,6 +3959,8 @@ function ApprovalDetailView({
   equipmentProposal,
   equipmentProposalLoading = false,
   employees = [],
+  onSavePurchaseDeliveryDate,
+  onSubmitPurchaseApprovalLine,
   onSaveEquipment,
   onSubmitEquipmentStage,
   onAssignEquipmentAssignee
@@ -3676,6 +3971,8 @@ function ApprovalDetailView({
   equipmentProposal?: EquipmentProposal | null;
   equipmentProposalLoading?: boolean;
   employees?: Employee[];
+  onSavePurchaseDeliveryDate?: (deliveryDate: string) => void;
+  onSubmitPurchaseApprovalLine?: (agreementEmpIds: number[], approverEmpIds: number[]) => void;
   onSaveEquipment?: (next: Partial<EquipmentProposal>) => void;
   onSubmitEquipmentStage?: (stage: "pe" | "purchase", next: Partial<EquipmentProposal>) => void;
   onAssignEquipmentAssignee?: (type: "pe" | "purchase", empId: number) => void;
@@ -3685,6 +3982,9 @@ function ApprovalDetailView({
   }
   if (isLeaveTemplateCode(approval.templateCode) || isLeaveCancelTemplateCode(approval.templateCode)) {
     return <LeaveRequestDetailView approval={approval} />;
+  }
+  if (isPurchaseTemplateCode(approval.templateCode)) {
+    return <PurchaseRequestDetailView user={user} employees={employees} approval={approval} onSaveDeliveryDate={onSavePurchaseDeliveryDate} onSubmitPurchaseApprovalLine={onSubmitPurchaseApprovalLine} />;
   }
   if (isEquipmentProposalTemplateCode(approval.templateCode) && equipmentProposal) {
     return (
@@ -3748,6 +4048,131 @@ function ApprovalDetailView({
   );
 }
 
+function PurchaseRequestDetailView({
+  user,
+  employees,
+  approval,
+  onSaveDeliveryDate,
+  onSubmitPurchaseApprovalLine
+}: {
+  user: User;
+  employees: Employee[];
+  approval: Approval;
+  onSaveDeliveryDate?: (deliveryDate: string) => void;
+  onSubmitPurchaseApprovalLine?: (agreementEmpIds: number[], approverEmpIds: number[]) => void;
+}) {
+  const draftData = approvalDraftData(approval);
+  const fields: Record<string, string> = {
+    ...draftData.fieldValues,
+    requestDeptName: draftData.fieldValues.requestDeptName || approval.draftDeptName || approval.requesterDeptName || "",
+    requesterName: draftData.fieldValues.requesterName || approval.requesterName,
+    requestDate: draftData.fieldValues.requestDate || (approval.requestedAt ?? "").slice(0, 10),
+    receiptDate: draftData.fieldValues.receiptDate || purchaseReceiptDate(approval.lines).slice(0, 10)
+  };
+  const items = parsePurchaseItems(fields).filter((item) => Object.values(item).some((value) => value.trim()));
+  const receiverLine = approval.lines.find((line) => line.lineType === "RECEIVER" && (line.assignedEmpId ?? line.approverEmpId) === user.empId);
+  const purchaseReceiverStage = approval.status === "IN_PROGRESS" && approval.currentStage === "RECEIVER_PROGRESS";
+  const canEditDeliveryDate = (approval.status === "APPROVED" || purchaseReceiverStage) && !!receiverLine;
+  const canSubmitPurchaseApproval = purchaseReceiverStage
+    && !!receiverLine
+    && (receiverLine.status === "RECEIVED" || receiverLine.status === "READ");
+  const [deliveryDate, setDeliveryDate] = useState(fields.deliveryDate ?? "");
+  const [purchaseAgreementEmpIds, setPurchaseAgreementEmpIds] = useState<number[]>([]);
+  const [purchaseApproverEmpIds, setPurchaseApproverEmpIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    setDeliveryDate(fields.deliveryDate ?? "");
+  }, [approval.approvalId, fields.deliveryDate]);
+
+  return (
+    <article className="approval-detail purchase-request-detail">
+      <section className="approval-detail-section">
+        <h3>구매요구서</h3>
+        <dl className="approval-meta-grid">
+          <dt>문서번호</dt><dd>{approval.documentNo ?? "상신 후 자동 생성"}</dd>
+          <dt>문서상태</dt><dd>{statusLabel(approval.status)}</dd>
+          <dt>수신상태</dt><dd>{receiverProgress(approval.lines)}</dd>
+          <dt>기안자</dt><dd>{approval.requesterName}</dd>
+        </dl>
+      </section>
+      {canSubmitPurchaseApproval && (
+        <section className="approval-detail-section purchase-approval-submit-section">
+          <div className="panel-head">
+            <div>
+              <h3>구매팀 결재 상신</h3>
+              <p className="muted-text">구매팀 내부 결재라인을 지정해 상신하면 해당 결재 완료 후 문서가 최종 완료됩니다.</p>
+            </div>
+            <button type="button" onClick={() => onSubmitPurchaseApprovalLine?.(purchaseAgreementEmpIds, purchaseApproverEmpIds)}><Check size={16} /> 구매팀 결재 상신</button>
+          </div>
+          <div className="line-picker-grid">
+            <EmployeeMultiPicker
+              title="구매팀 합의자"
+              user={user}
+              employees={employees}
+              selectedIds={purchaseAgreementEmpIds}
+              disabledIds={[user.empId, ...purchaseApproverEmpIds]}
+              onChange={setPurchaseAgreementEmpIds}
+            />
+            <EmployeeMultiPicker
+              title="구매팀 결재자"
+              user={user}
+              employees={employees}
+              selectedIds={purchaseApproverEmpIds}
+              disabledIds={[user.empId, ...purchaseAgreementEmpIds]}
+              ordered
+              onChange={setPurchaseApproverEmpIds}
+            />
+          </div>
+        </section>
+      )}
+      <section className="purchase-paper read-only">
+        <PurchaseApprovalStampHeader approval={approval} />
+        <div className="purchase-meta-grid">
+          <label><span>부서명</span><input readOnly value={fields.requestDeptName ?? ""} /></label>
+          <label><span>성명</span><input readOnly value={fields.requesterName ?? ""} /></label>
+          <label><span>청구일</span><input readOnly value={fields.requestDate ?? ""} /></label>
+          <label><span>요구일</span><input readOnly value={fields.requiredDate ?? ""} /></label>
+          <label><span>접수일</span><input readOnly value={fields.receiptDate || "-"} /></label>
+          <label><span>입고일</span><input type="date" readOnly={!canEditDeliveryDate} value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)} /></label>
+        </div>
+        {canEditDeliveryDate && (
+          <div className="purchase-delivery-actions">
+            <button type="button" onClick={() => onSaveDeliveryDate?.(deliveryDate)}><Save size={16} /> 입고일 저장</button>
+          </div>
+        )}
+        <div className="purchase-item-table">
+          <div className="purchase-item-row purchase-item-header">
+            <span>품명</span><span>규격</span><span>수량</span><span>용도</span><span></span>
+          </div>
+          {(items.length ? items : [blankPurchaseItem()]).map((item, index) => (
+            <div className="purchase-item-row" key={index}>
+              <span>{item.itemName || "-"}</span>
+              <span>{item.spec || "-"}</span>
+              <span>{item.quantity || "-"}</span>
+              <span>{item.usage || "-"}</span>
+              <span></span>
+            </div>
+          ))}
+        </div>
+        <div className="purchase-bu-section">
+          <div className="purchase-items-head"><strong>BU 비용분할</strong><span className="bu-total ok">합계 {purchaseBuTotal(fields)}%</span></div>
+          <div className="purchase-bu-grid">
+            {PURCHASE_BU_CODES.map((code) => (
+              <label key={code}><span>{code}</span><input readOnly value={fields[`bu_${code}`] || "0"} /></label>
+            ))}
+          </div>
+        </div>
+      </section>
+      <ApprovalLineSection title="합의자" lines={approval.lines.filter((line) => line.lineType === "AGREEMENT")} />
+      <ApprovalLineSection title="결재자" lines={approval.lines.filter((line) => line.lineType === "APPROVAL")} />
+      <ApprovalLineSection title="수신자" lines={approval.lines.filter((line) => line.lineType === "RECEIVER")} />
+      <ApprovalLineSection title="참조자" lines={approval.lines.filter((line) => line.lineType === "REFERENCE")} />
+      <ApprovalLineSection title="열람자" lines={approval.lines.filter((line) => line.lineType === "READER")} />
+      <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+    </article>
+  );
+}
+
 function ApprovalLineSection({ title, lines }: { title: string; lines: ApprovalLine[] }) {
   return (
     <section className="approval-detail-section">
@@ -3770,6 +4195,129 @@ function ApprovalLineSection({ title, lines }: { title: string; lines: ApprovalL
         </div>
       ) : <Empty text={`${title}가 없습니다.`} />}
     </section>
+  );
+}
+
+function PurchaseDraftStampHeader({ user, employees, form }: { user: User; employees: Employee[]; form: ApprovalForm }) {
+  const approvalColumns = [
+    {
+      key: "requester",
+      position: "작성자",
+      name: user.empName,
+      date: "",
+      muted: false,
+      delegateText: null
+    },
+    ...employeesByIds(employees, form.approverEmpIds).map((employee) => ({
+      key: `approver-${employee.empId}`,
+      position: employee.positionName ?? "결재자",
+      name: employee.empName,
+      date: "",
+      muted: false,
+      delegateText: null
+    }))
+  ];
+  const receiverColumns = employeesByIds(employees, form.receiverEmpIds).map((employee) => ({
+    key: `receiver-${employee.empId}`,
+    position: employee.positionName ?? "수신자",
+    name: employee.empName,
+    date: "",
+    muted: false,
+    delegateText: null
+  }));
+
+  return <PurchaseStampHeader approvalColumns={approvalColumns} receiverColumns={receiverColumns} />;
+}
+
+function PurchaseApprovalStampHeader({ approval }: { approval: Approval }) {
+  const receiverLines = approval.lines
+    .filter((line) => line.lineType === "RECEIVER")
+    .slice()
+    .sort((a, b) => a.lineOrder - b.lineOrder);
+  const firstReceiverOrder = receiverLines[0]?.lineOrder ?? Number.POSITIVE_INFINITY;
+  const lastReceiverOrder = receiverLines[receiverLines.length - 1]?.lineOrder ?? Number.NEGATIVE_INFINITY;
+  const requesterApprovalLines = approval.lines
+    .filter((line) => line.lineType === "APPROVAL" && line.lineOrder < firstReceiverOrder)
+    .slice()
+    .sort((a, b) => a.lineOrder - b.lineOrder);
+  const receiverDecisionLines = approval.lines
+    .filter((line) => (line.lineType === "AGREEMENT" || line.lineType === "APPROVAL") && line.lineOrder > lastReceiverOrder)
+    .slice()
+    .sort((a, b) => a.lineOrder - b.lineOrder);
+  const approvalColumns = [
+    {
+      key: "requester",
+      position: approval.requesterPositionName ?? "작성자",
+      name: approval.requesterName,
+      date: approval.requestedAt,
+      muted: false,
+      delegateText: null
+    },
+    ...requesterApprovalLines.map(purchaseDecisionStampColumn)
+  ];
+  const receiverColumns = receiverLines.map((line) => ({
+      key: String(line.lineId),
+      position: line.positionSnapshot ?? line.approverPositionName ?? "수신자",
+      name: line.empNameSnapshot ?? line.approverName,
+      date: line.readAt ?? line.actedAt,
+      muted: !line.readAt && !line.actedAt,
+      delegateText: delegatedActionText(line)
+    }));
+  const receiverApprovalColumns = receiverDecisionLines.map(purchaseDecisionStampColumn);
+
+  return <PurchaseStampHeader approvalColumns={approvalColumns} receiverColumns={receiverColumns} receiverApprovalColumns={receiverApprovalColumns} />;
+}
+
+function purchaseDecisionStampColumn(line: ApprovalLine): StampDisplayColumn {
+  return {
+    key: String(line.lineId),
+    position: line.positionSnapshot ?? line.approverPositionName ?? (line.lineType === "AGREEMENT" ? "합의자" : "결재자"),
+    name: line.status === "APPROVED" || line.status === "REJECTED" ? signatureDisplayName(line) : line.empNameSnapshot ?? line.approverName,
+    date: line.signedAt ?? line.actedAt,
+    muted: line.status !== "APPROVED" && line.status !== "REJECTED",
+    delegateText: delegatedActionText(line)
+  };
+}
+
+function PurchaseStampHeader({
+  approvalColumns,
+  receiverColumns,
+  receiverApprovalColumns = []
+}: {
+  approvalColumns: StampDisplayColumn[];
+  receiverColumns: StampDisplayColumn[];
+  receiverApprovalColumns?: StampDisplayColumn[];
+}) {
+  return (
+    <div className="purchase-paper-stamp-head">
+      <PurchaseStampTable label="결재" columns={approvalColumns} minCount={2} />
+      <div className="purchase-paper-title">구매요구서</div>
+      <div className="purchase-receiver-stamps">
+        <PurchaseStampTable label="수신" columns={[...receiverColumns, ...receiverApprovalColumns]} minCount={1} />
+      </div>
+    </div>
+  );
+}
+
+function PurchaseStampTable({ label, columns, minCount }: { label: string; columns: StampDisplayColumn[]; minCount: number }) {
+  const visibleColumns = padStampColumns(columns, minCount);
+
+  return (
+    <div className="approval-stamp-wrap purchase-approval-stamp">
+      <div className="approval-stamp-label">{label}</div>
+      <div className="approval-stamp-table">
+        {visibleColumns.map((column) => (
+          <div className="approval-stamp-column" key={column.key}>
+            <div className="stamp-position">{column.position}</div>
+            <div className={`stamp-signature${column.muted ? " stamp-signature-muted" : ""}`}>{column.name}</div>
+            <div className="stamp-date">
+              {column.date ? formatDate(column.date) : ""}
+              {column.delegateText && <span className="stamp-delegate">{column.delegateText}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

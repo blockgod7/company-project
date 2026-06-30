@@ -17,6 +17,7 @@ import com.kjh.groupware.domain.approval.dto.ApprovalActionRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageResponse;
+import com.kjh.groupware.domain.approval.dto.PurchaseRequestUpdateRequest;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.emp.EmpSignatureService;
@@ -233,6 +234,7 @@ class ApprovalServiceWorkflowTest {
             currentEmpProvider,
             auditLogService,
             notificationService,
+            empRepository,
             signatureService,
             pdfService,
             permissionService,
@@ -305,18 +307,15 @@ class ApprovalServiceWorkflowTest {
 
         currentEmp.set(emps.get(5L));
         workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
-        assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
-        assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_COMPLETED);
-        verify(pdfService).generateForFinalApproval(document);
+        assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_IN_PROGRESS);
+        assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_RECEIVER_PROGRESS);
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isReceiver).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_RECEIVED);
-        assertThat(orderedLines(document)).filteredOn(line -> line.isReference() || line.isReader()).extracting(ApprovalLine::getStatus)
-            .containsExactly(ApprovalLine.STATUS_READ, ApprovalLine.STATUS_READ);
 
         currentEmp.set(emps.get(1L));
         assertThat(service.findOne(document.getApprovalId(), "127.0.0.1", "test").permissions().canView()).isTrue();
         currentEmp.set(emps.get(6L));
-        assertThat(service.findOne(document.getApprovalId(), "127.0.0.1", "test").permissions().canCompleteReceipt()).isTrue();
+        assertThat(service.findOne(document.getApprovalId(), "127.0.0.1", "test").permissions().canReceive()).isTrue();
         currentEmp.set(emps.get(7L));
         assertThat(service.findOne(document.getApprovalId(), "127.0.0.1", "test").permissions().canApprove()).isFalse();
         currentEmp.set(emps.get(8L));
@@ -341,11 +340,32 @@ class ApprovalServiceWorkflowTest {
         workflowService.receive(document.getApprovalId(), "127.0.0.1", "test");
         assertThatThrownBy(() -> workflowService.receive(document.getApprovalId(), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class);
-        workflowService.completeReceipt(document.getApprovalId(), new ApprovalActionRequest("done"), "127.0.0.1", "test");
+        workflowService.submitPurchaseApproval(
+            document.getApprovalId(),
+            new PurchaseRequestUpdateRequest(null, List.of(), List.of(7L)),
+            "127.0.0.1",
+            "test"
+        );
+        assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_APPROVAL_PROGRESS);
+        assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getStatus)
+            .containsExactly(ApprovalLine.STATUS_APPROVED, ApprovalLine.STATUS_APPROVED, ApprovalLine.STATUS_PENDING);
+
+        currentEmp.set(emps.get(6L));
+        assertThat(service.findOne(document.getApprovalId(), "127.0.0.1", "test").permissions().canView()).isTrue();
+        currentEmp.set(emps.get(7L));
+        assertThat(service.findOne(document.getApprovalId(), "127.0.0.1", "test").permissions().canApprove()).isTrue();
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("purchase approve"), "127.0.0.1", "test");
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
+        assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_COMPLETED);
+        verify(pdfService).generateForFinalApproval(document);
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isReceiver).extracting(ApprovalLine::getStatus)
-            .containsExactly(ApprovalLine.STATUS_RECEIPT_COMPLETED);
-        assertThatThrownBy(() -> workflowService.completeReceipt(document.getApprovalId(), new ApprovalActionRequest("again"), "127.0.0.1", "test"))
+            .containsExactly(ApprovalLine.STATUS_READ);
+        assertThatThrownBy(() -> workflowService.submitPurchaseApproval(
+            document.getApprovalId(),
+            new PurchaseRequestUpdateRequest(null, List.of(), List.of(7L)),
+            "127.0.0.1",
+            "test"
+        ))
             .isInstanceOf(BusinessException.class);
     }
 

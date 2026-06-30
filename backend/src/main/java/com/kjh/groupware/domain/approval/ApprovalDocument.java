@@ -254,6 +254,11 @@ public class ApprovalDocument extends BaseEntity {
         this.completedAt = null;
     }
 
+    public void updateFormDataJson(String formDataJson, String searchText) {
+        this.formDataJson = formDataJson;
+        this.searchText = searchText;
+    }
+
     public void submit(String documentNo, String searchText, boolean hasAgreement) {
         if (this.documentNo == null || this.documentNo.isBlank()) {
             this.documentNo = documentNo;
@@ -275,6 +280,10 @@ public class ApprovalDocument extends BaseEntity {
 
     public void moveToApprovalProgress() {
         this.currentStage = STAGE_APPROVAL_PROGRESS;
+    }
+
+    public void moveToReceiverProgress() {
+        this.currentStage = STAGE_RECEIVER_PROGRESS;
     }
 
     public void approve() {
