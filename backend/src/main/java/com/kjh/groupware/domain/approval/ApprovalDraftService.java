@@ -32,6 +32,7 @@ public class ApprovalDraftService {
     private final ApprovalPermissionService permissionService;
     private final ApprovalLinePolicyService linePolicyService;
     private final ApprovalEquipmentProposalService equipmentProposalService;
+    private final ApprovalLeaveUsageService leaveUsageService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
@@ -42,6 +43,12 @@ public class ApprovalDraftService {
         boolean draft = Boolean.TRUE.equals(request.draft());
         linePolicyService.validateLineSelection(requester, request, !draft);
         validateRequiredFields(template, request, !draft);
+        if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            leaveUsageService.assertNoCompletedLeaveOverlap(requester, null, request.formDataJson());
+        }
+        if (!draft && ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            leaveUsageService.assertLeaveCancelTargetsApproved(requester, null, request.formDataJson());
+        }
 
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
         String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
@@ -136,6 +143,12 @@ public class ApprovalDraftService {
 
         ApprovalTemplate template = activeTemplate(request.templateCode());
         validateRequiredFields(template, request, true);
+        if (ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            leaveUsageService.assertNoCompletedLeaveOverlap(requester, document.getApprovalId(), request.formDataJson());
+        }
+        if (ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            leaveUsageService.assertLeaveCancelTargetsApproved(requester, document.getApprovalId(), request.formDataJson());
+        }
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
         String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
         String documentNo = hasText(document.getDocumentNo()) ? document.getDocumentNo() : generateDocumentNo(template.getTemplateCode());
@@ -161,7 +174,20 @@ public class ApprovalDraftService {
 
     private ApprovalTemplate activeTemplate(String templateCode) {
         return templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(templateCode, "Y")
-            .orElseThrow(() -> BusinessException.badRequest("APPROVAL_TEMPLATE_NOT_FOUND", "Active approval template was not found"));
+            .orElseGet(() -> {
+                if (ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(templateCode)) {
+                    return ApprovalTemplate.builder()
+                        .templateCode(ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE)
+                        .templateName("휴가 취소계")
+                        .version(1)
+                        .description("승인 완료된 휴가 취소 신청")
+                        .fieldsJson("[]")
+                        .activeYn("Y")
+                        .sortOrder(0)
+                        .build();
+                }
+                throw BusinessException.badRequest("APPROVAL_TEMPLATE_NOT_FOUND", "Active approval template was not found");
+            });
     }
 
     private ApprovalDocument getActiveDocumentForUpdate(Long approvalId) {
@@ -241,6 +267,8 @@ public class ApprovalDraftService {
 
     private synchronized String generateDocumentNo(String templateCode) {
         String prefix = switch (templateCode) {
+            case "LEAVE" -> "LEV";
+            case "LEAVE_CANCEL" -> "LVC";
             case "PURCHASE" -> "PUR";
             case "TRAINING_REQUEST", "TRAINING_REPORT" -> "EDU";
             case ApprovalEquipmentProposal.TEMPLATE_CODE -> "EQP";

@@ -47,6 +47,7 @@ import type {
   DeptNode,
   Employee,
   EquipmentProposal,
+  LeaveUsage,
   LoginResponse,
   Notice,
   NotificationItem,
@@ -69,6 +70,11 @@ type ApprovalTemplateOption = {
   printLayoutJson?: string | null;
   activeYn?: "Y" | "N";
   sortOrder?: number;
+};
+type ApprovalTemplateCategory = {
+  id: string;
+  label: string;
+  codes: string[];
 };
 type ApprovalTemplateAdminForm = {
   templateCode: string;
@@ -120,6 +126,11 @@ type MoldFixturePart = {
   quantity: string;
   moldNo: string;
 };
+type LeaveSelection = {
+  date: string;
+  type: string;
+  days: number;
+};
 
 const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
   { code: "GENERAL", name: "일반문서", description: "일반 업무 기안", version: 1 },
@@ -140,7 +151,56 @@ const DEFAULT_APPROVAL_SEARCH: ApprovalSearchForm = {
   dateFrom: "",
   dateTo: ""
 };
+const APPROVAL_TEMPLATE_CATEGORIES: ApprovalTemplateCategory[] = [
+  { id: "draft", label: "1. 기안 공문", codes: ["DRAFT", "EQUIPMENT_PROPOSAL", "MOLD_FIXTURE_PROPOSAL"] },
+  { id: "leave", label: "2. 휴가, 출장", codes: ["LEAVE", "LEAVE_CANCEL"] },
+  { id: "purchase", label: "3. 구매", codes: ["PURCHASE"] },
+  { id: "education", label: "4. 교육 및 제안", codes: ["TRAINING_REQUEST", "TRAINING_REPORT"] }
+];
 const ENABLE_TEMPLATE_FALLBACK = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEMPLATE_FALLBACK === "true";
+const LEAVE_TYPE_OPTIONS = [
+  "연차",
+  "오전반차",
+  "오후반차",
+  "공가",
+  "공가(오전)",
+  "공가(오후)",
+  "경조",
+  "산휴",
+  "출장",
+  "외근",
+  "기타",
+  "대체휴무",
+  "병가",
+  "교육",
+  "휴무",
+  "육아휴직",
+  "자녀돌봄휴가"
+];
+const DEFAULT_TOTAL_ANNUAL_DAYS = "22";
+const KOREAN_PUBLIC_HOLIDAYS: Record<string, string> = {
+  "2026-01-01": "신정",
+  "2026-02-16": "설날",
+  "2026-02-17": "설날",
+  "2026-02-18": "설날",
+  "2026-03-01": "삼일절",
+  "2026-03-02": "대체공휴일",
+  "2026-05-01": "근로자의 날",
+  "2026-05-05": "어린이날",
+  "2026-05-24": "부처님오신날",
+  "2026-05-25": "대체공휴일",
+  "2026-06-03": "지방선거",
+  "2026-06-06": "현충일",
+  "2026-08-15": "광복절",
+  "2026-08-17": "대체공휴일",
+  "2026-09-24": "추석",
+  "2026-09-25": "추석",
+  "2026-09-26": "추석",
+  "2026-10-03": "개천절",
+  "2026-10-05": "대체공휴일",
+  "2026-10-09": "한글날",
+  "2026-12-25": "성탄절"
+};
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -188,6 +248,26 @@ function approvalTemplateByCode(templates: ApprovalTemplateOption[], templateCod
     ?? DEFAULT_APPROVAL_TEMPLATES.find((item) => item.code === templateCode);
 }
 
+function categorizedTemplateGroups(templates: ApprovalTemplateOption[]) {
+  const byCode = new Map(templates.map((template) => [template.code, template]));
+  return APPROVAL_TEMPLATE_CATEGORIES
+    .map((category) => ({
+      ...category,
+      templates: category.codes
+        .map((code) => byCode.get(code))
+        .filter((template): template is ApprovalTemplateOption => Boolean(template))
+    }))
+    .filter((category) => category.templates.length > 0);
+}
+
+function selectableApprovalTemplates(templates: ApprovalTemplateOption[]) {
+  return categorizedTemplateGroups(templates).flatMap((category) => category.templates);
+}
+
+function firstSelectableApprovalTemplate(templates: ApprovalTemplateOption[]) {
+  return selectableApprovalTemplates(templates)[0] ?? templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0];
+}
+
 function idsFromJson(value: unknown) {
   return Array.isArray(value) ? value.filter((id): id is number => typeof id === "number") : [];
 }
@@ -223,6 +303,14 @@ function approvalContent(approval: Approval) {
 
 function isDraftTemplateCode(templateCode: string | null | undefined) {
   return templateCode === "DRAFT";
+}
+
+function isLeaveTemplateCode(templateCode: string | null | undefined) {
+  return templateCode === "LEAVE";
+}
+
+function isLeaveCancelTemplateCode(templateCode: string | null | undefined) {
+  return templateCode === "LEAVE_CANCEL";
 }
 
 function isEquipmentProposalTemplateCode(templateCode: string | null | undefined) {
@@ -421,6 +509,110 @@ function parseTemplateFields(fieldsJson?: string | null): ApprovalTemplateField[
 
 function isRequiredTemplateField(field: ApprovalTemplateField) {
   return field.required === true || String(field.required).toLowerCase() === "true" || String(field.required).toUpperCase() === "Y";
+}
+
+function leaveDayValue(type: string) {
+  if (type === "연차") return 1;
+  if (type === "오전반차" || type === "오후반차") return 0.5;
+  return 0;
+}
+
+function formatDayValue(value?: string | number | null) {
+  const numeric = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(numeric)) return "0";
+  return String(Number(numeric.toFixed(1)));
+}
+
+function formatShortDate(value: string) {
+  const [, month, day] = value.split("-");
+  return `${Number(month)}/${Number(day)}`;
+}
+
+function localDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseLeaveSelections(values: Record<string, string> | null | undefined): LeaveSelection[] {
+  if (!values?.leaveSelectionsJson) return [];
+  try {
+    const parsed = JSON.parse(values.leaveSelectionsJson);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is Record<string, unknown> => item && typeof item === "object" && typeof item.date === "string")
+      .map((item) => {
+        const type = typeof item.type === "string" && LEAVE_TYPE_OPTIONS.includes(item.type) ? item.type : "연차";
+        return {
+          date: String(item.date),
+          type,
+          days: leaveDayValue(type)
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  } catch {
+    return [];
+  }
+}
+
+function leaveSummary(selections: LeaveSelection[]) {
+  return selections.map((selection) => `${formatShortDate(selection.date)} ${selection.type}`).join(", ");
+}
+
+function leaveDateRangeText(values: Record<string, string>) {
+  const startDate = values.startDate ?? "";
+  const endDate = values.endDate ?? "";
+  const days = formatDayValue(values.days);
+  if (!startDate && !endDate) return `- [ ${days} 일 ]`;
+  return `${startDate || endDate} ~ ${endDate || startDate} [ ${days} 일 ]`;
+}
+
+function leaveRequestContent(values: Record<string, string>) {
+  return [
+    `신청기간: ${leaveDateRangeText(values)}`,
+    `신청구분: ${values.leaveType ?? "-"}`,
+    `연차 사용일수: ${formatDayValue(values.days)}일`,
+    `신청 후 잔여 연차일수: ${formatDayValue(values.remainingAnnualDays)}일`
+  ].filter(Boolean).join("\n");
+}
+
+function leaveCancelContent(values: Record<string, string>) {
+  return [
+    `취소기간: ${leaveDateRangeText(values)}`,
+    `취소구분: ${values.leaveType ?? "-"}`,
+    `취소 연차일수: ${formatDayValue(values.days)}일`
+  ].filter(Boolean).join("\n");
+}
+
+function leaveUsageFieldValues(usage: LeaveUsage | null): Record<string, string> {
+  return {
+    usedAnnualDays: formatDayValue(usage?.usedAnnualDays ?? "0"),
+    totalAnnualDays: formatDayValue(usage?.totalAnnualDays ?? DEFAULT_TOTAL_ANNUAL_DAYS),
+    remainingAnnualDays: formatDayValue(usage?.remainingAnnualDays ?? DEFAULT_TOTAL_ANNUAL_DAYS)
+  };
+}
+
+function withLeaveCancelTemplate(templates: ApprovalTemplateOption[]) {
+  if (templates.some((template) => template.code === "LEAVE_CANCEL")) {
+    return templates;
+  }
+  return [
+    ...templates,
+    {
+      code: "LEAVE_CANCEL",
+      name: "휴가 취소계",
+      description: "승인 완료된 휴가 취소 신청",
+      version: 1,
+      fieldsJson: "[]",
+      activeYn: "Y" as const,
+      sortOrder: 999
+    }
+  ];
+}
+
+function remainingAnnualDaysText(totalDays: string | number | null | undefined, usedBefore: string | number | null | undefined, requestedDays: string | number | null | undefined) {
+  return formatDayValue(Number(totalDays ?? 0) - Number(usedBefore ?? 0) - Number(requestedDays ?? 0));
 }
 
 const routeLabels: Record<Route, string> = {
@@ -1071,6 +1263,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<ApprovalTemplateOption>(DEFAULT_APPROVAL_TEMPLATES[0]);
   const [form, setForm] = useState<ApprovalForm>(() => defaultApprovalForm());
+  const [leaveUsage, setLeaveUsage] = useState<LeaveUsage | null>(null);
   const [templateAdminForm, setTemplateAdminForm] = useState<ApprovalTemplateAdminForm>(() => templateAdminFormFromOption());
   const [templateLineForm, setTemplateLineForm] = useState<ApprovalForm>(() => defaultApprovalForm());
   const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
@@ -1148,6 +1341,17 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     setEmployees(page.content);
   }
 
+  async function loadLeaveUsage() {
+    try {
+      const usage = await api<LeaveUsage>("/approvals/leave-usage/me");
+      setLeaveUsage(usage);
+      return usage;
+    } catch {
+      setLeaveUsage(null);
+      return null;
+    }
+  }
+
   async function loadActiveTemplates() {
     let nextTemplates: ApprovalTemplateOption[] = [];
     try {
@@ -1157,11 +1361,11 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
       nextTemplates = [];
     }
     const shouldFallback = !nextTemplates.length && ENABLE_TEMPLATE_FALLBACK;
-    const merged = nextTemplates.length ? nextTemplates : shouldFallback ? DEFAULT_APPROVAL_TEMPLATES : [];
+    const merged = withLeaveCancelTemplate(nextTemplates.length ? nextTemplates : shouldFallback ? DEFAULT_APPROVAL_TEMPLATES : []);
     setTemplateFallbackActive(shouldFallback);
     setTemplates(merged);
-    if (merged.length) setPreviewTemplate(merged[0]);
-    setForm((current) => current.templateCode ? current : defaultApprovalForm(merged));
+    if (merged.length) setPreviewTemplate(firstSelectableApprovalTemplate(merged));
+    setForm((current) => current.templateCode ? current : defaultApprovalForm([firstSelectableApprovalTemplate(merged)]));
     return merged;
   }
 
@@ -1704,7 +1908,8 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
   }
 
   function startCreate() {
-    if (!templates.length) {
+    const selectableTemplates = selectableApprovalTemplates(templates);
+    if (!selectableTemplates.length) {
       setApprovalError("사용 가능한 결재 양식이 없습니다. 관리자에게 양식 활성화를 요청해 주세요.");
       return;
     }
@@ -1712,23 +1917,37 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     setSelected(null);
     setPendingFiles([]);
     setApprovalError("");
-    setPreviewTemplate(templates[0] ?? DEFAULT_APPROVAL_TEMPLATES[0]);
+    setPreviewTemplate(selectableTemplates[0]);
     setTemplateModalOpen(true);
   }
 
   function confirmTemplate() {
     const peManagerId = productionEngineeringManagerId(employees);
     const requesterDeptName = currentUserDeptName(user, employees);
+    const isLeaveRequest = isLeaveTemplateCode(previewTemplate.code);
+    const isLeaveCancel = isLeaveCancelTemplateCode(previewTemplate.code);
     setForm({
       ...defaultApprovalForm([previewTemplate]),
       title: previewTemplate.name,
-      fieldValues: isEquipmentProposalTemplateCode(previewTemplate.code) ? { requestDeptName: requesterDeptName } : {},
+      fieldValues: isEquipmentProposalTemplateCode(previewTemplate.code)
+        ? { requestDeptName: requesterDeptName }
+        : isLeaveRequest || isLeaveCancel
+          ? leaveUsageFieldValues(leaveUsage)
+          : {},
       receiverEmpIds: isEquipmentProposalTemplateCode(previewTemplate.code) && peManagerId ? [peManagerId] : []
     });
     setDefaultLineMessage("");
     setTemplateModalOpen(false);
     setMode("create");
     void applyDefaultLine(previewTemplate.code);
+    if (isLeaveRequest || isLeaveCancel) {
+      void loadLeaveUsage().then((usage) => {
+        setForm((current) => isLeaveTemplateCode(current.templateCode) || isLeaveCancelTemplateCode(current.templateCode)
+          ? { ...current, fieldValues: { ...current.fieldValues, ...leaveUsageFieldValues(usage) } }
+          : current
+        );
+      });
+    }
   }
 
   function editDraft() {
@@ -1781,12 +2000,21 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
       return;
     }
     const isEquipmentProposal = isEquipmentProposalTemplateCode(template.code);
+    const isLeaveRequest = isLeaveTemplateCode(template.code);
+    const isLeaveCancel = isLeaveCancelTemplateCode(template.code);
     const peManagerId = productionEngineeringManagerId(employees);
     const receiverEmpIds = isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     const fieldValues = isEquipmentProposalTemplateCode(template.code)
       ? { ...form.fieldValues, requestDeptName: requesterDeptName }
       : form.fieldValues;
+    const content = isEquipmentProposalTemplateCode(template.code)
+      ? equipmentProposalContent(fieldValues, template.code)
+      : isLeaveRequest
+        ? leaveRequestContent(fieldValues)
+        : isLeaveCancel
+          ? leaveCancelContent(fieldValues)
+        : form.content;
     if (submit) {
       if (isEquipmentProposalTemplateCode(template.code) && !form.title.trim()) {
         setApprovalError("문서 제목 필수값을 입력해 주세요.");
@@ -1806,11 +2034,11 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     try {
       const payload = {
         title: form.title.trim() || template.name,
-        content: isEquipmentProposalTemplateCode(template.code) ? equipmentProposalContent(fieldValues, template.code) : form.content,
+        content,
         templateCode: template.code,
         templateVersion: template.version ?? form.templateVersion,
         formDataJson: JSON.stringify({
-          content: isEquipmentProposalTemplateCode(template.code) ? equipmentProposalContent(fieldValues, template.code) : form.content,
+          content,
           fields: fieldValues,
           agreementEmpIds: form.agreementEmpIds,
           approverEmpIds: form.approverEmpIds,
@@ -1900,6 +2128,9 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
       setSelected(updated);
       if (type === "approve") {
         setApprovalActionComment("");
+      }
+      if (type === "approve" && (isLeaveTemplateCode(updated.templateCode) || isLeaveCancelTemplateCode(updated.templateCode)) && updated.status === "APPROVED") {
+        await loadLeaveUsage();
       }
       await refreshEquipmentProposal(updated);
       setApprovalError("");
@@ -1991,6 +2222,8 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     const currentTemplate = approvalTemplateByCode(templates, form.templateCode);
     const shouldUseTemplateTitle = !form.title.trim() || form.title === currentTemplate?.name;
     const isEquipmentProposal = isEquipmentProposalTemplateCode(templateCode);
+    const isLeaveRequest = isLeaveTemplateCode(templateCode);
+    const isLeaveCancel = isLeaveCancelTemplateCode(templateCode);
     const peManagerId = productionEngineeringManagerId(employees);
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     setForm({
@@ -1998,15 +2231,26 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
       templateCode,
       templateVersion: nextTemplate.version ?? null,
       title: shouldUseTemplateTitle ? nextTemplate.name : form.title,
-      fieldValues: isEquipmentProposal ? { requestDeptName: requesterDeptName } : {},
+      fieldValues: isEquipmentProposal ? { requestDeptName: requesterDeptName } : isLeaveRequest || isLeaveCancel ? leaveUsageFieldValues(leaveUsage) : {},
       receiverEmpIds: isEquipmentProposal && peManagerId ? [peManagerId] : []
     });
     setDefaultLineMessage("");
     void applyDefaultLine(templateCode);
+    if (isLeaveRequest || isLeaveCancel) {
+      void loadLeaveUsage().then((usage) => {
+        setForm((current) => current.templateCode === templateCode
+          ? { ...current, fieldValues: { ...current.fieldValues, ...leaveUsageFieldValues(usage) } }
+          : current
+        );
+      });
+    }
   }
 
   const selectedTemplate = approvalTemplateByCode(templates, form.templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
+  const selectableTemplates = selectableApprovalTemplates(templates);
   const isClassicDraftForm = isDraftTemplateCode(selectedTemplate.code);
+  const isLeaveRequestForm = isLeaveTemplateCode(selectedTemplate.code);
+  const isLeaveCancelForm = isLeaveCancelTemplateCode(selectedTemplate.code);
   const isEquipmentProposalForm = isEquipmentProposalTemplateCode(selectedTemplate.code);
   const restrictedIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
   const peManagerEmployee = employees.find((employee) => employee.empId === productionEngineeringManagerId(employees));
@@ -2301,11 +2545,12 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
               <button type="button" className="ghost" onClick={() => void saveNamedApprovalLine()}><Save size={16} /> 현재 결재라인 저장</button>
             </div>
             {isClassicDraftForm && <ClassicDraftEditor user={user} employees={employees} form={form} onChange={setForm} />}
+            {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} onChange={setForm} />}
             {isEquipmentProposalForm && <EquipmentProposalEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {!isClassicDraftForm && !isEquipmentProposalForm && (
+            {!isClassicDraftForm && !isLeaveRequestForm && !isLeaveCancelForm && !isEquipmentProposalForm && (
               <>
             <div className="approval-form-grid">
-              <label>양식명<select value={form.templateCode} onChange={(event) => changeTemplate(event.target.value)}>{templates.map((template) => <option key={template.code} value={template.code}>{template.name}</option>)}</select></label>
+              <label>양식명<select value={form.templateCode} onChange={(event) => changeTemplate(event.target.value)}>{selectableTemplates.map((template) => <option key={template.code} value={template.code}>{template.name}</option>)}</select></label>
               <label>문서 중요도<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value as ApprovalForm["priority"] })}><option value="NORMAL">일반</option><option value="IMPORTANT">중요</option><option value="URGENT">긴급</option></select></label>
               <label className="wide">문서 제목<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="문서 제목" /></label>
               <label className="wide">문서 내용<textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="문서 내용을 입력하세요." /></label>
@@ -2345,7 +2590,7 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
         </DetailPage>
       )}
       {templateModalOpen && (
-        <TemplateSelectModal
+        <TemplateSelectModalV2
           templates={templates}
           selected={previewTemplate}
           fallbackActive={templateFallbackActive}
@@ -2402,6 +2647,315 @@ function TemplateFieldInputs({
           </label>
         );
       })}
+    </div>
+  );
+}
+
+function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, onChange }: { mode: "request" | "cancel"; user: User; employees: Employee[]; form: ApprovalForm; leaveUsage: LeaveUsage | null; onChange: (form: ApprovalForm) => void }) {
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const values = form.fieldValues;
+  const selections = parseLeaveSelections(values);
+  const cancelMode = mode === "cancel";
+  const deptName = currentUserDeptName(user, employees, user.deptName ?? "");
+  const requester = employees.find((employee) => employee.empId === user.empId);
+  const annualDays = formatDayValue(values.days);
+  const usedBefore = formatDayValue(leaveUsage?.usedAnnualDays ?? values.usedAnnualDays ?? "0");
+  const totalDays = formatDayValue(leaveUsage?.totalAnnualDays ?? values.totalAnnualDays ?? DEFAULT_TOTAL_ANNUAL_DAYS);
+  const remainingDays = cancelMode
+    ? formatDayValue(Number(totalDays) - Number(usedBefore) + Number(annualDays))
+    : remainingAnnualDaysText(totalDays, usedBefore, annualDays);
+
+  function updateValues(nextValues: Record<string, string>) {
+    onChange({
+      ...form,
+      title: form.title.trim() ? form.title : cancelMode ? "휴가 취소계" : "휴가계",
+      content: cancelMode ? leaveCancelContent(nextValues) : leaveRequestContent(nextValues),
+      fieldValues: nextValues
+    });
+  }
+
+  function applySelections(nextSelections: LeaveSelection[]) {
+    const sorted = [...nextSelections].sort((a, b) => a.date.localeCompare(b.date));
+    const days = sorted.reduce((sum, selection) => sum + selection.days, 0);
+    const nextValues = {
+      ...values,
+      startDate: sorted[0]?.date ?? "",
+      endDate: sorted[sorted.length - 1]?.date ?? "",
+      days: formatDayValue(days),
+      annualLeaveDays: formatDayValue(days),
+      usedAnnualDays: usedBefore,
+      totalAnnualDays: totalDays,
+      remainingAnnualDays: cancelMode ? formatDayValue(Number(totalDays) - Number(usedBefore) + days) : remainingAnnualDaysText(totalDays, usedBefore, days),
+      leaveType: leaveSummary(sorted),
+      leaveSelectionsJson: JSON.stringify(sorted)
+    };
+    updateValues(nextValues);
+  }
+
+  return (
+    <div className="leave-request-editor">
+      <div className="leave-paper">
+        <h2>{cancelMode ? "휴가 취소계" : "휴가계 (연차, 반차, 교육 등)"}</h2>
+        <div className="leave-paper-top">
+          <LeaveStamp title="결재" writer={user.empName} approvers={employeesByIds(employees, form.approverEmpIds)} />
+          <LeaveStamp title="수신" writer="" approvers={employeesByIds(employees, form.receiverEmpIds)} />
+        </div>
+        <div className="leave-meta">
+          <span>신청자 : {user.empName}</span>
+          <span>TEL :</span>
+          <span>기 타 :</span>
+          <span>부 서 : {deptName || "-"}</span>
+          <span>직 급 : {requester?.positionName ?? requester?.jobTitle ?? "-"}</span>
+          <span>신청일 : {todayDate()}</span>
+        </div>
+        <div className="leave-form-table">
+          <div className="leave-label">제 목</div>
+          <input className="leave-title-input" value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="휴가계" />
+          <button type="button" className="leave-label leave-clickable" onClick={() => setCalendarOpen(true)}>
+            <CalendarDays size={16} /> {cancelMode ? "취소기간" : "신청기간"}
+          </button>
+          <button type="button" className="leave-value leave-clickable" onClick={() => setCalendarOpen(true)}>{leaveDateRangeText(values)}</button>
+          <button type="button" className="leave-label leave-clickable" onClick={() => setCalendarOpen(true)}>
+            <CalendarDays size={16} /> {cancelMode ? "취소구분" : "신청구분"}
+          </button>
+          <button type="button" className="leave-value leave-clickable leave-kind-value" onClick={() => setCalendarOpen(true)}>{values.leaveType || (cancelMode ? "최종 결재 완료된 휴가 날짜만 선택하세요." : "달력에서 날짜와 구분을 선택하세요.")}</button>
+          <div className="leave-label leave-wide-label">신청 전 연차사용 일수 / 총 연차일수</div>
+          <div className="leave-value leave-days-value">
+            <span>{usedBefore}</span><span>/</span><span>{totalDays}</span><span>일</span>
+          </div>
+          <div className="leave-label">{cancelMode ? "취소 연차일수" : "연차 사용일수"}</div>
+          <div className="leave-value">{annualDays} 일</div>
+          <div className="leave-label">{cancelMode ? "취소 후 잔여 연차일수" : "신청 후 잔여 연차일수"}</div>
+          <div className="leave-value">{remainingDays} 일</div>
+        </div>
+      </div>
+      <p className="muted-text">{cancelMode ? "최종 결재 완료된 휴가 날짜만 선택할 수 있고, 취소계 승인 후 연차가 복구됩니다." : "제목은 휴가계로 표시하고, 계산되는 일수는 연차/오전반차/오후반차만 반영됩니다."}</p>
+      {calendarOpen && (
+        <LeaveCalendarModal
+          mode={mode}
+          selections={selections}
+          lockedSelections={leaveUsage?.selections ?? []}
+          onCancel={() => setCalendarOpen(false)}
+          onConfirm={(nextSelections) => {
+            applySelections(nextSelections);
+            setCalendarOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function LeaveStamp({ title, writer, approvers }: { title: string; writer: string; approvers: Employee[] }) {
+  const columns = [
+    ...(writer ? [{ label: "작성", name: writer, position: "신청자" }] : []),
+    ...approvers.map((employee, index) => ({
+      label: title === "수신" ? "수신" : index === approvers.length - 1 ? "승인" : "검토",
+      name: employee.empName,
+      position: employee.positionName ?? employee.jobTitle ?? ""
+    }))
+  ];
+  if (!columns.length) columns.push({ label: "", name: "", position: "" });
+  const columnWidth = "72px";
+  const maxWidth = `${34 + columns.length * 72}px`;
+  return (
+    <div className={`leave-stamp ${title === "수신" ? "align-right" : "align-left"}`} style={{ gridTemplateColumns: `34px repeat(${columns.length}, ${columnWidth})`, maxWidth }}>
+      <div className="leave-stamp-side">{title}</div>
+      {columns.map((column, index) => <div key={`head-${index}`} className="leave-stamp-cell head">{column.label}</div>)}
+      {columns.map((column, index) => (
+        <div key={`body-${index}`} className="leave-stamp-cell body">
+          <span>{column.position}</span>
+          <strong>{column.name}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LeaveCalendarModal({ mode, selections, lockedSelections, onCancel, onConfirm }: { mode: "request" | "cancel"; selections: LeaveSelection[]; lockedSelections: LeaveUsage["selections"]; onCancel: () => void; onConfirm: (selections: LeaveSelection[]) => void }) {
+  const initialDate = selections[0]?.date ? new Date(`${selections[0].date}T00:00:00`) : new Date();
+  const [visibleMonth, setVisibleMonth] = useState(new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
+  const [draftSelections, setDraftSelections] = useState<LeaveSelection[]>(selections);
+  const selectedMap = new Map(draftSelections.map((selection) => [selection.date, selection]));
+  const lockedMap = new Map(lockedSelections.map((selection) => [selection.date, selection]));
+  const cancelMode = mode === "cancel";
+  const monthCells = calendarCells(visibleMonth);
+  const totalDays = draftSelections.reduce((sum, selection) => sum + selection.days, 0);
+
+  function moveMonth(delta: number) {
+    setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + delta, 1));
+  }
+
+  function toggleDate(date: string) {
+    const approvedSelection = lockedMap.get(date);
+    if (cancelMode && !approvedSelection) {
+      return;
+    }
+    if (!cancelMode && lockedMap.has(date)) {
+      return;
+    }
+    if (selectedMap.has(date)) {
+      setDraftSelections(draftSelections.filter((selection) => selection.date !== date));
+      return;
+    }
+    if (cancelMode && approvedSelection) {
+      setDraftSelections([...draftSelections, { date, type: approvedSelection.type, days: Number(approvedSelection.days || 0) }].sort((a, b) => a.date.localeCompare(b.date)));
+      return;
+    }
+    setDraftSelections([...draftSelections, { date, type: "연차", days: 1 }].sort((a, b) => a.date.localeCompare(b.date)));
+  }
+
+  function changeType(date: string, type: string) {
+    setDraftSelections(draftSelections.map((selection) => selection.date === date ? { ...selection, type, days: leaveDayValue(type) } : selection));
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <div className="leave-calendar-modal">
+        <div className="modal-head">
+          <h2>신청일 선택</h2>
+          <div className="leave-calendar-head-actions">
+            <button type="button" onClick={() => onConfirm(draftSelections)}>확인</button>
+            <button type="button" className="ghost icon-button" onClick={onCancel} aria-label="닫기"><X size={18} /></button>
+          </div>
+        </div>
+        <div className="leave-calendar-toolbar">
+          <button type="button" className="ghost" onClick={() => moveMonth(-1)}>이전</button>
+          <strong>{visibleMonth.getFullYear()}년 {visibleMonth.getMonth() + 1}월</strong>
+          <button type="button" className="ghost" onClick={() => moveMonth(1)}>다음</button>
+        </div>
+        <div className="leave-calendar-grid">
+          {["일", "월", "화", "수", "목", "금", "토"].map((day) => <div key={day} className="leave-calendar-week">{day}</div>)}
+          {monthCells.map((cell) => {
+            const selected = selectedMap.get(cell.date);
+            const locked = lockedMap.get(cell.date);
+            const unavailable = cancelMode && !locked;
+            return (
+              <button
+                type="button"
+                key={cell.date}
+                className={`leave-calendar-day${cell.inMonth ? "" : " outside"}${cell.weekend ? " weekend" : ""}${cell.holidayName ? " holiday" : ""}${selected ? " selected" : ""}${!cancelMode && locked ? " locked" : ""}${unavailable ? " unavailable" : ""}`}
+                onClick={() => toggleDate(cell.date)}
+                disabled={Boolean(!cancelMode && locked) || unavailable}
+              >
+                <span>{cell.day}</span>
+                {cell.holidayName && <em className="leave-calendar-holiday">{cell.holidayName}</em>}
+                {cancelMode && locked && !selected && <strong className="leave-calendar-locked-type">{locked.type}</strong>}
+                {!cancelMode && locked && <strong className="leave-calendar-locked-type">{locked.type}</strong>}
+                {selected && cancelMode && <strong className="leave-calendar-locked-type">{selected.type}</strong>}
+                {selected && !cancelMode && (
+                  <select
+                    className="leave-calendar-type-select"
+                    value={selected.type}
+                    aria-label={`${cell.date} 신청구분`}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => changeType(cell.date, event.target.value)}
+                  >
+                    {LEAVE_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div className="leave-selection-list">
+          <div className="leave-selection-summary">선택 {draftSelections.length}일 · {cancelMode ? "취소 연차" : "연차 사용"} {formatDayValue(totalDays)}일</div>
+          {lockedSelections.length > 0 && <p className="leave-locked-summary">결재 완료 {lockedSelections.length}일 · 이미 사용 {formatDayValue(lockedSelections.reduce((sum, selection) => sum + Number(selection.days || 0), 0))}일</p>}
+          {draftSelections.length ? (
+            <p className="leave-selection-inline-summary">{draftSelections.map((selection) => `${selection.date} ${selection.type}(${formatDayValue(selection.days)}일)`).join(", ")}</p>
+          ) : <p className="muted-text">{cancelMode ? "최종 결재 완료된 휴가 날짜만 선택할 수 있습니다." : "달력에서 신청일을 선택하세요."}</p>}
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="ghost" onClick={onCancel}>취소</button>
+          <button type="button" onClick={() => onConfirm(draftSelections)}>확인</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function calendarCells(month: Date) {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay());
+  return Array.from({ length: 42 }, (_, index) => {
+    const current = new Date(start);
+    current.setDate(start.getDate() + index);
+    const date = localDateKey(current);
+    const day = current.getDay();
+    return {
+      date,
+      day: current.getDate(),
+      inMonth: current.getMonth() === month.getMonth(),
+      weekend: day === 0 || day === 6,
+      holidayName: KOREAN_PUBLIC_HOLIDAYS[date] ?? ""
+    };
+  });
+}
+
+function LeaveRequestDetailView({ approval }: { approval: Approval }) {
+  const values = approvalDraftData(approval).fieldValues;
+  const cancelMode = isLeaveCancelTemplateCode(approval.templateCode);
+  const approvers = approval.lines.filter((line) => line.lineType === "APPROVAL").sort((a, b) => a.lineOrder - b.lineOrder);
+  const receivers = approval.lines.filter((line) => line.lineType === "RECEIVER").sort((a, b) => a.lineOrder - b.lineOrder);
+  const usedBefore = formatDayValue(values.usedAnnualDays ?? "0");
+  const totalDays = formatDayValue(values.totalAnnualDays ?? DEFAULT_TOTAL_ANNUAL_DAYS);
+  const remainingDays = formatDayValue(values.remainingAnnualDays ?? (cancelMode ? Number(totalDays) - Number(usedBefore) + Number(values.days ?? 0) : remainingAnnualDaysText(totalDays, usedBefore, values.days)));
+
+  return (
+    <article className="leave-request-detail">
+      <div className="leave-paper">
+        <h2>{cancelMode ? "휴가 취소계" : "휴가계 (연차, 반차, 교육 등)"}</h2>
+        <div className="leave-paper-top">
+          <LeaveDetailStamp title="결재" writerName={approval.requesterName} writerPosition={approval.requesterPositionName ?? "신청자"} lines={approvers} />
+          <LeaveDetailStamp title="수신" writerName="" writerPosition="" lines={receivers} />
+        </div>
+        <div className="leave-meta">
+          <span>신청자 : {approval.requesterName}</span>
+          <span>TEL :</span>
+          <span>기 타 :</span>
+          <span>부 서 : {approval.draftDeptName ?? approval.requesterDeptName ?? "-"}</span>
+          <span>직 급 : {approval.requesterPositionName ?? "-"}</span>
+          <span>신청일 : {formatDate(approval.requestedAt).slice(0, 10)}</span>
+        </div>
+        <div className="leave-form-table">
+          <div className="leave-label">제 목</div><div className="leave-value">{approval.title}</div>
+          <div className="leave-label">{cancelMode ? "취소기간" : "신청기간"}</div><div className="leave-value">{leaveDateRangeText(values)}</div>
+          <div className="leave-label">{cancelMode ? "취소구분" : "신청구분"}</div><div className="leave-value leave-kind-value">{values.leaveType || "-"}</div>
+          <div className="leave-label leave-wide-label">신청 전 연차사용 일수 / 총 연차일수</div>
+          <div className="leave-value leave-days-value"><span>{usedBefore}</span><span>/</span><span>{totalDays}</span><span>일</span></div>
+          <div className="leave-label">{cancelMode ? "취소 연차일수" : "연차 사용일수"}</div><div className="leave-value">{formatDayValue(values.days)} 일</div>
+          <div className="leave-label">{cancelMode ? "취소 후 잔여 연차일수" : "신청 후 잔여 연차일수"}</div><div className="leave-value">{remainingDays} 일</div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function LeaveDetailStamp({ title, writerName, writerPosition, lines }: { title: string; writerName: string; writerPosition: string; lines: ApprovalLine[] }) {
+  const columns = [
+    ...(writerName ? [{ label: "작성", name: writerName, position: writerPosition, date: "" }] : []),
+    ...lines.map((line, index) => ({
+      label: title === "수신" ? "수신" : index === lines.length - 1 ? "승인" : "검토",
+      name: line.status === "APPROVED" || line.status === "REJECTED" ? lineStatusLabel(line.status) : line.approverName,
+      position: line.positionSnapshot ?? line.approverPositionName ?? "결재자",
+      date: line.signedAt ? formatDate(line.signedAt).slice(0, 10) : ""
+    }))
+  ];
+  if (!columns.length) columns.push({ label: "", name: "", position: "", date: "" });
+  const columnWidth = "72px";
+  const maxWidth = `${34 + columns.length * 72}px`;
+  return (
+    <div className={`leave-stamp ${title === "수신" ? "align-right" : "align-left"}`} style={{ gridTemplateColumns: `34px repeat(${columns.length}, ${columnWidth})`, maxWidth }}>
+      <div className="leave-stamp-side">{title}</div>
+      {columns.map((column, index) => <div key={`head-${index}`} className="leave-stamp-cell head">{column.label}</div>)}
+      {columns.map((column, index) => (
+        <div key={`body-${index}`} className="leave-stamp-cell body">
+          <span>{column.position}</span>
+          <strong>{column.name}</strong>
+          <small>{column.date}</small>
+        </div>
+      ))}
     </div>
   );
 }
@@ -2710,6 +3264,101 @@ function isApprovalBox(value: string): value is ApprovalBox {
   return APPROVAL_BOXES.some((item) => item.box === value);
 }
 
+function TemplateSelectModalV2({ templates, selected, fallbackActive, previewDeptName, previewRequesterName, onSelect, onCancel, onConfirm }: {
+  templates: ApprovalTemplateOption[];
+  selected: ApprovalTemplateOption;
+  fallbackActive: boolean;
+  previewDeptName: string;
+  previewRequesterName: string;
+  onSelect: (template: ApprovalTemplateOption) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [selectedCategoryId, setSelectedCategoryId] = useState(() => {
+    const initial = categorizedTemplateGroups(templates).find((category) => category.templates.some((template) => template.code === selected.code));
+    return initial?.id ?? APPROVAL_TEMPLATE_CATEGORIES[0].id;
+  });
+  const [keyword, setKeyword] = useState("");
+  const groups = categorizedTemplateGroups(templates);
+  const activeCategory = groups.find((category) => category.id === selectedCategoryId) ?? groups[0];
+  const filteredTemplates = (activeCategory?.templates ?? []).filter((template) => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    if (!normalizedKeyword) return true;
+    return template.name.toLowerCase().includes(normalizedKeyword)
+      || template.code.toLowerCase().includes(normalizedKeyword)
+      || template.description.toLowerCase().includes(normalizedKeyword);
+  });
+
+  function selectCategory(category: ReturnType<typeof categorizedTemplateGroups>[number]) {
+    setSelectedCategoryId(category.id);
+    const firstMatched = category.templates.find((template) => template.code === selected.code) ?? category.templates[0];
+    if (firstMatched) onSelect(firstMatched);
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="template-select-modal template-select-modal-v2" role="dialog" aria-modal="true" aria-label="양식 선택">
+        <div className="modal-head">
+          <h3>양식선택</h3>
+          <button type="button" className="icon-button" onClick={onCancel} title="닫기"><X size={18} /></button>
+        </div>
+        <div className="template-select-toolbar">
+          <label>
+            <span>양식명</span>
+            <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="검색어 입력" />
+          </label>
+          <button type="button" className="ghost" onClick={() => setKeyword("")}>초기화</button>
+        </div>
+        <div className="template-select-layout">
+          <div className="template-category-list">
+            <h3>양식함</h3>
+            {fallbackActive && <p className="template-fallback-note">개발용 임시 목록</p>}
+            {groups.map((category) => (
+              <button type="button" key={category.id} className={activeCategory?.id === category.id ? "active" : ""} onClick={() => selectCategory(category)}>
+                <span className="template-folder-icon" aria-hidden="true">▣</span>
+                <strong>{category.label}</strong>
+                <span>{category.templates.length}</span>
+              </button>
+            ))}
+          </div>
+          <div className="template-choice-panel">
+            <div className="template-choice-list">
+              <h3>양식리스트</h3>
+              {filteredTemplates.length ? filteredTemplates.map((template) => (
+                <button type="button" key={template.code} className={selected.code === template.code ? "active" : ""} onClick={() => onSelect(template)}>
+                  <strong>{template.name}</strong>
+                  <span>{template.code} v{template.version ?? 1}</span>
+                </button>
+              )) : <Empty text="표시할 양식이 없습니다." />}
+              <div className="template-description-box">
+                <strong>양식설명</strong>
+                <span>{selected.description || "등록된 설명이 없습니다."}</span>
+              </div>
+            </div>
+            <div className="template-preview">
+              <h3>양식 미리보기</h3>
+              <TemplatePaperPreview template={selected} previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
+              <div className="paper-preview legacy-template-summary">
+                <h2>{selected.name} - 기안자명</h2>
+                <div className="preview-grid">
+                  <strong>기안부서</strong><span>{previewDeptName}</span>
+                  <strong>기안자</strong><span>{previewRequesterName}</span>
+                  <strong>문서번호</strong><span>상신 시 자동생성</span>
+                  <strong>결재</strong><span>합의/결재자 표시</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="ghost" onClick={onCancel}>취소</button>
+          <button type="button" onClick={onConfirm} disabled={!selected}>확인</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TemplateSelectModal({ templates, selected, fallbackActive, previewDeptName, previewRequesterName, onSelect, onCancel, onConfirm }: {
   templates: ApprovalTemplateOption[];
   selected: ApprovalTemplateOption;
@@ -2767,6 +3416,34 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
   previewDeptName: string;
   previewRequesterName: string;
 }) {
+  if (isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code)) {
+    const cancelMode = isLeaveCancelTemplateCode(template.code);
+    return (
+      <div className="template-paper template-leave-preview">
+        <h2>{cancelMode ? "휴가 취소계" : "휴가계 (연차, 반차, 교육 등)"}</h2>
+        <div className="template-leave-stamps">
+          <TemplateMiniStamp label="결재" writer={previewRequesterName} />
+          <TemplateMiniStamp label="수신" writer="" />
+        </div>
+        <div className="template-leave-meta">
+          <span>신청자 : {previewRequesterName}</span>
+          <span>TEL :</span>
+          <span>기 타 :</span>
+          <span>부 서 : {previewDeptName}</span>
+          <span>직 급 :</span>
+          <span>신청일 : {todayDate()}</span>
+        </div>
+        <div className="template-leave-table">
+          <strong>제 목</strong><span>{cancelMode ? "휴가 취소계" : "휴가계"} - {previewRequesterName}</span>
+          <strong>{cancelMode ? "취소기간" : "신청기간"}</strong><span>YYYY-MM-DD ~ YYYY-MM-DD [ 0 일 ]</span>
+          <strong>{cancelMode ? "취소구분" : "신청구분"}</strong><span>{cancelMode ? "최종 결재 완료된 휴가 날짜 선택" : "달력에서 날짜와 구분 선택"}</span>
+          <strong>신청 전 연차사용 일수 / 총 연차일수</strong><span>0 / {DEFAULT_TOTAL_ANNUAL_DAYS} 일</span>
+          <strong>신청 후 잔여 연차일수</strong><span>{DEFAULT_TOTAL_ANNUAL_DAYS} 일</span>
+        </div>
+      </div>
+    );
+  }
+
   if (isMoldFixtureTemplateCode(template.code)) {
     return (
       <div className="template-paper template-equipment-preview template-mold-preview">
@@ -3005,6 +3682,9 @@ function ApprovalDetailView({
 }) {
   if (isDraftTemplateCode(approval.templateCode)) {
     return <ClassicDraftDetailView approval={approval} templates={templates} />;
+  }
+  if (isLeaveTemplateCode(approval.templateCode) || isLeaveCancelTemplateCode(approval.templateCode)) {
+    return <LeaveRequestDetailView approval={approval} />;
   }
   if (isEquipmentProposalTemplateCode(approval.templateCode) && equipmentProposal) {
     return (
@@ -3664,6 +4344,8 @@ async function downloadApprovalPdf(approvalId: number, fileName: string) {
 }
 
 function documentPrefix(templateCode: string | null | undefined) {
+  if (templateCode === "LEAVE") return "LEV";
+  if (templateCode === "LEAVE_CANCEL") return "LVC";
   if (templateCode === "PURCHASE") return "PUR";
   if (templateCode === "TRAINING_REQUEST" || templateCode === "TRAINING_REPORT") return "EDU";
   if (templateCode === "EQUIPMENT_PROPOSAL") return "EQP";

@@ -6,6 +6,7 @@ import com.kjh.groupware.domain.approval.dto.ApprovalDashboardResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalSummaryResponse;
+import com.kjh.groupware.domain.approval.dto.LeaveUsageResponse;
 import com.kjh.groupware.domain.file.AttachFile;
 import com.kjh.groupware.domain.file.FileService;
 import com.kjh.groupware.global.response.ApiResponse;
@@ -41,6 +42,7 @@ public class ApprovalController {
     private final ApprovalQueryService approvalQueryService;
     private final ApprovalPdfService pdfService;
     private final FileService fileService;
+    private final ApprovalLeaveUsageService leaveUsageService;
 
     @GetMapping("/boxes")
     public ApiResponse<java.util.List<ApprovalBoxResponse>> boxes() {
@@ -58,6 +60,11 @@ public class ApprovalController {
         @RequestParam(required = false, defaultValue = "20") int size
     ) {
         return ApiResponse.ok(approvalQueryService.deletedPage(page, size));
+    }
+
+    @GetMapping("/leave-usage/me")
+    public ApiResponse<LeaveUsageResponse> myLeaveUsage() {
+        return ApiResponse.ok(leaveUsageService.myUsage());
     }
 
     @GetMapping

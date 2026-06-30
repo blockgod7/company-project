@@ -225,6 +225,21 @@ export type Approval = ApprovalSummary & {
   permissions: ApprovalPermissions | null;
 };
 
+export type LeaveUsageSelection = {
+  date: string;
+  type: string;
+  days: string;
+  approvalId: number;
+  documentNo: string | null;
+};
+
+export type LeaveUsage = {
+  usedAnnualDays: string;
+  totalAnnualDays: string;
+  remainingAnnualDays: string;
+  selections: LeaveUsageSelection[];
+};
+
 export type ApprovalTemplateApi = {
   templateCode: string;
   templateName: string;

@@ -35,6 +35,13 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
         Pageable pageable
     );
 
+    java.util.List<ApprovalDocument> findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
+        Emp requester,
+        String deletedYn,
+        String templateCode,
+        String status
+    );
+
     long countByRequesterAndDeletedYnAndStatus(Emp requester, String deletedYn, String status);
 
     long countByRequesterAndDeletedYnAndStatusInAndCompletedAtAfter(

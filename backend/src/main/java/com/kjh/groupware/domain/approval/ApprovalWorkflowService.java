@@ -34,6 +34,7 @@ public class ApprovalWorkflowService {
     private final ApprovalReminderService reminderService;
     private final ApprovalLinePolicyService linePolicyService;
     private final ApprovalEquipmentProposalService equipmentProposalService;
+    private final ApprovalLeaveUsageService leaveUsageService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -251,6 +252,8 @@ public class ApprovalWorkflowService {
         if (equipmentProposalService.progressAfterApproval(document, lines, currentLine)) {
             return;
         }
+        leaveUsageService.assertNoCompletedLeaveOverlap(document);
+        leaveUsageService.assertLeaveCancelTargetsApproved(document);
         document.approve();
         pdfService.generateForFinalApproval(document);
         openPostApprovalLines(document, lines);
@@ -305,7 +308,20 @@ public class ApprovalWorkflowService {
 
     private ApprovalTemplate activeTemplate(String templateCode) {
         return templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(templateCode, "Y")
-            .orElseThrow(() -> BusinessException.badRequest("APPROVAL_TEMPLATE_NOT_FOUND", "Active approval template was not found"));
+            .orElseGet(() -> {
+                if (ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(templateCode)) {
+                    return ApprovalTemplate.builder()
+                        .templateCode(ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE)
+                        .templateName("휴가 취소계")
+                        .version(1)
+                        .description("승인 완료된 휴가 취소 신청")
+                        .fieldsJson("[]")
+                        .activeYn("Y")
+                        .sortOrder(0)
+                        .build();
+                }
+                throw BusinessException.badRequest("APPROVAL_TEMPLATE_NOT_FOUND", "Active approval template was not found");
+            });
     }
 
     private ApprovalDocument getActiveDocument(Long approvalId) {

@@ -137,7 +137,7 @@ public class ApprovalPdfService {
         if (!ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus()) || document.getPdfFile() == null) {
             throw BusinessException.notFound("PDF_NOT_FOUND", "PDF has not been generated");
         }
-        if (ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
+        if (isLeaveDocument(document) || ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             refreshEquipmentProposalPdf(document, currentEmp);
         }
         Long pdfFileId = document.getPdfFile().getFileId();
@@ -161,6 +161,9 @@ public class ApprovalPdfService {
     private GeneratedPdf render(ApprovalDocument document, List<ApprovalLine> lines) {
         if ("DRAFT".equals(document.getTemplateCode())) {
             return renderClassicDraft(document, lines);
+        }
+        if (isLeaveDocument(document)) {
+            return renderLeaveRequest(document, lines);
         }
         if (ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             return renderEquipmentProposal(document, lines);
@@ -211,6 +214,16 @@ public class ApprovalPdfService {
         }
     }
 
+    private boolean isLeaveDocument(ApprovalDocument document) {
+        if ("LEAVE".equals(document.getTemplateCode()) || "LEAVE_CANCEL".equals(document.getTemplateCode())) {
+            return true;
+        }
+        JsonNode fields = formFields(document.getFormDataJson());
+        return fields.has("leaveSelectionsJson")
+            || fields.has("annualLeaveDays")
+            || fields.has("leaveType") && (fields.has("startDate") || fields.has("endDate"));
+    }
+
     private GeneratedPdf renderClassicDraft(ApprovalDocument document, List<ApprovalLine> lines) {
         try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PDPage page = new PDPage(PDRectangle.A4);
@@ -229,6 +242,56 @@ public class ApprovalPdfService {
             return new GeneratedPdf(bytes, sha256(bytes));
         } catch (IOException ex) {
             throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate classic draft PDF");
+        }
+    }
+
+    private GeneratedPdf renderLeaveRequest(ApprovalDocument document, List<ApprovalLine> lines) {
+        JsonNode fields = formFields(document.getFormDataJson());
+        boolean cancel = "LEAVE_CANCEL".equals(document.getTemplateCode());
+        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+            PDFont font = loadFont(pdf);
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+                content.setLineWidth(1.0f);
+                drawCenteredText(content, font, cancel ? "휴가 취소계" : "휴가계 (연차, 반차, 교육 등)", 0, 770, 595, 18, 28);
+                List<ApprovalLine> approvalLines = linesOfType(lines, ApprovalLine.TYPE_APPROVAL);
+                List<ApprovalLine> receiverLines = linesOfType(lines, ApprovalLine.TYPE_RECEIVER);
+                float approvalWidth = Math.min(230, 34 + Math.max(1, approvalLines.size() + 1) * 72);
+                float receiverWidth = Math.min(220, 34 + Math.max(1, receiverLines.size()) * 72);
+                drawDepartmentStamp(content, font, 60, 672, approvalWidth, "결재", requesterStamp(document), approvalLines);
+                drawDepartmentStamp(content, font, 536 - receiverWidth, 672, receiverWidth, "수신", null, receiverLines);
+
+                drawText(content, font, "신청자 : " + safe(document.getRequester().getEmpName()), 80, 634, 9);
+                drawText(content, font, "TEL :", 210, 634, 9);
+                drawText(content, font, "기 타 :", 378, 634, 9);
+                drawText(content, font, "부 서 : " + safe(document.getDraftDeptName()), 80, 606, 9);
+                drawText(content, font, "직 급 : " + safe(document.getRequester().getPositionName()), 245, 606, 9);
+                drawText(content, font, "신청일 : " + dateText(document.getRequestedAt()), 378, 606, 9);
+
+                content.setLineWidth(1.5f);
+                content.moveTo(60, 586);
+                content.lineTo(536, 586);
+                content.stroke();
+                content.setLineWidth(0.8f);
+
+                float x = 60;
+                float y = 548;
+                float label = 112;
+                float value = 364;
+                float row = 34;
+                drawInfoRow(content, font, x, y, label, value, row, "제 목", safe(document.getTitle()));
+                drawInfoRow(content, font, x, y - row, label, value, row, cancel ? "취소기간" : "신청기간", leaveRangeText(fields));
+                drawInfoRow(content, font, x, y - row * 2, label, value, row, cancel ? "취소구분" : "신청구분", text(fields, "leaveType"));
+                drawLeaveCompactRow(content, font, x, y - row * 3, 260, value + label - 260, row, "신청 전 연차사용 일수 / 총 연차일수", leaveAnnualTotalText(fields));
+                drawInfoRow(content, font, x, y - row * 4, label, value, row, cancel ? "취소 연차일수" : "연차 사용일수", dayText(text(fields, "days")));
+                drawInfoRow(content, font, x, y - row * 5, label, value, row, "신청 후 잔여 연차일수", dayText(leaveRemainingAnnualText(fields)));
+            }
+            pdf.save(output);
+            byte[] bytes = output.toByteArray();
+            return new GeneratedPdf(bytes, sha256(bytes));
+        } catch (IOException ex) {
+            throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate leave request PDF");
         }
     }
 
@@ -359,9 +422,12 @@ public class ApprovalPdfService {
         float labelWidth = Math.max(30, Math.min(38, width * 0.18f));
         drawVerticalText(content, font, label, x, y + 52, labelWidth, 8);
         List<PdfStampColumn> columns = new ArrayList<>();
-        columns.add(writer == null ? PdfStampColumn.empty() : writer);
+        boolean hasWriter = writer != null;
+        if (hasWriter) {
+            columns.add(writer);
+        }
         columns.addAll(approvalColumns);
-        int columnCount = Math.max(2, columns.size());
+        int columnCount = hasWriter ? Math.max(2, columns.size()) : Math.max(1, columns.size());
         while (columns.size() < columnCount) {
             columns.add(PdfStampColumn.empty());
         }
@@ -370,7 +436,7 @@ public class ApprovalPdfService {
             float cx = x + labelWidth + colWidth * i;
             drawBox(content, cx, y + 48, colWidth, 24);
             drawBox(content, cx, y, colWidth, 48);
-            drawCenteredText(content, font, stampHeader(i, columnCount), cx, y + 57, colWidth, 8, 4);
+            drawCenteredText(content, font, hasWriter ? stampHeader(i, columnCount) : label, cx, y + 57, colWidth, 8, 4);
             PdfStampColumn column = columns.get(i);
             drawCenteredText(content, font, column.position(), cx, y + 34, colWidth, 7, 9);
             drawCenteredText(content, font, column.name(), cx, y + 21, colWidth, 9, 8);
@@ -495,8 +561,76 @@ public class ApprovalPdfService {
     }
 
     private String text(JsonNode node, String fieldName) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return "";
+        }
         JsonNode value = node.get(fieldName);
         return value == null || value.isNull() ? "" : value.asText("");
+    }
+
+    private JsonNode formFields(String formDataJson) {
+        if (formDataJson == null || formDataJson.isBlank()) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(formDataJson);
+            JsonNode fields = root.path("fields");
+            return fields.isObject() ? fields : root;
+        } catch (IOException ignored) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+    }
+
+    private String leaveRangeText(JsonNode fields) {
+        String startDate = text(fields, "startDate");
+        String endDate = text(fields, "endDate");
+        String days = dayText(text(fields, "days"));
+        if (startDate.isBlank() && endDate.isBlank()) {
+            return "- [ " + days + " ]";
+        }
+        String start = startDate.isBlank() ? endDate : startDate;
+        String end = endDate.isBlank() ? startDate : endDate;
+        return start + " ~ " + end + " [ " + days + " ]";
+    }
+
+    private String leaveAnnualTotalText(JsonNode fields) {
+        String used = text(fields, "usedAnnualDays");
+        String total = text(fields, "totalAnnualDays");
+        return dayNumber(used) + " / " + (total.isBlank() ? "22" : dayNumber(total)) + " 일";
+    }
+
+    private String leaveRemainingAnnualText(JsonNode fields) {
+        String remaining = text(fields, "remainingAnnualDays");
+        if (!remaining.isBlank()) {
+            return remaining;
+        }
+        try {
+            double total = Double.parseDouble(text(fields, "totalAnnualDays").isBlank() ? "22" : text(fields, "totalAnnualDays"));
+            double used = Double.parseDouble(text(fields, "usedAnnualDays").isBlank() ? "0" : text(fields, "usedAnnualDays"));
+            double days = Double.parseDouble(text(fields, "days").isBlank() ? "0" : text(fields, "days"));
+            return String.valueOf(total - used - days);
+        } catch (NumberFormatException ex) {
+            return "0";
+        }
+    }
+
+    private String dayText(String value) {
+        return dayNumber(value) + " 일";
+    }
+
+    private String dayNumber(String value) {
+        if (value == null || value.isBlank()) {
+            return "0";
+        }
+        try {
+            double parsed = Double.parseDouble(value);
+            if (parsed == Math.rint(parsed)) {
+                return String.valueOf((long) parsed);
+            }
+            return String.valueOf(parsed);
+        } catch (NumberFormatException ex) {
+            return value;
+        }
     }
 
     private void drawMoldAttachmentChecklist(PDPageContentStream content, PDFont font, float x, float y, float width, ApprovalEquipmentProposal proposal) throws IOException {
@@ -757,6 +891,22 @@ public class ApprovalPdfService {
         float fontSize = 7f;
         float textY = y + (height - fontSize) / 2f - 1;
         drawCenteredText(content, font, label, x, textY, labelWidth, fontSize, 12);
+        drawFittedText(content, font, value, x + labelWidth + 6, textY, valueWidth - 12, fontSize);
+    }
+
+    private void drawLeaveTextRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value) throws IOException {
+        drawBox(content, x, y, labelWidth, height);
+        drawBox(content, x + labelWidth, y, valueWidth, height);
+        drawCenteredText(content, font, label, x, y + height / 2f - 4, labelWidth, 8, 12);
+        drawWrappedText(content, font, value, x + labelWidth + 8, y + height - 18, valueWidth - 16, 9, 4);
+    }
+
+    private void drawLeaveCompactRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value) throws IOException {
+        drawBox(content, x, y, labelWidth, height);
+        drawBox(content, x + labelWidth, y, valueWidth, height);
+        float fontSize = 7f;
+        float textY = y + (height - fontSize) / 2f - 1;
+        drawCenteredText(content, font, label, x, textY, labelWidth, fontSize, 40);
         drawFittedText(content, font, value, x + labelWidth + 6, textY, valueWidth - 12, fontSize);
     }
 

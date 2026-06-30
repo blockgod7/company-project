@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kjh.groupware.domain.approval.dto.ApprovalActionRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
+import com.kjh.groupware.domain.approval.dto.LeaveUsageResponse;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.emp.EmpSignatureService;
@@ -26,6 +27,7 @@ import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.time.LocalDateTime;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -71,6 +73,7 @@ class ApprovalServiceWorkflowTest {
     private ApprovalService service;
     private ApprovalDraftService draftService;
     private ApprovalWorkflowService workflowService;
+    private ApprovalLeaveUsageService leaveUsageService;
 
     @BeforeEach
     void setUp() {
@@ -181,6 +184,19 @@ class ApprovalServiceWorkflowTest {
                 .filter(document -> document.getCompletedAt() != null && document.getCompletedAt().isAfter(completedAfter))
                 .count();
         });
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatus(any(), anyString(), anyString(), anyString())).thenAnswer(invocation -> {
+            Emp requester = invocation.getArgument(0);
+            String deletedYn = invocation.getArgument(1);
+            String templateCode = invocation.getArgument(2);
+            String documentStatus = invocation.getArgument(3);
+            return documents.values().stream()
+                .filter(document -> requester.getEmpId().equals(document.getRequester().getEmpId()))
+                .filter(document -> deletedYn.equals(document.getDeletedYn()))
+                .filter(document -> templateCode.equals(document.getTemplateCode()))
+                .filter(document -> documentStatus.equals(document.getStatus()))
+                .sorted(Comparator.comparing(ApprovalDocument::getApprovalId))
+                .toList();
+        });
         when(signatureService.snapshotJson(any())).thenReturn("{}");
         when(signatureService.activeSignatureFile(any())).thenReturn(null);
         when(reminderService.decisionDueAt()).thenReturn(LocalDateTime.of(2026, 6, 23, 9, 0));
@@ -190,6 +206,11 @@ class ApprovalServiceWorkflowTest {
             empRepository,
             delegationService,
             reminderService
+        );
+        leaveUsageService = new ApprovalLeaveUsageService(
+            documentRepository,
+            currentEmpProvider,
+            new ObjectMapper()
         );
         draftService = new ApprovalDraftService(
             documentRepository,
@@ -201,6 +222,7 @@ class ApprovalServiceWorkflowTest {
             permissionService,
             linePolicyService,
             equipmentProposalService,
+            leaveUsageService,
             jdbcTemplate,
             new ObjectMapper()
         );
@@ -217,6 +239,7 @@ class ApprovalServiceWorkflowTest {
             reminderService,
             linePolicyService,
             equipmentProposalService,
+            leaveUsageService,
             new ObjectMapper()
         );
 
@@ -635,6 +658,113 @@ class ApprovalServiceWorkflowTest {
         assertThat(submitted.getStatus()).isEqualTo(ApprovalDocument.STATUS_IN_PROGRESS);
     }
 
+    @Test
+    void leaveTemplateUsesLevDocumentNumberPrefix() {
+        ApprovalTemplate template = ApprovalTemplate.builder()
+            .templateCode("LEAVE")
+            .templateName("휴가계")
+            .version(1)
+            .fieldsJson("[]")
+            .activeYn("Y")
+            .build();
+        when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("LEAVE"), eq("Y"))).thenReturn(Optional.of(template));
+
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument submitted = createdDocument(draftService.create(new ApprovalRequest(
+            "휴가계",
+            "신청기간: 2026-06-23 ~ 2026-06-23 [ 1 일 ]",
+            "LEAVE",
+            "{\"content\":\"휴가계\",\"fields\":{\"startDate\":\"2026-06-23\",\"endDate\":\"2026-06-23\",\"days\":\"1\",\"annualLeaveDays\":\"1\",\"leaveType\":\"6/23 연차\"}}",
+            "NORMAL",
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
+        ), "127.0.0.1", "test").approvalId());
+
+        assertThat(submitted.getDocumentNo()).startsWith("LEV-" + Year.now().getValue() + "-");
+    }
+
+    @Test
+    void completedLeaveSelectionsAreReturnedAsUsedAnnualDays() {
+        stubLeaveTemplate();
+
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument document = createdDocument(draftService.create(leaveRequest(
+            "2026-06-23",
+            "\\uC624\\uD6C4\\uBC18\\uCC28"
+        ), "127.0.0.1", "test").approvalId());
+
+        currentEmp.set(emps.get(4L));
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
+
+        currentEmp.set(emps.get(1L));
+        LeaveUsageResponse usage = leaveUsageService.myUsage();
+
+        assertThat(usage.usedAnnualDays()).isEqualTo("0.5");
+        assertThat(usage.totalAnnualDays()).isEqualTo("16");
+        assertThat(usage.remainingAnnualDays()).isEqualTo("15.5");
+        assertThat(usage.selections()).hasSize(1);
+        assertThat(usage.selections().get(0).date()).isEqualTo("2026-06-23");
+        assertThat(usage.selections().get(0).type()).isEqualTo("오후반차");
+    }
+
+    @Test
+    void finalApprovalRejectsLeaveDateAlreadyApproved() {
+        stubLeaveTemplate();
+
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument first = createdDocument(draftService.create(leaveRequest(
+            "2026-06-23",
+            "\\uC5F0\\uCC28"
+        ), "127.0.0.1", "test").approvalId());
+
+        currentEmp.set(emps.get(4L));
+        workflowService.approve(first.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
+
+        currentEmp.set(emps.get(1L));
+        assertThatThrownBy(() -> draftService.create(leaveRequest(
+            "2026-06-23",
+            "\\uC624\\uC804\\uBC18\\uCC28"
+        ), "127.0.0.1", "test"))
+            .isInstanceOf(BusinessException.class)
+            .hasMessageContaining("already approved");
+    }
+
+    @Test
+    void approvedLeaveCancelRestoresUsedAnnualDays() {
+        stubLeaveTemplate();
+        stubLeaveCancelTemplate();
+
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument leave = createdDocument(draftService.create(leaveRequest(
+            "2026-06-23",
+            "\\uC5F0\\uCC28"
+        ), "127.0.0.1", "test").approvalId());
+
+        currentEmp.set(emps.get(4L));
+        workflowService.approve(leave.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
+
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument cancel = createdDocument(draftService.create(leaveCancelRequest(
+            "2026-06-23",
+            "\\uC5F0\\uCC28"
+        ), "127.0.0.1", "test").approvalId());
+        assertThat(cancel.getDocumentNo()).startsWith("LVC-" + Year.now().getValue() + "-");
+
+        currentEmp.set(emps.get(4L));
+        workflowService.approve(cancel.getApprovalId(), new ApprovalActionRequest("approve"), "127.0.0.1", "test");
+
+        currentEmp.set(emps.get(1L));
+        LeaveUsageResponse usage = leaveUsageService.myUsage();
+
+        assertThat(usage.usedAnnualDays()).isEqualTo("0");
+        assertThat(usage.remainingAnnualDays()).isEqualTo("16");
+        assertThat(usage.selections()).isEmpty();
+    }
+
     private ApprovalRequest request(
         List<Long> agreementEmpIds,
         List<Long> approverEmpIds,
@@ -679,6 +809,74 @@ class ApprovalServiceWorkflowTest {
             referenceEmpIds,
             readerEmpIds,
             draft
+        );
+    }
+
+    private void stubLeaveTemplate() {
+        ApprovalTemplate template = ApprovalTemplate.builder()
+            .templateCode("LEAVE")
+            .templateName("Leave")
+            .version(1)
+            .fieldsJson("[]")
+            .activeYn("Y")
+            .build();
+        when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("LEAVE"), eq("Y"))).thenReturn(Optional.of(template));
+    }
+
+    private void stubLeaveCancelTemplate() {
+        ApprovalTemplate template = ApprovalTemplate.builder()
+            .templateCode("LEAVE_CANCEL")
+            .templateName("Leave cancel")
+            .version(1)
+            .fieldsJson("[]")
+            .activeYn("Y")
+            .build();
+        when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("LEAVE_CANCEL"), eq("Y"))).thenReturn(Optional.of(template));
+    }
+
+    private ApprovalRequest leaveRequest(String date, String escapedType) {
+        String shortDate = date.substring(5).replace("-0", "/").replace("-", "/");
+        String formDataJson = "{\"content\":\"leave\",\"fields\":{\"startDate\":\"" + date
+            + "\",\"endDate\":\"" + date
+            + "\",\"days\":\"1\",\"annualLeaveDays\":\"1\",\"leaveType\":\"" + shortDate + " " + escapedType
+            + "\",\"leaveSelectionsJson\":\"[{\\\"date\\\":\\\"" + date
+            + "\\\",\\\"type\\\":\\\"" + escapedType
+            + "\\\",\\\"days\\\":1}]\"}}";
+        return new ApprovalRequest(
+            "Leave",
+            "content",
+            "LEAVE",
+            formDataJson,
+            "NORMAL",
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
+        );
+    }
+
+    private ApprovalRequest leaveCancelRequest(String date, String escapedType) {
+        String shortDate = date.substring(5).replace("-0", "/").replace("-", "/");
+        String formDataJson = "{\"content\":\"cancel\",\"fields\":{\"startDate\":\"" + date
+            + "\",\"endDate\":\"" + date
+            + "\",\"days\":\"1\",\"annualLeaveDays\":\"1\",\"leaveType\":\"" + shortDate + " " + escapedType
+            + "\",\"leaveSelectionsJson\":\"[{\\\"date\\\":\\\"" + date
+            + "\\\",\\\"type\\\":\\\"" + escapedType
+            + "\\\",\\\"days\\\":1}]\"}}";
+        return new ApprovalRequest(
+            "Leave cancel",
+            "content",
+            "LEAVE_CANCEL",
+            formDataJson,
+            "NORMAL",
+            List.of(),
+            List.of(4L),
+            List.of(),
+            List.of(),
+            List.of(),
+            false
         );
     }
 
