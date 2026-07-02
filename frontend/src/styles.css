@@ -565,7 +565,7 @@ select { min-height: 42px; }
 
 .purchase-paper-stamp-head {
   display: grid;
-  grid-template-columns: minmax(260px, 360px) minmax(120px, 1fr) minmax(260px, 360px);
+  grid-template-columns: minmax(220px, 260px) minmax(160px, 1fr) minmax(220px, 260px);
   align-items: start;
   gap: 12px;
 }
@@ -730,6 +730,334 @@ select { min-height: 42px; }
 .purchase-delivery-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.training-request-form,
+.training-request-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.training-paper {
+  background: #fff;
+  border: 2px solid #151844;
+  color: #111827;
+  padding: 0;
+}
+
+.training-report-paper {
+  max-width: 794px;
+  margin-inline: auto;
+  font-size: 12px;
+}
+
+.training-report-paper .purchase-paper-stamp-head {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-areas:
+    "title approval"
+    "title receiver";
+  align-items: start;
+  gap: 8px 14px;
+  min-height: 0;
+  padding: 8px 16px 12px;
+  border-bottom: 2px solid #151844;
+}
+
+.training-report-paper .purchase-paper-title {
+  grid-area: title;
+  align-self: center;
+  justify-self: center;
+  font-size: 22px;
+}
+
+.training-report-paper .purchase-paper-stamp-head > .purchase-approval-stamp {
+  grid-area: approval;
+  justify-self: end;
+}
+
+.training-report-paper .purchase-paper-stamp-head > .purchase-receiver-stamps {
+  grid-area: receiver;
+  justify-self: end;
+}
+
+.training-report-paper .purchase-receiver-stamps {
+  justify-content: stretch;
+}
+
+.training-report-paper .purchase-approval-stamp .approval-stamp-column {
+  grid-template-rows: 18px 34px 18px;
+}
+
+.training-paper:not(.training-report-paper) .purchase-paper-stamp-head {
+  grid-template-columns: minmax(220px, 260px) minmax(180px, 1fr) minmax(110px, 150px);
+  gap: 8px;
+  border-bottom: 2px solid #151844;
+  padding: 0;
+}
+
+.training-paper .purchase-receiver-stamps .purchase-approval-stamp .approval-stamp-column {
+  min-width: 46px;
+  grid-template-rows: 18px 28px 18px;
+}
+
+.training-paper .purchase-receiver-stamps .purchase-approval-stamp {
+  font-size: 11px;
+}
+
+.training-person-row,
+.training-field-row,
+.training-reason-row {
+  display: grid;
+  border-bottom: 1px solid #111827;
+}
+
+.training-person-row {
+  grid-template-columns: 1.3fr 1fr 2fr;
+}
+
+.training-person-row label,
+.training-field-row label,
+.training-reason-row label {
+  display: grid;
+  grid-template-columns: 104px 1fr;
+  min-height: 52px;
+  margin: 0;
+}
+
+.training-person-row label + label {
+  border-left: 1px solid #111827;
+}
+
+.training-person-row span,
+.training-field-row span,
+.training-reason-row span {
+  display: grid;
+  place-items: center;
+  border-right: 1px solid #111827;
+  font-weight: 700;
+}
+
+.training-person-row input,
+.training-field-row input,
+.training-reason-row textarea {
+  min-height: 52px;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+  background: transparent;
+}
+
+.training-reason-row textarea {
+  min-height: 260px;
+  resize: vertical;
+}
+
+.training-report-meta-row,
+.training-report-two-col,
+.training-report-section-row,
+.training-report-bottom-row,
+.training-report-sign-row {
+  display: grid;
+  border-bottom: 1px solid #111827;
+}
+
+.training-report-meta-row {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.training-report-two-col {
+  grid-template-columns: 1fr 1fr;
+}
+
+.training-report-meta-row label,
+.training-report-two-col label,
+.training-report-section-row label,
+.training-report-bottom-row label,
+.training-report-sign-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  min-height: 34px;
+  margin: 0;
+}
+
+.training-report-meta-row label + label,
+.training-report-two-col label + label,
+.training-report-bottom-row label + label {
+  border-left: 1px solid #111827;
+}
+
+.training-report-meta-row span,
+.training-report-two-col span,
+.training-report-section-row span,
+.training-report-bottom-row span,
+.training-report-sign-row span {
+  display: grid;
+  place-items: center;
+  border-right: 1px solid #111827;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.25;
+  word-break: keep-all;
+  padding: 4px;
+}
+
+.training-report-section-row.compact span,
+.training-report-bottom-row span {
+  font-size: 11px;
+}
+
+.training-report-meta-row input,
+.training-report-two-col input,
+.training-report-section-row textarea,
+.training-report-bottom-row textarea,
+.training-report-sign-row input {
+  min-height: 34px;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
+  outline: none;
+  background: transparent;
+}
+
+.training-report-section-row label {
+  min-height: 108px;
+}
+
+.training-report-section-row textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
+.training-report-section-row.compact label,
+.training-report-section-row.compact textarea {
+  min-height: 66px;
+  height: 66px;
+  max-height: 66px;
+}
+
+.training-report-bottom-row {
+  grid-template-columns: 88px minmax(0, 2fr) 88px minmax(0, 1fr);
+  height: 66px;
+  max-height: 66px;
+  overflow: hidden;
+}
+
+.training-report-bottom-row label {
+  display: contents;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+}
+
+.training-report-sign-row {
+  min-height: 66px;
+  height: 66px;
+  max-height: 66px;
+}
+
+.training-report-bottom-row label + label {
+  border-left: 0;
+}
+
+.training-report-bottom-row label + label span {
+  border-left: 1px solid #111827;
+}
+
+.training-report-bottom-row span {
+  min-height: 66px;
+  height: 66px;
+  max-height: 66px;
+  overflow: hidden;
+}
+
+.training-report-bottom-row textarea {
+  min-height: 66px;
+  height: 66px;
+  max-height: 66px;
+  resize: none;
+}
+
+.training-report-sign-row {
+  grid-template-columns: 88px 1fr;
+  border-bottom: 0;
+}
+
+.training-report-sign-row input {
+  height: 66px;
+  max-height: 66px;
+}
+
+.training-paper input,
+.training-paper textarea {
+  border: 0 !important;
+  box-shadow: none;
+  outline: none;
+}
+
+.training-footer-text {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 48px 24px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.training-choice-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+
+.training-choice-group label,
+.training-choice-group span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.template-training-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.template-training-head {
+  display: grid;
+  grid-template-columns: 116px 1fr 116px;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-training-head h2 {
+  text-align: center;
+  font-size: 22px;
+}
+
+.template-training-choice,
+.template-training-footer {
+  text-align: center;
+  font-weight: 800;
+}
+
+.template-training-meta {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  border-top: 1px solid #111827;
+  border-left: 1px solid #111827;
+}
+
+.template-training-meta strong,
+.template-training-meta span {
+  min-height: 32px;
+  padding: 7px;
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+}
+
+.template-training-meta .large {
+  min-height: 88px;
 }
 .back-button {
   justify-self: start;

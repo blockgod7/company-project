@@ -91,7 +91,13 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
               where receivedLine.document = d
                 and receivedLine.assignedEmp = :currentEmp
                 and receivedLine.lineType = 'RECEIVER'
-                and receivedLine.status in ('RECEIVED', 'READ', 'RECEIPT_COMPLETED')
+                and receivedLine.status in ('RECEIVED', 'READ')
+                and not exists (
+                  select 1 from ApprovalLine receiverDecisionLine
+                  where receiverDecisionLine.document = d
+                    and receiverDecisionLine.lineType in ('AGREEMENT', 'APPROVAL')
+                    and receiverDecisionLine.lineOrder > receivedLine.lineOrder
+                )
             ))
             or (:boxShared = true and exists (
               select 1 from ApprovalLine sharedLine

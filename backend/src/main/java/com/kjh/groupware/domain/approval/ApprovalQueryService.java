@@ -204,12 +204,8 @@ public class ApprovalQueryService {
             ).map(line -> summary(line.getDocument())));
         }
         if (BOX_RECEIVED.equals(normalizedBox)) {
-            return PageResponse.from(lineRepository.findByAssignedEmpAndLineTypeInAndStatusInOrderByLineIdDesc(
-                currentEmp,
-                List.of(ApprovalLine.TYPE_RECEIVER),
-                List.of(ApprovalLine.STATUS_RECEIVED, ApprovalLine.STATUS_READ, ApprovalLine.STATUS_RECEIPT_COMPLETED),
-                linePageRequest
-            ).map(line -> summary(line.getDocument())));
+            return PageResponse.from(lineRepository.findOpenReceiverInboxLines(currentEmp, linePageRequest)
+                .map(line -> summary(line.getDocument())));
         }
         if (BOX_SHARED.equals(normalizedBox)) {
             return PageResponse.from(lineRepository.findByAssignedEmpAndLineTypeInAndStatusInOrderByLineIdDesc(

@@ -24,17 +24,18 @@ public class ApprovalPermissionService {
         boolean shared = lines.stream().anyMatch(line -> (line.isReference() || line.isReader()) && line.isAssignedTo(emp));
         boolean auditAdmin = canViewAllDocuments(emp);
         boolean approved = ApprovalDocument.STATUS_APPROVED.equals(document.getStatus());
-        boolean purchaseReceiverHandoff = "PURCHASE".equals(document.getTemplateCode())
+        boolean receiverRoutedHandoff = isReceiverRoutedDocument(document)
             && document.isPending()
             && lines.stream()
                 .filter(ApprovalLine::isReceiver)
                 .anyMatch(line -> ApprovalLine.STATUS_RECEIVED.equals(line.getStatus())
                     || ApprovalLine.STATUS_READ.equals(line.getStatus())
                     || ApprovalLine.STATUS_RECEIPT_COMPLETED.equals(line.getStatus()));
-        boolean purchaseReceiverProgress = purchaseReceiverHandoff
-            && ApprovalDocument.STAGE_RECEIVER_PROGRESS.equals(document.getCurrentStage());
-        boolean viewByPostApprovalRole = (approved || purchaseReceiverHandoff) && (receiver || shared);
+        boolean receiverRoutedReadyForReceiver = isReceiverRoutedReadyForReceiver(document, lines);
+        boolean viewByPostApprovalRole = (approved || receiverRoutedHandoff) && (receiver || shared);
+        boolean viewByReadyReceiver = receiverRoutedReadyForReceiver && receiver;
         boolean canView = requester || decisionAssignee || delegatedPendingDecisionAssignee || delegatedActedDecisionAssignee || viewByPostApprovalRole || auditAdmin;
+        canView = canView || viewByReadyReceiver;
         boolean canPrintPdf = canView
             && approved
             && ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus())
@@ -47,8 +48,11 @@ public class ApprovalPermissionService {
         boolean canWithdraw = requester
             && document.isPending()
             && lines.stream().filter(ApprovalLine::isDecisionLine).noneMatch(ApprovalLine::isActed);
-        boolean canReceive = (approved || purchaseReceiverProgress) && lines.stream()
-            .anyMatch(line -> line.isReceiver() && line.isAssignedTo(emp) && ApprovalLine.STATUS_RECEIVED.equals(line.getStatus()));
+        boolean canReceive = (approved || receiverRoutedHandoff || receiverRoutedReadyForReceiver) && lines.stream()
+            .anyMatch(line -> line.isReceiver()
+                && line.isAssignedTo(emp)
+                && (ApprovalLine.STATUS_RECEIVED.equals(line.getStatus())
+                    || (receiverRoutedReadyForReceiver && ApprovalLine.STATUS_WAITING.equals(line.getStatus()))));
         boolean canCompleteReceipt = approved && lines.stream()
             .anyMatch(line -> line.isReceiver()
                 && line.isAssignedTo(emp)
@@ -103,5 +107,21 @@ public class ApprovalPermissionService {
 
     public boolean canViewAllDocuments(Emp emp) {
         return canManageOperations(emp) || (emp != null && "AUDIT_ADMIN".equals(emp.getRoleCode()));
+    }
+
+    private boolean isReceiverRoutedDocument(ApprovalDocument document) {
+        return "PURCHASE".equals(document.getTemplateCode())
+            || "TRAINING_REQUEST".equals(document.getTemplateCode())
+            || "TRAINING_REPORT".equals(document.getTemplateCode());
+    }
+
+    private boolean isReceiverRoutedReadyForReceiver(ApprovalDocument document, List<ApprovalLine> lines) {
+        return isReceiverRoutedDocument(document)
+            && document.isPending()
+            && lines.stream().anyMatch(ApprovalLine::isDecisionLine)
+            && lines.stream()
+                .filter(ApprovalLine::isDecisionLine)
+                .allMatch(line -> ApprovalLine.STATUS_APPROVED.equals(line.getStatus())
+                    || ApprovalLine.STATUS_SKIPPED.equals(line.getStatus()));
     }
 }

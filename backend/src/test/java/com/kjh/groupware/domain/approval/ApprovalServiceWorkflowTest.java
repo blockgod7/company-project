@@ -42,6 +42,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.jdbc.core.ResultSetExtractor;
@@ -97,9 +99,17 @@ class ApprovalServiceWorkflowTest {
             .fieldsJson("{}")
             .activeYn("Y")
             .build();
+        ApprovalTemplate trainingReportTemplate = ApprovalTemplate.builder()
+            .templateCode("TRAINING_REPORT")
+            .templateName("Training report")
+            .version(1)
+            .fieldsJson("{}")
+            .activeYn("Y")
+            .build();
 
         when(currentEmpProvider.getCurrentEmp()).thenAnswer(invocation -> currentEmp.get());
         when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("PURCHASE"), eq("Y"))).thenReturn(Optional.of(template));
+        when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("TRAINING_REPORT"), eq("Y"))).thenReturn(Optional.of(trainingReportTemplate));
         when(empRepository.findById(any())).thenAnswer(invocation -> Optional.ofNullable(emps.get(invocation.getArgument(0))));
         when(documentRepository.save(any(ApprovalDocument.class))).thenAnswer(invocation -> {
             ApprovalDocument document = invocation.getArgument(0);
@@ -132,6 +142,34 @@ class ApprovalServiceWorkflowTest {
         when(lineRepository.findByIdForUpdate(any())).thenAnswer(invocation -> lines.stream()
             .filter(line -> line.getLineId().equals(invocation.getArgument(0)))
             .findFirst());
+        when(lineRepository.findOpenReceiverInboxLines(any(), any())).thenAnswer(invocation -> {
+            Emp assignedEmp = invocation.getArgument(0);
+            Pageable pageable = invocation.getArgument(1);
+            List<ApprovalLine> result = lines.stream()
+                .filter(line -> line.isReceiver())
+                .filter(line -> line.getAssignedEmp() != null && line.getAssignedEmp().getEmpId().equals(assignedEmp.getEmpId()))
+                .filter(line -> ApprovalLine.STATUS_RECEIVED.equals(line.getStatus()) || ApprovalLine.STATUS_READ.equals(line.getStatus()))
+                .filter(line -> lines.stream().noneMatch(decisionLine -> decisionLine.getDocument() == line.getDocument()
+                    && decisionLine.isDecisionLine()
+                    && decisionLine.getLineOrder() > line.getLineOrder()))
+                .sorted(Comparator.comparing(ApprovalLine::getLineId).reversed())
+                .toList();
+            return new PageImpl<>(result, pageable, result.size());
+        });
+        when(lineRepository.findByAssignedEmpInAndLineTypeAndStatusOrderByLineIdDesc(any(), anyString(), anyString(), any())).thenAnswer(invocation -> {
+            Collection<Emp> assignedEmps = invocation.getArgument(0);
+            String lineType = invocation.getArgument(1);
+            String lineStatus = invocation.getArgument(2);
+            Pageable pageable = invocation.getArgument(3);
+            Set<Long> assignedIds = assignedEmps.stream().map(Emp::getEmpId).collect(java.util.stream.Collectors.toSet());
+            List<ApprovalLine> result = lines.stream()
+                .filter(line -> line.getAssignedEmp() != null && assignedIds.contains(line.getAssignedEmp().getEmpId()))
+                .filter(line -> lineType.equals(line.getLineType()))
+                .filter(line -> lineStatus.equals(line.getStatus()))
+                .sorted(Comparator.comparing(ApprovalLine::getLineId).reversed())
+                .toList();
+            return new PageImpl<>(result, pageable, result.size());
+        });
         when(lineRepository.countByAssignedEmpInAndLineTypeInAndStatus(any(), any(), anyString())).thenAnswer(invocation -> {
             Collection<Emp> assignedEmps = invocation.getArgument(0);
             Collection<String> lineTypes = invocation.getArgument(1);
@@ -367,6 +405,58 @@ class ApprovalServiceWorkflowTest {
             "test"
         ))
             .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void trainingReportApprovalHandoffAndReceiverDepartmentApprovalFlow() {
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument document = createdDocument(draftService.create(requestForTemplate(
+            "TRAINING_REPORT",
+            List.of(),
+            List.of(4L),
+            List.of(6L),
+            List.of(),
+            List.of(),
+            false
+        ), "127.0.0.1", "test").approvalId());
+
+        currentEmp.set(emps.get(4L));
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("approved"), "127.0.0.1", "test");
+
+        assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_IN_PROGRESS);
+        assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_RECEIVER_PROGRESS);
+        assertThat(orderedLines(document)).filteredOn(ApprovalLine::isReceiver).extracting(ApprovalLine::getStatus)
+            .containsExactly(ApprovalLine.STATUS_RECEIVED);
+        verify(pdfService, times(0)).generateForFinalApproval(document);
+
+        currentEmp.set(emps.get(6L));
+        workflowService.receive(document.getApprovalId(), "127.0.0.1", "test");
+        assertThat(service.findPage("received", 0, 10, null, null, null, null, null, null, null).content())
+            .extracting("approvalId")
+            .contains(document.getApprovalId());
+        workflowService.submitPurchaseApproval(
+            document.getApprovalId(),
+            new PurchaseRequestUpdateRequest(null, List.of(), List.of(7L)),
+            "127.0.0.1",
+            "test"
+        );
+
+        assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_APPROVAL_PROGRESS);
+        assertThat(orderedLines(document)).filteredOn(ApprovalLine::isApproval).extracting(ApprovalLine::getStatus)
+            .containsExactly(ApprovalLine.STATUS_APPROVED, ApprovalLine.STATUS_PENDING);
+        assertThat(service.findPage("received", 0, 10, null, null, null, null, null, null, null).content())
+            .extracting("approvalId")
+            .doesNotContain(document.getApprovalId());
+
+        currentEmp.set(emps.get(7L));
+        assertThat(service.findPage("pending", 0, 10, null, null, null, null, null, null, null).content())
+            .extracting("approvalId")
+            .contains(document.getApprovalId());
+        workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("receiver department approved"), "127.0.0.1", "test");
+
+        assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
+        assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_COMPLETED);
+        verify(pdfService, times(1)).generateForFinalApproval(document);
     }
 
     @Test
@@ -797,6 +887,30 @@ class ApprovalServiceWorkflowTest {
             "Purchase request",
             "content",
             "PURCHASE",
+            "{\"content\":\"content\"}",
+            "NORMAL",
+            agreementEmpIds,
+            approverEmpIds,
+            receiverEmpIds,
+            referenceEmpIds,
+            readerEmpIds,
+            draft
+        );
+    }
+
+    private ApprovalRequest requestForTemplate(
+        String templateCode,
+        List<Long> agreementEmpIds,
+        List<Long> approverEmpIds,
+        List<Long> receiverEmpIds,
+        List<Long> referenceEmpIds,
+        List<Long> readerEmpIds,
+        boolean draft
+    ) {
+        return new ApprovalRequest(
+            templateCode + " request",
+            "content",
+            templateCode,
             "{\"content\":\"content\"}",
             "NORMAL",
             agreementEmpIds,

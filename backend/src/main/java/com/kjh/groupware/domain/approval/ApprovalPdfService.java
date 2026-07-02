@@ -137,7 +137,7 @@ public class ApprovalPdfService {
         if (!ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus()) || document.getPdfFile() == null) {
             throw BusinessException.notFound("PDF_NOT_FOUND", "PDF has not been generated");
         }
-        if (isLeaveDocument(document) || isPurchaseDocument(document) || ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
+        if (isLeaveDocument(document) || isPurchaseDocument(document) || isTrainingDocument(document) || ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             refreshEquipmentProposalPdf(document, currentEmp);
         }
         Long pdfFileId = document.getPdfFile().getFileId();
@@ -167,6 +167,12 @@ public class ApprovalPdfService {
         }
         if (isPurchaseDocument(document)) {
             return renderPurchaseRequest(document, lines);
+        }
+        if (isTrainingRequestDocument(document)) {
+            return renderTrainingRequest(document, lines);
+        }
+        if (isTrainingReportDocument(document)) {
+            return renderTrainingReport(document, lines);
         }
         if (ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode())) {
             return renderEquipmentProposal(document, lines);
@@ -229,6 +235,18 @@ public class ApprovalPdfService {
 
     private boolean isPurchaseDocument(ApprovalDocument document) {
         return "PURCHASE".equals(document.getTemplateCode());
+    }
+
+    private boolean isTrainingRequestDocument(ApprovalDocument document) {
+        return "TRAINING_REQUEST".equals(document.getTemplateCode());
+    }
+
+    private boolean isTrainingReportDocument(ApprovalDocument document) {
+        return "TRAINING_REPORT".equals(document.getTemplateCode());
+    }
+
+    private boolean isTrainingDocument(ApprovalDocument document) {
+        return isTrainingRequestDocument(document) || isTrainingReportDocument(document);
     }
 
     private GeneratedPdf renderPurchaseRequest(ApprovalDocument document, List<ApprovalLine> lines) {
@@ -393,6 +411,203 @@ public class ApprovalPdfService {
             .map(line -> line.getReadAt() == null ? dateText(line.getActedAt()) : dateText(line.getReadAt()))
             .findFirst()
             .orElse("-");
+    }
+
+    private GeneratedPdf renderTrainingRequest(ApprovalDocument document, List<ApprovalLine> lines) {
+        JsonNode fields = formFields(document.getFormDataJson());
+        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+            PDFont font = loadFont(pdf);
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+                content.setLineWidth(1.0f);
+                List<ApprovalLine> receiverLines = linesOfType(lines, ApprovalLine.TYPE_RECEIVER);
+                Integer firstReceiverOrder = receiverLines.stream()
+                    .map(ApprovalLine::getLineOrder)
+                    .min(Comparator.naturalOrder())
+                    .orElse(Integer.MAX_VALUE);
+                Integer lastReceiverOrder = receiverLines.stream()
+                    .map(ApprovalLine::getLineOrder)
+                    .max(Comparator.naturalOrder())
+                    .orElse(Integer.MIN_VALUE);
+                List<ApprovalLine> requestDeptLines = lines.stream()
+                    .filter(ApprovalLine::isApproval)
+                    .filter(line -> line.getLineOrder() < firstReceiverOrder)
+                    .sorted(Comparator.comparing(ApprovalLine::getLineOrder))
+                    .toList();
+                List<PdfStampColumn> hostDeptColumns = new ArrayList<>();
+                receiverLines.stream()
+                    .map(this::purchaseReceiverStamp)
+                    .forEach(hostDeptColumns::add);
+                lines.stream()
+                    .filter(line -> line.isAgreement() || line.isApproval())
+                    .filter(line -> line.getLineOrder() > lastReceiverOrder)
+                    .sorted(Comparator.comparing(ApprovalLine::getLineOrder))
+                    .map(this::approvalStamp)
+                    .forEach(hostDeptColumns::add);
+
+                float stampWidth = 180;
+                drawDepartmentStamp(content, font, 60, 696, stampWidth, "신청부서", requesterStamp(document), requestDeptLines);
+                drawCenteredText(content, font, "교육 신청서", 240, 728, 116, 17, 20);
+                drawDepartmentStampColumns(content, font, 536 - stampWidth, 696, stampWidth, "주관부서", null, hostDeptColumns);
+
+                float x = 60;
+                float width = 476;
+                float y = 622;
+                drawTrainingPersonRow(content, font, x, y, width, fields, document);
+                drawPurchaseSingleInfoRow(content, font, x, y - 42, 70, width - 70, 42, "교육명", text(fields, "trainingName"));
+                drawPurchaseSingleInfoRow(content, font, x, y - 84, 70, width - 70, 42, "교육기관", text(fields, "institution"));
+
+                float reasonY = y - 338;
+                drawBox(content, x, reasonY, 70, 254);
+                drawBox(content, x + 70, reasonY, width - 70, 254);
+                drawCenteredText(content, font, "사유", x, reasonY + 124, 70, 9, 6);
+                drawCenteredText(content, font, "(구체적)", x, reasonY + 108, 70, 9, 6);
+                drawWrappedText(content, font, text(fields, "reason"), x + 80, reasonY + 232, width - 90, 10, 13);
+
+                String requestType = trainingField(fields, "requestType", "수강");
+                drawTrainingFooter(content, font, x, 134, width, trainingRequestSubject(fields), requestType, trainingField(fields, "requestDate", dateText(document.getRequestedAt())));
+            }
+            pdf.save(output);
+            byte[] bytes = output.toByteArray();
+            return new GeneratedPdf(bytes, sha256(bytes));
+        } catch (IOException ex) {
+            throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate training request PDF");
+        }
+    }
+
+    private String trainingField(JsonNode fields, String name, String fallback) {
+        String value = text(fields, name);
+        return value.isBlank() ? safe(fallback) : value;
+    }
+
+    private void drawTrainingPersonRow(PDPageContentStream content, PDFont font, float x, float y, float width, JsonNode fields, ApprovalDocument document) throws IOException {
+        float height = 26;
+        float deptLabel = 52;
+        float deptValue = 200;
+        float positionLabel = 50;
+        float positionValue = 66;
+        float nameLabel = 50;
+        float nameValue = width - deptLabel - deptValue - positionLabel - positionValue - nameLabel;
+        float cursor = x;
+        drawPurchaseSingleInfoRow(content, font, cursor, y, deptLabel, deptValue, height, "소속", trainingField(fields, "deptName", safe(document.getDraftDeptName())));
+        cursor += deptLabel + deptValue;
+        drawPurchaseSingleInfoRow(content, font, cursor, y, positionLabel, positionValue, height, "직위", text(fields, "positionName"));
+        cursor += positionLabel + positionValue;
+        drawPurchaseSingleInfoRow(content, font, cursor, y, nameLabel, nameValue, height, "성명", trainingField(fields, "requesterName", document.getRequester().getEmpName()));
+    }
+
+    private void drawTrainingFooter(PDPageContentStream content, PDFont font, float x, float y, float width, String subject, String requestType, String requestDate) throws IOException {
+        drawCenteredText(content, font, "본인은 상기와 같이", x, y + 54, width, 11, 40);
+        float subjectY = y + 36;
+        for (String line : wrap(subject + "의", 34).stream().limit(3).toList()) {
+            drawCenteredText(content, font, line, x, subjectY, width, 11, 40);
+            subjectY -= 16;
+        }
+        drawCenteredText(content, font, "수강(" + ("수강".equals(requestType) ? "●" : " ") + ")  변경(" + ("변경".equals(requestType) ? "●" : " ") + ")  불참(" + ("불참".equals(requestType) ? "●" : " ") + ") 을 신청합니다.", x, subjectY - 2, width, 11, 40);
+        drawCenteredText(content, font, requestDate, x, subjectY - 32, width, 10, 16);
+    }
+
+    private String trainingRequestSubject(JsonNode fields) {
+        String trainingName = trainingField(fields, "trainingName", "상기").trim();
+        return trainingName.endsWith("교육") ? trainingName : trainingName + " 교육";
+    }
+
+    private GeneratedPdf renderTrainingReport(ApprovalDocument document, List<ApprovalLine> lines) {
+        JsonNode fields = formFields(document.getFormDataJson());
+        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            pdf.addPage(page);
+            PDFont font = loadFont(pdf);
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+                content.setLineWidth(1.0f);
+                List<ApprovalLine> receiverLines = linesOfType(lines, ApprovalLine.TYPE_RECEIVER);
+                Integer firstReceiverOrder = receiverLines.stream()
+                    .map(ApprovalLine::getLineOrder)
+                    .min(Comparator.naturalOrder())
+                    .orElse(Integer.MAX_VALUE);
+                Integer lastReceiverOrder = receiverLines.stream()
+                    .map(ApprovalLine::getLineOrder)
+                    .max(Comparator.naturalOrder())
+                    .orElse(Integer.MIN_VALUE);
+                List<ApprovalLine> requestDeptLines = lines.stream()
+                    .filter(ApprovalLine::isApproval)
+                    .filter(line -> line.getLineOrder() < firstReceiverOrder)
+                    .sorted(Comparator.comparing(ApprovalLine::getLineOrder))
+                    .toList();
+                List<PdfStampColumn> hostDeptColumns = new ArrayList<>();
+                receiverLines.stream()
+                    .map(this::purchaseReceiverStamp)
+                    .forEach(hostDeptColumns::add);
+                lines.stream()
+                    .filter(line -> line.isAgreement() || line.isApproval())
+                    .filter(line -> line.getLineOrder() > lastReceiverOrder)
+                    .sorted(Comparator.comparing(ApprovalLine::getLineOrder))
+                    .map(this::approvalStamp)
+                    .forEach(hostDeptColumns::add);
+
+                float stampWidth = 180;
+                drawCenteredText(content, font, "교육 훈련 보고서", 72, 716, 260, 20, 20);
+                drawDepartmentStamp(content, font, 356, 696, stampWidth, "결재", requesterStamp(document), requestDeptLines);
+                drawDepartmentStampColumns(content, font, 356, 618, stampWidth, "주관부서", null, hostDeptColumns);
+
+                float x = 40;
+                float width = 515;
+                float y = 612;
+                drawTrainingReportMetaRow(content, font, x, y, width, fields, document);
+                y -= 28;
+                drawPurchaseRequestInfoRow(content, font, x, y, width, "교육명", text(fields, "trainingName"), "교육기관", text(fields, "institution"));
+                y -= 28;
+                drawPurchaseSingleInfoRow(content, font, x, y, 84, width - 84, 28, "교육기간", text(fields, "trainingPeriod"));
+                y -= 116;
+                drawTrainingReportTextRow(content, font, x, y, width, 116, "주요교육\n내용", text(fields, "mainContent"), 8);
+                y -= 116;
+                drawTrainingReportTextRow(content, font, x, y, width, 116, "업무수행\n방안", text(fields, "jobApplication"), 8);
+                y -= 116;
+                drawTrainingReportTextRow(content, font, x, y, width, 116, "교육\n소감", text(fields, "impression"), 8);
+                y -= 64;
+                drawTrainingReportTextRow(content, font, x, y, width, 64, "차기에 받고\n싶은 교육\n(업무효과가능)", text(fields, "nextTraining"), 4);
+                y -= 64;
+                drawTrainingReportBottomRow(content, font, x, y, width, fields);
+                drawCenteredText(content, font, "SLQP-6-01-02(2015.05.01)", x, 16, 160, 8, 32);
+                drawCenteredText(content, font, "슝크카본테크놀로지 (유)", 210, 16, 180, 8, 24);
+                drawCenteredText(content, font, "A4(210X297)", 472, 16, 99, 8, 14);
+            }
+            pdf.save(output);
+            byte[] bytes = output.toByteArray();
+            return new GeneratedPdf(bytes, sha256(bytes));
+        } catch (IOException ex) {
+            throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate training report PDF");
+        }
+    }
+
+    private void drawTrainingReportMetaRow(PDPageContentStream content, PDFont font, float x, float y, float width, JsonNode fields, ApprovalDocument document) throws IOException {
+        float part = width / 3f;
+        drawPurchaseSingleInfoRow(content, font, x, y, 58, part - 58, 28, "작성일", trainingField(fields, "reportDate", dateText(document.getRequestedAt())));
+        drawPurchaseSingleInfoRow(content, font, x + part, y, 52, part - 52, 28, "사번", trainingField(fields, "empNo", document.getRequester().getEmpNo()));
+        drawPurchaseSingleInfoRow(content, font, x + part * 2, y, 52, width - part * 2 - 52, 28, "성명", trainingField(fields, "requesterName", document.getRequester().getEmpName()));
+    }
+
+    private void drawTrainingReportTextRow(PDPageContentStream content, PDFont font, float x, float y, float width, float height, String label, String value, int maxLines) throws IOException {
+        float labelWidth = 84;
+        drawBox(content, x, y, labelWidth, height);
+        drawBox(content, x + labelWidth, y, width - labelWidth, height);
+        drawWrappedText(content, font, label, x + 8, y + height - 28, labelWidth - 16, 8, 4);
+        drawWrappedText(content, font, safe(value), x + labelWidth + 10, y + height - 18, width - labelWidth - 20, 9, maxLines);
+    }
+
+    private void drawTrainingReportBottomRow(PDPageContentStream content, PDFont font, float x, float y, float width, JsonNode fields) throws IOException {
+        float height = 64;
+        float labelWidth = 84;
+        float leftWidth = width * 0.66f;
+        drawBox(content, x, y, labelWidth, height);
+        drawBox(content, x + labelWidth, y, leftWidth - labelWidth, height);
+        drawWrappedText(content, font, "유효성 평가\n(시급,속도,균형)", x + 7, y + height - 22, labelWidth - 14, 7, 3);
+        drawWrappedText(content, font, text(fields, "effectiveness"), x + labelWidth + 8, y + height - 16, leftWidth - labelWidth - 16, 7, 4);
+        drawBox(content, x + leftWidth, y, 64, height);
+        drawBox(content, x + leftWidth + 64, y, width - leftWidth - 64, height);
+        drawCenteredText(content, font, "총 무", x + leftWidth, y + 28, 64, 8, 5);
+        drawWrappedText(content, font, "인사카드기록 확인\n" + text(fields, "hrRecordCheck"), x + leftWidth + 72, y + height - 16, width - leftWidth - 80, 7, 4);
     }
 
     private GeneratedPdf renderClassicDraft(ApprovalDocument document, List<ApprovalLine> lines) {

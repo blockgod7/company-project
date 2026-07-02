@@ -43,6 +43,23 @@ public interface ApprovalLineRepository extends JpaRepository<ApprovalLine, Long
         Pageable pageable
     );
 
+    @Query("""
+        select l from ApprovalLine l
+        join l.document d
+        where d.deletedYn = 'N'
+          and l.assignedEmp = :assignedEmp
+          and l.lineType = 'RECEIVER'
+          and l.status in ('RECEIVED', 'READ')
+          and not exists (
+            select 1 from ApprovalLine decisionLine
+            where decisionLine.document = d
+              and decisionLine.lineType in ('AGREEMENT', 'APPROVAL')
+              and decisionLine.lineOrder > l.lineOrder
+          )
+        order by l.lineId desc
+        """)
+    Page<ApprovalLine> findOpenReceiverInboxLines(@Param("assignedEmp") Emp assignedEmp, Pageable pageable);
+
     Page<ApprovalLine> findByAssignedEmpAndStatusInOrderByLineIdDesc(Emp assignedEmp, Collection<String> statuses, Pageable pageable);
 
     Page<ApprovalLine> findByAssignedEmpInAndStatusInOrderByLineIdDesc(Collection<Emp> assignedEmps, Collection<String> statuses, Pageable pageable);

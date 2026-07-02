@@ -200,10 +200,16 @@ public class ApprovalWorkflowService {
         ApprovalDocument document = getPurchaseReceivableDocumentForUpdate(approvalId);
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
         ApprovalLine receiverLine = linePolicyService.receiverLineForUpdate(lines, currentEmp);
+        if (ApprovalLine.STATUS_WAITING.equals(receiverLine.getStatus()) && isReceiverRoutedReadyForReceiver(document, lines)) {
+            receiverLine.markReceived();
+        }
         if (!ApprovalLine.STATUS_RECEIVED.equals(receiverLine.getStatus())) {
             throw BusinessException.badRequest("APPROVAL_RECEIVE_DUPLICATED", "이미 처리된 문서입니다.");
         }
         receiverLine.markRead();
+        if (isReceiverRoutedDocument(document) && document.isPending()) {
+            document.moveToReceiverProgress();
+        }
         auditApproval(currentEmp, AuditActionType.RECEIVE, document, "수신 확인", true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), currentEmp);
     }
@@ -226,7 +232,7 @@ public class ApprovalWorkflowService {
     public ApprovalResponse updatePurchaseRequest(Long approvalId, PurchaseRequestUpdateRequest request, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         ApprovalDocument document = getPurchaseReceivableDocumentForUpdate(approvalId);
-        if (!"PURCHASE".equals(document.getTemplateCode())) {
+        if (!isReceiverRoutedDocument(document)) {
             throw BusinessException.badRequest("APPROVAL_PURCHASE_ONLY", "Only purchase request documents can be updated here");
         }
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
@@ -245,14 +251,14 @@ public class ApprovalWorkflowService {
     public ApprovalResponse submitPurchaseApproval(Long approvalId, PurchaseRequestUpdateRequest request, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
-        if (!"PURCHASE".equals(document.getTemplateCode())) {
+        if (!isReceiverRoutedDocument(document)) {
             throw BusinessException.badRequest("APPROVAL_PURCHASE_ONLY", "Only purchase request documents can be processed here");
-        }
-        if (!document.isPending() || !ApprovalDocument.STAGE_RECEIVER_PROGRESS.equals(document.getCurrentStage())) {
-            throw BusinessException.badRequest("APPROVAL_PURCHASE_STAGE_INVALID", "Purchase approval can be submitted only after receiver handoff");
         }
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
         ApprovalLine receiverLine = linePolicyService.receiverLineForUpdate(lines, currentEmp);
+        if (!document.isPending()) {
+            throw BusinessException.badRequest("APPROVAL_PURCHASE_STAGE_INVALID", "Purchase approval can be submitted only after receiver handoff");
+        }
         if (!ApprovalLine.STATUS_RECEIVED.equals(receiverLine.getStatus()) && !ApprovalLine.STATUS_READ.equals(receiverLine.getStatus())) {
             throw BusinessException.badRequest("APPROVAL_PURCHASE_RECEIVE_REQUIRED", "Purchase receiver must receive the document first");
         }
@@ -333,7 +339,7 @@ public class ApprovalWorkflowService {
         if (equipmentProposalService.progressAfterApproval(document, lines, currentLine)) {
             return;
         }
-        if (progressPurchaseRequestAfterApproval(document, lines)) {
+        if (progressReceiverRoutedDocumentAfterApproval(document, lines)) {
             return;
         }
         leaveUsageService.assertNoCompletedLeaveOverlap(document);
@@ -344,8 +350,8 @@ public class ApprovalWorkflowService {
         notificationService.notifyEmp(document.getRequester().getEmpId(), "전자결재 완료", "상신한 문서가 최종 승인되었습니다.", "APPROVAL", document.getApprovalId());
     }
 
-    private boolean progressPurchaseRequestAfterApproval(ApprovalDocument document, List<ApprovalLine> lines) {
-        if (!"PURCHASE".equals(document.getTemplateCode())) {
+    private boolean progressReceiverRoutedDocumentAfterApproval(ApprovalDocument document, List<ApprovalLine> lines) {
+        if (!isReceiverRoutedDocument(document)) {
             return false;
         }
         boolean alreadyReceived = lines.stream()
@@ -370,6 +376,22 @@ public class ApprovalWorkflowService {
         document.moveToReceiverProgress();
         notificationService.notifyEmp(document.getRequester().getEmpId(), "구매요구서 구매팀 전달", "구매요구서가 구매팀 수신 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
         return true;
+    }
+
+    private boolean isReceiverRoutedDocument(ApprovalDocument document) {
+        return "PURCHASE".equals(document.getTemplateCode())
+            || "TRAINING_REQUEST".equals(document.getTemplateCode())
+            || "TRAINING_REPORT".equals(document.getTemplateCode());
+    }
+
+    private boolean isReceiverRoutedReadyForReceiver(ApprovalDocument document, List<ApprovalLine> lines) {
+        return isReceiverRoutedDocument(document)
+            && document.isPending()
+            && lines.stream().anyMatch(ApprovalLine::isDecisionLine)
+            && lines.stream()
+                .filter(ApprovalLine::isDecisionLine)
+                .allMatch(line -> ApprovalLine.STATUS_APPROVED.equals(line.getStatus())
+                    || ApprovalLine.STATUS_SKIPPED.equals(line.getStatus()));
     }
 
     private void validatePurchaseDecisionLine(Emp currentEmp, List<Long> agreementIds, List<Long> approverIds) {
@@ -452,14 +474,13 @@ public class ApprovalWorkflowService {
         if (hasUnfinishedAgreement) {
             return ApprovalDocument.STAGE_AGREEMENT_PROGRESS;
         }
-        boolean hasApprovalLine = lines.stream().anyMatch(ApprovalLine::isApproval);
-        if (hasApprovalLine) {
-            return ApprovalDocument.STAGE_APPROVAL_PROGRESS;
-        }
         boolean hasOpenReceiver = lines.stream()
             .filter(ApprovalLine::isReceiver)
             .anyMatch(line -> ApprovalLine.STATUS_RECEIVED.equals(line.getStatus()) || ApprovalLine.STATUS_READ.equals(line.getStatus()));
-        return hasOpenReceiver ? ApprovalDocument.STAGE_RECEIVER_PROGRESS : ApprovalDocument.STAGE_APPROVAL_PROGRESS;
+        if (hasOpenReceiver) {
+            return ApprovalDocument.STAGE_RECEIVER_PROGRESS;
+        }
+        return ApprovalDocument.STAGE_APPROVAL_PROGRESS;
     }
 
     private void openPostApprovalLines(ApprovalDocument document, List<ApprovalLine> lines) {
@@ -535,9 +556,7 @@ public class ApprovalWorkflowService {
         if (ApprovalDocument.STATUS_APPROVED.equals(document.getStatus())) {
             return document;
         }
-        if ("PURCHASE".equals(document.getTemplateCode())
-            && document.isPending()
-            && ApprovalDocument.STAGE_RECEIVER_PROGRESS.equals(document.getCurrentStage())) {
+        if (isReceiverRoutedDocument(document) && document.isPending()) {
             return document;
         }
         throw BusinessException.badRequest("APPROVAL_NOT_RECEIVABLE", "Only approved or purchase receiver-progress documents can be received");
