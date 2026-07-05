@@ -31,7 +31,7 @@ app:
       window-seconds: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:300}
   file:
     storage-path: ${FILE_STORAGE_PATH:uploads}
-    allowed-extensions: ${FILE_ALLOWED_EXTENSIONS:pdf,png,jpg,jpeg,gif,webp,txt,csv,xlsx,xls,doc,docx,ppt,pptx,hwp,hwpx,zip}
+    allowed-extensions: ${FILE_ALLOWED_EXTENSIONS:pdf,png,jpg,jpeg,gif,webp,txt,csv,xlsx,xls,doc,docx,ppt,pptx,hwp,hwpx,zip,dwg,dxf,step,stp,igs,iges}
   approval:
     decision-due-hours: ${APPROVAL_DECISION_DUE_HOURS:72}
     reminder-fixed-delay-ms: ${APPROVAL_REMINDER_FIXED_DELAY_MS:300000}

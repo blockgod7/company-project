@@ -82,6 +82,7 @@ public class FileService {
         try {
             Files.createDirectories(uploadDir);
             multipartFile.transferTo(destination);
+            validateStoredContent(fileExt, destination);
         } catch (IOException ex) {
             throw BusinessException.badRequest("FILE_SAVE_FAILED", "Failed to save uploaded file");
         }
@@ -122,6 +123,7 @@ public class FileService {
         try {
             Files.createDirectories(uploadDir);
             Files.write(destination, bytes);
+            validateStoredContent(fileExt, destination);
         } catch (IOException ex) {
             throw BusinessException.badRequest("FILE_SAVE_FAILED", "Failed to save generated file");
         }
@@ -170,6 +172,10 @@ public class FileService {
         }
     }
 
+    public boolean hasPdfHeader(AttachFile file) {
+        return hasPdfHeader(Path.of(file.getStoragePath(), file.getStoredFileName()));
+    }
+
     @Transactional
     public void delete(Long fileId, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
@@ -210,6 +216,27 @@ public class FileService {
         Set<String> allowed = allowedExtensionSet();
         if (!allowed.contains(fileExt.toLowerCase())) {
             throw BusinessException.badRequest("FILE_EXTENSION_NOT_ALLOWED", "허용되지 않은 파일 형식입니다: " + fileExt);
+        }
+    }
+
+    private void validateStoredContent(String fileExt, Path destination) throws IOException {
+        if ("pdf".equalsIgnoreCase(fileExt) && !hasPdfHeader(destination)) {
+            Files.deleteIfExists(destination);
+            throw BusinessException.badRequest("INVALID_PDF_FILE", "PDF 확장자이지만 실제 PDF 파일이 아닙니다.");
+        }
+    }
+
+    private boolean hasPdfHeader(Path path) {
+        try (InputStream inputStream = Files.newInputStream(path)) {
+            byte[] header = inputStream.readNBytes(5);
+            return header.length == 5
+                && header[0] == '%'
+                && header[1] == 'P'
+                && header[2] == 'D'
+                && header[3] == 'F'
+                && header[4] == '-';
+        } catch (IOException ex) {
+            return false;
         }
     }
 

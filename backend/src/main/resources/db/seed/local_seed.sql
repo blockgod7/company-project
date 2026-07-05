@@ -35,6 +35,28 @@ VALUES
      '{"layout":"equipment-proposal","sections":["user","pe","purchase","attachments"]}', 'Y', 20)
 ON CONFLICT (template_code, version) DO NOTHING;
 
+INSERT INTO approval_template (
+    template_code,
+    template_name,
+    version,
+    description,
+    fields_json,
+    print_layout_json,
+    active_yn,
+    sort_order
+)
+VALUES (
+    'PDM_DOWNLOAD',
+    '도면 다운로드 요청',
+    1,
+    '도면관리에서 시작되는 도면 다운로드 승인 요청',
+    '[{"name":"drawingNo","label":"도면번호","type":"text","required":true},{"name":"drawingTitle","label":"도면명","type":"text","required":true},{"name":"category","label":"구분","type":"text","required":true},{"name":"revisionLabel","label":"리비전","type":"text","required":true},{"name":"reason","label":"요청 사유","type":"textarea","required":true}]',
+    '{"layout":"pdm-download","sections":["meta","fields","approvalLines"]}',
+    'Y',
+    70
+)
+ON CONFLICT (template_code, version) DO NOTHING;
+
 INSERT INTO emp (
     emp_no,
     login_id,

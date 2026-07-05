@@ -3627,3 +3627,264 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   .approval-search-actions button { flex: 1 1 120px; justify-content: center; }
   .feed-row { grid-template-columns: 1fr; }
 }
+
+.pdm-workbench { display: grid; gap: 12px; min-width: 0; }
+.pdm-commandbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.pdm-command-left {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.pdm-command-meta {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(320px, 520px);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.pdm-command-left, .pdm-search, .pdm-detail-head, .pdm-download-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pdm-actions,
+.pdm-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.pdm-command-left.pdm-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+}
+.pdm-command-left.pdm-actions button {
+  flex: 0 0 auto;
+}
+.pdm-actions button,
+.pdm-row-actions button,
+.pdm-download-box button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  padding: 9px 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.pdm-actions .ghost,
+.pdm-row-actions .ghost {
+  background: #fff;
+  color: var(--text);
+  border-color: var(--line);
+}
+.pdm-actions .danger,
+.pdm-row-actions .danger {
+  color: var(--danger);
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+.pdm-actions svg,
+.pdm-row-actions svg,
+.pdm-download-box button svg {
+  flex: 0 0 auto;
+}
+.pdm-breadcrumb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-weight: 800;
+}
+.pdm-search > input { min-width: 160px; flex: 1; }
+.pdm-search label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.pdm-search label input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+}
+.pdm-workbench-grid {
+  display: grid;
+  grid-template-columns: minmax(230px, 280px) minmax(0, 1fr);
+  grid-template-rows: minmax(360px, 46vh) minmax(260px, auto);
+  gap: 12px;
+  min-height: 680px;
+}
+.pdm-tree-panel, .pdm-main-panel, .pdm-bottom-panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.pdm-tree-panel { grid-row: 1 / span 2; padding: 12px; overflow: auto; }
+.pdm-main-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+.pdm-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.pdm-list-head h2 { margin: 2px 0 0; font-size: 20px; }
+.pdm-list-head > span { color: var(--muted); font-weight: 900; }
+.pdm-tree { display: grid; gap: 2px; }
+.pdm-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #1f2937;
+  text-align: left;
+  font-weight: 700;
+}
+.pdm-tree-node:hover, .pdm-tree-node.active { background: #eef2ff; color: #1d4ed8; }
+.pdm-tree-spacer { width: 14px; height: 14px; }
+.pdm-table-wrap { min-height: 0; overflow: auto; }
+.pdm-file-table { min-width: 980px; }
+.pdm-file-table td:first-child { display: flex; align-items: center; gap: 6px; font-weight: 800; }
+.pdm-file-table tr { cursor: pointer; }
+.pdm-file-table tr.selected { background: #eef7ff; }
+.pdm-bottom-panel { padding: 12px; overflow: auto; }
+.pdm-detail-head { justify-content: space-between; margin-bottom: 12px; }
+.pdm-detail-head > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.pdm-detail-head strong, .pdm-detail-head span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdm-preview-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(260px, 360px);
+  gap: 12px;
+  min-height: 220px;
+}
+.pdm-pdf-preview {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.pdm-cad-summary {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 220px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--muted);
+  text-align: center;
+}
+.pdm-cad-summary strong { max-width: 100%; overflow-wrap: anywhere; color: #111827; }
+.pdm-preview-side, .pdm-revision-layout, .pdm-admin-layout { display: grid; gap: 12px; align-content: start; }
+.pdm-download-box { align-items: stretch; flex-direction: column; }
+.pdm-revision-layout, .pdm-admin-layout { grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); }
+.pdm-revision-list, .pdm-request-list, .pdm-permission-list { display: grid; gap: 8px; align-content: start; }
+.pdm-page .file-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.pdm-page .file-row > strong,
+.pdm-page .file-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pdm-page .file-row > strong {
+  white-space: nowrap;
+}
+.pdm-page .file-row > span {
+  grid-column: 1 / 2;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.35;
+}
+.pdm-page .file-row > .pdm-row-actions {
+  grid-column: 2 / 3;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+.pdm-revision-list .file-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  align-self: start;
+}
+.pdm-revision-list .file-row > span {
+  grid-column: 1;
+}
+.pdm-revision-list .file-row > .pdm-row-actions {
+  grid-column: 1;
+  grid-row: auto;
+  justify-content: flex-start;
+  align-self: start;
+}
+.file-row.old { background: #fff7ed; }
+.file-row.latest { background: #f0fdf4; }
+.pdm-revision-form {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.pdm-properties { max-width: 980px; }
+.pdm-upload-modal, .pdm-admin-modal {
+  width: min(920px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 18px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .22);
+}
+.pdm-admin-modal { width: min(1080px, calc(100vw - 32px)); }
+.pdm-status-active { background: #dcfce7; color: #166534; }
+.pdm-status-old_version, .pdm-status-voided { background: #fee2e2; color: #991b1b; }
+.pdm-status-on_hold { background: #fef3c7; color: #92400e; }
+
+@media (max-width: 1100px) {
+  .pdm-commandbar, .pdm-command-meta, .pdm-workbench-grid, .pdm-preview-grid, .pdm-revision-layout, .pdm-admin-layout { grid-template-columns: 1fr; }
+  .pdm-workbench-grid { grid-template-rows: auto auto auto; }
+  .pdm-tree-panel { grid-row: auto; max-height: 280px; }
+  .pdm-search, .pdm-detail-head { flex-wrap: wrap; }
+}

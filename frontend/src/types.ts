@@ -354,3 +354,101 @@ export type EquipmentProposal = {
   agreementEmpIds?: number[];
   approverEmpIds?: number[];
 };
+
+export type PdmPermission = {
+  canManage: boolean;
+  canRegister: boolean;
+  canRevise: boolean;
+  canView: boolean;
+  canRequestDownload: boolean;
+  canApproveDownload: boolean;
+};
+
+export type PdmDrawing = {
+  drawingId: number;
+  category: "PRODUCT" | "EQUIPMENT";
+  drawingNo: string;
+  title: string;
+  companyName: string | null;
+  projectName: string | null;
+  businessUnit: string | null;
+  processName: string | null;
+  equipmentName: string | null;
+  groupName: string | null;
+  status: "ACTIVE" | "OLD_VERSION" | "VOIDED" | "ON_HOLD";
+  description: string | null;
+  currentRevisionId: number | null;
+  currentRevisionLabel: string | null;
+  currentRevisionOrder: number | null;
+  currentOriginalFileName: string | null;
+  createdAt: string | null;
+};
+
+export type PdmFolder = {
+  folderId: number;
+  category: "PRODUCT" | "EQUIPMENT";
+  companyName: string | null;
+  projectName: string | null;
+  businessUnit: string | null;
+  processName: string | null;
+  folderKind: "COMPANY" | "PROJECT" | "BUSINESS" | "PROCESS" | "COMMON" | "EQUIPMENT";
+  folderName: string;
+};
+
+export type PdmRevision = {
+  revisionId: number;
+  drawingId: number;
+  revisionLabel: string;
+  revisionOrder: number;
+  revisionDate: string | null;
+  receivedDate: string | null;
+  fileId: number | null;
+  originalFileName: string | null;
+  latestYn: "Y" | "N";
+  voidYn: "Y" | "N";
+  changeNote: string | null;
+  createdAt: string | null;
+};
+
+export type PdmDrawingDetail = {
+  drawing: PdmDrawing;
+  revisions: PdmRevision[];
+  permissions: PdmPermission;
+};
+
+export type PdmDownloadRequest = {
+  requestId: number;
+  drawingId: number;
+  drawingNo: string;
+  drawingTitle: string;
+  revisionId: number;
+  revisionLabel: string;
+  approvalId: number;
+  approvalStatus: "DRAFT" | "PENDING" | "IN_PROGRESS" | "APPROVED" | "REJECTED" | "WITHDRAWN" | "CANCELED";
+  approvedUntil: string | null;
+  reason: string;
+};
+
+export type PdmDuplicateCheck = {
+  duplicate: boolean;
+  drawingId: number | null;
+  drawingNo: string | null;
+  title: string | null;
+  message: string | null;
+};
+
+export type PdmPermissionAdmin = {
+  permissionId: number;
+  category: "PRODUCT" | "EQUIPMENT" | null;
+  drawingId: number | null;
+  drawingNo: string | null;
+  deptId: number | null;
+  deptName: string | null;
+  empId: number | null;
+  empName: string | null;
+  canRegister: boolean;
+  canRevise: boolean;
+  canView: boolean;
+  canDownloadRequest: boolean;
+  canDownloadApprove: boolean;
+};
