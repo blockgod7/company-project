@@ -125,6 +125,30 @@ export type AuditLog = {
   createdAt: string;
 };
 
+export type GlobalSearchItem = {
+  type: "APPROVAL" | "BOARD_POST" | "NOTICE" | "PDM_DRAWING" | "EMPLOYEE" | "NOTIFICATION" | "AUDIT_LOG";
+  targetId: number;
+  parentId: number | null;
+  route: "approvals" | "boards" | "notices" | "pdm" | "organization" | "notifications" | "audit";
+  title: string;
+  summary: string | null;
+  meta: string | null;
+  badges: string[];
+  occurredAt: string | null;
+};
+
+export type GlobalSearchGroup = {
+  code: string;
+  label: string;
+  totalCount: number;
+  items: GlobalSearchItem[];
+};
+
+export type GlobalSearchResponse = {
+  keyword: string;
+  groups: GlobalSearchGroup[];
+};
+
 export type AttachFile = {
   fileId: number;
   targetType: string;

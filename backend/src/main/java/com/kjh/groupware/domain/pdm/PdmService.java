@@ -569,7 +569,7 @@ public class PdmService {
         }
     }
 
-    private boolean canView(Emp emp, PdmDrawing drawing) {
+    public boolean canView(Emp emp, PdmDrawing drawing) {
         return isAdmin(emp) || drawing.getCreatedByEmpId().equals(emp.getEmpId()) || hasPermission(emp, drawing, "view");
     }
 

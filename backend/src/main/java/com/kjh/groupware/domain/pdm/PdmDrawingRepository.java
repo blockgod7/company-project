@@ -15,6 +15,8 @@ public interface PdmDrawingRepository extends JpaRepository<PdmDrawing, Long> {
 
     @Query("""
         select d from PdmDrawing d
+        left join d.currentRevision r
+        left join r.file f
         where (:category is null or d.category = :category)
           and (
             :keyword is null
@@ -26,6 +28,8 @@ public interface PdmDrawingRepository extends JpaRepository<PdmDrawing, Long> {
             or lower(coalesce(d.processName, '')) like lower(concat('%', :keyword, '%'))
             or lower(coalesce(d.equipmentName, '')) like lower(concat('%', :keyword, '%'))
             or lower(coalesce(d.groupName, '')) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(d.description, '')) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(f.originalFileName, '')) like lower(concat('%', :keyword, '%'))
           )
         order by d.drawingId desc
         """)

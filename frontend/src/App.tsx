@@ -53,6 +53,8 @@ import type {
   DeptNode,
   Employee,
   EquipmentProposal,
+  GlobalSearchItem,
+  GlobalSearchResponse,
   LeaveUsage,
   LoginResponse,
   Notice,
@@ -68,8 +70,9 @@ import type {
   User
 } from "./types";
 
-type Route = "dashboard" | "notices" | "boards" | "approvals" | "pdm" | "notifications" | "organization" | "audit";
+type Route = "dashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "notifications" | "organization" | "audit";
 type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "deleted";
+type GlobalSearchTarget = { type: GlobalSearchItem["type"]; targetId: number; parentId: number | null; keyword: string; nonce: number };
 type NoticeForm = { title: string; content: string; pinned: boolean };
 type BoardForm = { title: string; content: string; draft: boolean };
 type ApprovalDelegationForm = { delegateEmpId: number | null; startDate: string; endDate: string; reason: string; active: boolean };
@@ -854,6 +857,7 @@ function remainingAnnualDaysText(totalDays: string | number | null | undefined, 
 
 const routeLabels: Record<Route, string> = {
   dashboard: "대시보드",
+  search: "전역 검색",
   notices: "공지사항",
   boards: "게시판",
   approvals: "전자결재",
@@ -916,6 +920,11 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [route, setRoute] = useState<Route>("dashboard");
   const [approvalLaunch, setApprovalLaunch] = useState<ApprovalLaunch | null>(null);
+  const [globalSearchTarget, setGlobalSearchTarget] = useState<GlobalSearchTarget | null>(null);
+  const [globalSearchKeyword, setGlobalSearchKeyword] = useState("");
+  const [globalSearchResult, setGlobalSearchResult] = useState<GlobalSearchResponse | null>(null);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
+  const [globalSearchError, setGlobalSearchError] = useState("");
   const [message, setMessage] = useState("");
   const isAdmin = user?.roleCode === "ADMIN";
 
@@ -952,13 +961,50 @@ function App() {
     if (route !== "approvals") {
       setApprovalLaunch(null);
     }
+    setGlobalSearchTarget(null);
     setRoute(route);
   }
 
   function openApprovals(target?: ApprovalLaunch) {
     setApprovalLaunch(target ?? null);
+    setGlobalSearchTarget(null);
     setRoute("approvals");
   }
+
+  function openGlobalSearchItem(item: GlobalSearchItem, keyword: string) {
+    setApprovalLaunch(null);
+    setGlobalSearchTarget({
+      type: item.type,
+      targetId: item.targetId,
+      parentId: item.parentId,
+      keyword,
+      nonce: Date.now()
+    });
+    setRoute(item.route);
+  }
+
+  async function submitGlobalSearch(event?: FormEvent) {
+    event?.preventDefault();
+    const keyword = globalSearchKeyword.trim();
+    setGlobalSearchError("");
+    setRoute("search");
+    if (keyword.length < 2) {
+      setGlobalSearchResult(null);
+      setGlobalSearchError("검색어는 2글자 이상 입력해 주세요.");
+      return;
+    }
+    setGlobalSearchLoading(true);
+    try {
+      const result = await api<GlobalSearchResponse>(`/global-search?keyword=${encodeURIComponent(keyword)}&limit=20`);
+      setGlobalSearchResult(result);
+    } catch (err) {
+      setGlobalSearchError(err instanceof Error ? err.message : "전역 검색 중 오류가 발생했습니다.");
+    } finally {
+      setGlobalSearchLoading(false);
+    }
+  }
+
+  const globalSearchTotal = globalSearchResult?.groups.reduce((sum, group) => sum + group.totalCount, 0) ?? 0;
 
   if (!user) {
     return (
@@ -1009,9 +1055,20 @@ function App() {
       </aside>
       <div className="app-main">
         <header className="topbar">
-          <div>
+          <div className="topbar-title">
             <span>Schunk Carbon Technology Ltd.</span>
             <strong>{routeLabels[route]}</strong>
+          </div>
+          <div className="topbar-search">
+            <form className="topbar-search-form" onSubmit={submitGlobalSearch}>
+              <Search size={17} />
+              <input
+                value={globalSearchKeyword}
+                onChange={(event) => setGlobalSearchKeyword(event.target.value)}
+                placeholder="김민수, 도면번호, 문서제목 검색"
+              />
+              <button type="submit" disabled={globalSearchLoading}>{globalSearchLoading ? "검색 중" : "검색"}</button>
+            </form>
           </div>
           <div className="userbar">
             <Search size={17} />
@@ -1023,17 +1080,134 @@ function App() {
           </div>
         </header>
         <main className="content">
+          {route === "search" && (
+            <GlobalSearchPage
+              keyword={globalSearchKeyword}
+              setKeyword={setGlobalSearchKeyword}
+              result={globalSearchResult}
+              loading={globalSearchLoading}
+              error={globalSearchError}
+              total={globalSearchTotal}
+              onSubmit={submitGlobalSearch}
+              onOpen={openGlobalSearchItem}
+              onClear={() => {
+                setGlobalSearchKeyword("");
+                setGlobalSearchResult(null);
+                setGlobalSearchError("");
+              }}
+            />
+          )}
           {route === "dashboard" && <Dashboard user={user} go={navigate} openApprovals={openApprovals} />}
-          {route === "notices" && <NoticePage user={user} />}
-          {route === "boards" && <BoardPage user={user} />}
-          {route === "approvals" && <ApprovalPage user={user} launch={approvalLaunch} />}
-          {route === "pdm" && <DrawingManagementPage user={user} openApprovals={openApprovals} />}
-          {route === "notifications" && <NotificationPage go={navigate} />}
-          {route === "organization" && <OrganizationPage />}
-          {route === "audit" && (isAdmin ? <AuditLogPage /> : <AccessDenied />)}
+          {route === "notices" && <NoticePage user={user} target={globalSearchTarget} />}
+          {route === "boards" && <BoardPage user={user} target={globalSearchTarget} />}
+          {route === "approvals" && <ApprovalPage user={user} launch={approvalLaunch} target={globalSearchTarget} />}
+          {route === "pdm" && <DrawingManagementPage user={user} openApprovals={openApprovals} target={globalSearchTarget} />}
+          {route === "notifications" && <NotificationPage go={navigate} target={globalSearchTarget} />}
+          {route === "organization" && <OrganizationPage target={globalSearchTarget} />}
+          {route === "audit" && (isAdmin ? <AuditLogPage target={globalSearchTarget} /> : <AccessDenied />)}
         </main>
       </div>
     </div>
+  );
+}
+
+function GlobalSearchPage({
+  keyword,
+  setKeyword,
+  result,
+  loading,
+  error,
+  total,
+  onSubmit,
+  onOpen,
+  onClear
+}: {
+  keyword: string;
+  setKeyword: (keyword: string) => void;
+  result: GlobalSearchResponse | null;
+  loading: boolean;
+  error: string;
+  total: number;
+  onSubmit: (event?: FormEvent) => void;
+  onOpen: (item: GlobalSearchItem, keyword: string) => void;
+  onClear: () => void;
+}) {
+  function groupIcon(code: string) {
+    if (code === "approvals") return ClipboardCheck;
+    if (code === "boards") return MessageSquare;
+    if (code === "notices") return BookOpen;
+    if (code === "pdm") return FolderKanban;
+    if (code === "employees") return Building2;
+    if (code === "notifications") return Bell;
+    if (code === "audit") return Shield;
+    return Search;
+  }
+
+  return (
+    <section className="search-page">
+      <div className="search-page-head">
+        <span>전역 검색</span>
+        <form className="search-page-form" onSubmit={onSubmit}>
+          <Search size={22} />
+          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="김민수, 도면번호, 문서제목 검색" />
+          {keyword && (
+            <button className="search-clear" type="button" onClick={onClear} title="검색어 지우기">
+              <X size={20} />
+            </button>
+          )}
+          <button className="search-page-submit" type="submit" disabled={loading}>{loading ? "검색 중" : "검색"}</button>
+        </form>
+      </div>
+
+      <div className="search-page-toolbar">
+        <strong>전체 결과 <b>{total}</b>건</strong>
+        <select defaultValue="relevance" aria-label="정렬">
+          <option value="relevance">정확도순</option>
+          <option value="latest">최신순</option>
+        </select>
+      </div>
+
+      {error && <p className="global-search-error">{error}</p>}
+
+      {result ? (
+        result.groups.length ? (
+          <div className="search-result-stack">
+            {result.groups.map((group) => {
+              const Icon = groupIcon(group.code);
+              return (
+                <section className="search-result-section" key={group.code}>
+                  <div className="search-result-head">
+                    <div>
+                      <Icon size={21} />
+                      <strong>{group.label}</strong>
+                      <span>{group.totalCount}건</span>
+                    </div>
+                    <small>권한 내 결과</small>
+                  </div>
+                  <div className="search-result-list">
+                    {group.items.map((item) => (
+                      <button className="search-result-row" key={`${item.type}-${item.targetId}`} type="button" onClick={() => onOpen(item, result.keyword)}>
+                        <span className="search-result-title">{item.title}</span>
+                        <span className="search-result-meta">{item.meta || item.summary || "관련 정보"}</span>
+                        <span className="search-result-date">작성일 {item.occurredAt ? formatDate(item.occurredAt) : "-"}</span>
+                        <span className="search-result-badges">
+                          {item.badges.slice(0, 3).map((badge) => <em key={badge}>{badge}</em>)}
+                        </span>
+                        <span className="search-result-open">상세로 이동 <ChevronRight size={17} /></span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <Empty text="검색 결과가 없습니다." />
+        )
+      ) : (
+        <Empty text="검색어를 입력하면 권한이 있는 항목만 표시됩니다." />
+      )}
+    </section>
   );
 }
 
@@ -1214,7 +1388,7 @@ function MiniCalendar() {
   );
 }
 
-function NoticePage({ user }: { user: User }) {
+function NoticePage({ user, target }: { user: User; target: GlobalSearchTarget | null }) {
   const [items, setItems] = useState<Notice[]>([]);
   const [selected, setSelected] = useState<Notice | null>(null);
   const [mode, setMode] = useState<ContentMode>("list");
@@ -1240,6 +1414,12 @@ function NoticePage({ user }: { user: User }) {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    if (target?.type === "NOTICE") {
+      void loadDetail(target.targetId);
+    }
+  }, [target?.nonce]);
 
   function startCreate() {
     setSelected(null);
@@ -1331,7 +1511,7 @@ function NoticePage({ user }: { user: User }) {
   );
 }
 
-function BoardPage({ user }: { user: User }) {
+function BoardPage({ user, target }: { user: User; target: GlobalSearchTarget | null }) {
   const [boards, setBoards] = useState<Board[]>([]);
   const [boardId, setBoardId] = useState<number | null>(null);
   const [posts, setPosts] = useState<BoardPost[]>([]);
@@ -1372,6 +1552,13 @@ function BoardPage({ user }: { user: User }) {
   useEffect(() => {
     void loadPosts();
   }, [boardId]);
+
+  useEffect(() => {
+    if (target?.type === "BOARD_POST") {
+      if (target.parentId) setBoardId(target.parentId);
+      void loadPost(target.targetId);
+    }
+  }, [target?.nonce]);
 
   function changeBoard(nextBoardId: number) {
     setBoardId(nextBoardId);
@@ -1487,7 +1674,7 @@ function BoardPage({ user }: { user: User }) {
   );
 }
 
-function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | null }) {
+function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLaunch | null; target: GlobalSearchTarget | null }) {
   const [box, setBox] = useState<ApprovalBox>(launch?.box ?? "pending");
   const [dashboardFilter, setDashboardFilter] = useState<ApprovalLaunch | null>(launch);
   const [items, setItems] = useState<ApprovalSummary[]>([]);
@@ -2121,6 +2308,15 @@ function ApprovalPage({ user, launch }: { user: User; launch: ApprovalLaunch | n
     setItems([]);
     void load(launch.box, launch.dashboardFilter);
   }, [launch]);
+
+  useEffect(() => {
+    if (target?.type === "APPROVAL") {
+      setDashboardFilter(null);
+      setBox("requested");
+      setItems([]);
+      void loadDetail(target.targetId);
+    }
+  }, [target?.nonce]);
 
   useEffect(() => {
     void loadEmployees();
@@ -6094,7 +6290,7 @@ function ApprovalLineView({ lines }: { lines: Approval["lines"] }) {
   );
 }
 
-function NotificationPage({ go }: { go: (route: Route) => void }) {
+function NotificationPage({ go, target }: { go: (route: Route) => void; target: GlobalSearchTarget | null }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadOnly, setUnreadOnly] = useState(false);
 
@@ -6106,6 +6302,13 @@ function NotificationPage({ go }: { go: (route: Route) => void }) {
   useEffect(() => {
     void load();
   }, [unreadOnly]);
+
+  useEffect(() => {
+    if (target?.type === "NOTIFICATION") {
+      setUnreadOnly(false);
+      void load();
+    }
+  }, [target?.nonce]);
 
   async function markRead(id: number) {
     await api(`/notifications/${id}/read`, { method: "PUT" });
@@ -6142,7 +6345,7 @@ function NotificationPage({ go }: { go: (route: Route) => void }) {
   );
 }
 
-function OrganizationPage() {
+function OrganizationPage({ target }: { target: GlobalSearchTarget | null }) {
   const [tree, setTree] = useState<DeptNode[]>([]);
   const [deptId, setDeptId] = useState<number | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -6163,6 +6366,16 @@ function OrganizationPage() {
   useEffect(() => {
     void search();
   }, [deptId]);
+
+  useEffect(() => {
+    if (target?.type === "EMPLOYEE") {
+      setDeptId(target.parentId);
+      setKeyword(target.keyword);
+      const params = new URLSearchParams({ page: "0", size: "20", status: "ACTIVE", keyword: target.keyword });
+      if (target.parentId) params.set("deptId", String(target.parentId));
+      void api<PageResponse<Employee>>(`/emps?${params.toString()}`).then((page) => setEmps(page.content));
+    }
+  }, [target?.nonce]);
 
   return (
     <div className="org-layout">
@@ -6212,12 +6425,18 @@ function DeptTree({ node, active, onSelect }: { node: DeptNode; active: number |
   );
 }
 
-function AuditLogPage() {
+function AuditLogPage({ target }: { target: GlobalSearchTarget | null }) {
   const [items, setItems] = useState<AuditLog[]>([]);
 
   useEffect(() => {
     void api<PageResponse<AuditLog>>("/admin/audit-logs?size=100").then((page) => setItems(page.content));
   }, []);
+
+  useEffect(() => {
+    if (target?.type === "AUDIT_LOG") {
+      void api<PageResponse<AuditLog>>("/admin/audit-logs?size=100").then((page) => setItems(page.content));
+    }
+  }, [target?.nonce]);
 
   return (
     <div className="panel">
@@ -6570,7 +6789,7 @@ const DEFAULT_PDM_FOLDER_FORM: PdmFolderForm = {
   processName: ""
 };
 
-function DrawingManagementPage({ user, openApprovals }: { user: User; openApprovals: (target?: ApprovalLaunch) => void }) {
+function DrawingManagementPage({ user, openApprovals, target }: { user: User; openApprovals: (target?: ApprovalLaunch) => void; target: GlobalSearchTarget | null }) {
   const [tab, setTab] = useState<"drawings" | "downloads" | "permissions">("drawings");
   const [category, setCategory] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -6663,6 +6882,17 @@ function DrawingManagementPage({ user, openApprovals }: { user: User; openApprov
     void loadDownloads();
     void loadAdminData();
   }, []);
+
+  useEffect(() => {
+    if (target?.type === "PDM_DRAWING") {
+      setTab("drawings");
+      setSearchAll(true);
+      setKeyword(target.keyword);
+      setSelectedNode(null);
+      setBottomTab("preview");
+      void loadDetail(target.targetId);
+    }
+  }, [target?.nonce]);
 
   useEffect(() => {
     setPdfPreviewUrl((current) => {
