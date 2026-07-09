@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalController.java": {
-    "mtime": 1782271228.0529506,
-    "ast_hash": "ed420095ebcbf2e39041a17b2bb2d00a",
+    "mtime": 1783495155.862881,
+    "ast_hash": "4a6fd2cae953b5bc5d11eb4a795e1d1c",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDefaultLine.java": {
@@ -45,8 +45,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDelegation.java": {
-    "mtime": 1782082392.3006225,
-    "ast_hash": "c2528494ff06a12f1f19ec5e28c301e4",
+    "mtime": 1783494743.1474464,
+    "ast_hash": "3532bcc980590962523559881e4ae66e",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDelegationController.java": {
@@ -55,23 +55,23 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDelegationRepository.java": {
-    "mtime": 1782082392.3042502,
-    "ast_hash": "70752459bff0e53bf3828cc97377185d",
+    "mtime": 1783494786.8407326,
+    "ast_hash": "b33444f728a004858c149398ef7116cc",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDelegationService.java": {
-    "mtime": 1782082392.3042502,
-    "ast_hash": "70cd166993803a312ecdcbb8f63662b7",
+    "mtime": 1783494958.3854673,
+    "ast_hash": "8066c8f0d75951b7676495e44f84a8b4",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDocument.java": {
-    "mtime": 1782082392.3042502,
-    "ast_hash": "41a0ac0f3d2a9e9feeee2e6ec4b0164f",
+    "mtime": 1782800678.256338,
+    "ast_hash": "577b39da3979d5cac44b827aecb19be8",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDocumentRepository.java": {
-    "mtime": 1782082392.3042502,
-    "ast_hash": "5c0b0044346a4f0a5410dabc450efad5",
+    "mtime": 1783495065.8021603,
+    "ast_hash": "ef16dd71759735f475b873bf2315b667",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDocumentStatus.java": {
@@ -80,8 +80,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalDraftService.java": {
-    "mtime": 1782350376.7170632,
-    "ast_hash": "f942ab30b1de50727116326d7298d240",
+    "mtime": 1783494989.5614402,
+    "ast_hash": "476b4104f221c089eef275b959466b83",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalEquipmentProposal.java": {
@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalLineRepository.java": {
-    "mtime": 1782082392.3119774,
-    "ast_hash": "49644b8c614f0620c0b910f5dbccb78e",
+    "mtime": 1782890277.0484135,
+    "ast_hash": "a11e1dfd84aee060ca72138f6e694535",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalLineStatus.java": {
@@ -165,13 +165,13 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalPdfService.java": {
-    "mtime": 1782371596.671567,
-    "ast_hash": "a30484b6312b5f67386ad8e2aea28c1d",
+    "mtime": 1782887434.541561,
+    "ast_hash": "0d99cb0e9ba90a92abf2273e84a7dde8",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalPermissionService.java": {
-    "mtime": 1782082392.318166,
-    "ast_hash": "900b6be7ae7b2731285e6c7207be8692",
+    "mtime": 1782886802.5321157,
+    "ast_hash": "6b62a90477b8dd85475fa0bd5a80f8b5",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalPriority.java": {
@@ -180,8 +180,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalQueryService.java": {
-    "mtime": 1782082392.3203697,
-    "ast_hash": "354040bb5e2f300adb925fc2aa3a05fe",
+    "mtime": 1783495116.709409,
+    "ast_hash": "4b8e05ba0e093097b200f06f49d319be",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalReminderService.java": {
@@ -200,8 +200,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalService.java": {
-    "mtime": 1782082392.3203697,
-    "ast_hash": "0886ef8c8f9f3e0a28afe80ebb5b0b03",
+    "mtime": 1782890327.0639658,
+    "ast_hash": "f9633f9c3e2e95daa16a288dad03a3d6",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalStage.java": {
@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalWorkflowService.java": {
-    "mtime": 1782110403.6209075,
-    "ast_hash": "50fbda40147662698297918cd3c8727b",
+    "mtime": 1782886823.383633,
+    "ast_hash": "d916fa8979c5b2769b1548fa2a14ebbe",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\package-info.java": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\board\\BoardPostRepository.java": {
-    "mtime": 1781654203.459924,
-    "ast_hash": "78290f6815e89d26d33177254823e418",
+    "mtime": 1783314413.9668946,
+    "ast_hash": "53d97af4420d2e33da3e1ed92c17b6c4",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\board\\BoardRepository.java": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\board\\BoardService.java": {
-    "mtime": 1781654203.4626784,
-    "ast_hash": "8efb00e9c6f6aea72fac14a4d8d75a9f",
+    "mtime": 1783496721.4432154,
+    "ast_hash": "ecac7ebf38785ee121f3f46e436eb2a2",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\board\\package-info.java": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\file\\FileService.java": {
-    "mtime": 1782110228.8020961,
-    "ast_hash": "0806f39852594c7c843689815541e7af",
+    "mtime": 1783040584.313601,
+    "ast_hash": "98c88bd23b137d4e40b40f2bbde24784",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\file\\OutputStreamDiscard.java": {
@@ -620,8 +620,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\log\\AuditLogRepository.java": {
-    "mtime": 1782082392.3476803,
-    "ast_hash": "766890740c2f9adfb18051f69531886a",
+    "mtime": 1783314435.398038,
+    "ast_hash": "cfa90c1c7b55a38a727b2912da4eb84f",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\log\\dto\\AuditLogResponse.java": {
@@ -665,8 +665,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\notice\\NoticeRepository.java": {
-    "mtime": 1781654203.4776227,
-    "ast_hash": "17dd2db2390bb420663e898a0453bcb1",
+    "mtime": 1783314403.2791603,
+    "ast_hash": "526a47d3bdb71290f9adb90cd7c8eac6",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\notice\\NoticeService.java": {
@@ -710,8 +710,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\notification\\NotificationRepository.java": {
-    "mtime": 1781654203.4815686,
-    "ast_hash": "39c2a72a8aa9aa3cf1eb0749965331d9",
+    "mtime": 1783314424.8571148,
+    "ast_hash": "27c88a981044a019ac684ed105cc3b06",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\notification\\NotificationService.java": {
@@ -895,13 +895,13 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\groupware_schema.sql": {
-    "mtime": 1782111218.325486,
-    "ast_hash": "f7428eb3fcf91ffa9c48209240508360",
+    "mtime": 1783497591.2329566,
+    "ast_hash": "ce23e0a2540cdc4ec13646ea29018e13",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\seed\\local_seed.sql": {
-    "mtime": 1782113268.434705,
-    "ast_hash": "4ca6831ce8e1dce2768a324c8bbdd6f4",
+    "mtime": 1782964600.2786093,
+    "ast_hash": "dc4065796045bc679139aa074fa142c7",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\test\\java\\com\\kjh\\groupware\\GroupwareApplicationTests.java": {
@@ -915,8 +915,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\test\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalServiceWorkflowTest.java": {
-    "mtime": 1782111053.8487265,
-    "ast_hash": "fe2373f10d64af6e84322c81dca6ddcf",
+    "mtime": 1783555019.694227,
+    "ast_hash": "b4cc27f022383b25a045f4fcff57d8bc",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\package.json": {
@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\App.tsx": {
-    "mtime": 1782366311.0493052,
-    "ast_hash": "8b43dff562935def4a8ac0ccd7aa794d",
+    "mtime": 1783497819.418154,
+    "ast_hash": "c37cd711c699d603ed0cd8202a481dcf",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\main.tsx": {
@@ -950,8 +950,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\types.ts": {
-    "mtime": 1782356580.3561966,
-    "ast_hash": "2ae2c3f4070ac259d384dfc716633429",
+    "mtime": 1783497641.102974,
+    "ast_hash": "69e7ffaaf719adf981a266d29fb54ad8",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\vite-env.d.ts": {
@@ -980,8 +980,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\README.md": {
-    "mtime": 1782082392.2890818,
-    "ast_hash": "41faf0541313ae4b3fdbca9185185864",
+    "mtime": 1783585435.6078181,
+    "ast_hash": "a8494653724dcbfd8858a2ed3c984d40",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\docs\\electronic-approval-final.md": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\backend\\src\\main\\resources\\application.yml": {
-    "mtime": 1782082392.3581991,
-    "ast_hash": "a93227ce1e0cce7d0b14992f3276ccfd",
+    "mtime": 1782964528.988122,
+    "ast_hash": "d4cee1dc5e0c352e2d85876126b40d50",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\index.html": {
@@ -1017,6 +1017,361 @@
   "C:\\Project\\Groupware\\frontend\\src\\assets\\schunk-carbon-logo.png": {
     "mtime": 1781656625.671431,
     "ast_hash": "2b4649bb425e430360627f6281d0bdc5",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\setup-local-db.ps1": {
+    "mtime": 1783585427.818812,
+    "ast_hash": "4bb6d3bbba94cd3ed9cad38e7d02457d",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\verify-local-db.ps1": {
+    "mtime": 1783585235.3983788,
+    "ast_hash": "83b3cf411ade66ea5ce6fb32ba0432cb",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\ApprovalLeaveUsageService.java": {
+    "mtime": 1782719668.2178807,
+    "ast_hash": "d2768792ff31ebe6e11061c58d346286",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\dto\\LeaveUsageResponse.java": {
+    "mtime": 1782717155.07555,
+    "ast_hash": "1a5302a796a829a9d81fe0c8c6c05f10",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\dto\\LeaveUsageSelectionResponse.java": {
+    "mtime": 1782715574.353913,
+    "ast_hash": "2b66ae83a81911c292f0714293d099c5",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\approval\\dto\\PurchaseRequestUpdateRequest.java": {
+    "mtime": 1782800705.0898123,
+    "ast_hash": "0274d21c3eb1c0a60b651714de99c199",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmConstants.java": {
+    "mtime": 1782963990.021549,
+    "ast_hash": "c5bdfe7eb0e3f6bd2a941dcc234d3b20",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmController.java": {
+    "mtime": 1783497494.8435705,
+    "ast_hash": "ecf1c019bb9fef7ebaf927c196edbbf0",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDownloadLog.java": {
+    "mtime": 1782964041.7289176,
+    "ast_hash": "3031643738935bdb145d0040db68a7a2",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDownloadLogRepository.java": {
+    "mtime": 1782964139.8619637,
+    "ast_hash": "8aff08634f768a7f54078835d227b4a2",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDownloadRequest.java": {
+    "mtime": 1782964031.4373615,
+    "ast_hash": "93a3bc4624460b91693b4fac44bf5e36",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDownloadRequestRepository.java": {
+    "mtime": 1783056180.072111,
+    "ast_hash": "46fd68171900678e44c3a01b4d8006d2",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDrawing.java": {
+    "mtime": 1783066951.3125007,
+    "ast_hash": "fcc779cda2765b6dd92a0b07ed6061cc",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDrawingPermission.java": {
+    "mtime": 1782964021.1585367,
+    "ast_hash": "5ad2db26aa069be99a2e973cc645e413",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDrawingPermissionRepository.java": {
+    "mtime": 1783470943.9706168,
+    "ast_hash": "25ef512006948deaa97aa4ba188ca69a",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDrawingRepository.java": {
+    "mtime": 1783315213.6247332,
+    "ast_hash": "76d7faf00d994ed4696ce7cc79961b15",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDrawingRevision.java": {
+    "mtime": 1782964010.8117087,
+    "ast_hash": "edafb164ef240a274756ad69cdd2c63c",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmDrawingRevisionRepository.java": {
+    "mtime": 1782964109.679213,
+    "ast_hash": "82f63e3aa358daa40ed83290d52a514d",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmFolder.java": {
+    "mtime": 1783497317.3657167,
+    "ast_hash": "803c9ed747e6759fda2ae40cbc517c36",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmFolderRepository.java": {
+    "mtime": 1783497342.550273,
+    "ast_hash": "ee9cb6e8fcc7c42ea458f7641dd1d2eb",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmService.java": {
+    "mtime": 1783497463.8520494,
+    "ast_hash": "d6a6117cf29044401bf64adddb1ecfb2",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmDownloadRequestCreateRequest.java": {
+    "mtime": 1782964226.9390738,
+    "ast_hash": "37289d25dbeb40ece646b43aac128e92",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmDownloadRequestResponse.java": {
+    "mtime": 1782964237.0538402,
+    "ast_hash": "596d26e2764c3871cddee67702591015",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmDrawingDetailResponse.java": {
+    "mtime": 1782964176.583382,
+    "ast_hash": "154e4ffb966eeed9e75fdc860863a27d",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmDrawingResponse.java": {
+    "mtime": 1782972653.9240465,
+    "ast_hash": "020658b6896bf35049564023267e85b5",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmDrawingStatusRequest.java": {
+    "mtime": 1783066969.1231644,
+    "ast_hash": "ad932bf29d3e1188acaf931e439b9c6b",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmDuplicateCheckResponse.java": {
+    "mtime": 1782964196.295043,
+    "ast_hash": "41812e2be61907df2be732804c1ab2e4",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmFolderMoveRequest.java": {
+    "mtime": 1783497387.5858004,
+    "ast_hash": "3cf960f811bc5a85c1b01d789aaa2697",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmFolderPathRenameRequest.java": {
+    "mtime": 1783036692.855485,
+    "ast_hash": "30df48b5826caa86fa78ef6a116a1225",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmFolderPathRequest.java": {
+    "mtime": 1783036703.6884713,
+    "ast_hash": "32692926ee8cd84fb4205dcdc0940c59",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmFolderRequest.java": {
+    "mtime": 1782980026.3511207,
+    "ast_hash": "b6a9845f06ffadc3c72a95f265839353",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmFolderResponse.java": {
+    "mtime": 1783497366.4549098,
+    "ast_hash": "e6f9879dba9163f85983e9f873465bac",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmPermissionAdminResponse.java": {
+    "mtime": 1782964216.9224243,
+    "ast_hash": "ecefea76c5f64b9840888d446a0ee673",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmPermissionRequest.java": {
+    "mtime": 1782964206.6710691,
+    "ast_hash": "7c8ae5c1b6dbaff53e66c1a2ab3a3aca",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmPermissionResponse.java": {
+    "mtime": 1782964186.4692676,
+    "ast_hash": "892c5b8f96345c7169a389889823ae4a",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\pdm\\dto\\PdmRevisionResponse.java": {
+    "mtime": 1782964166.8251607,
+    "ast_hash": "588ce7a3928b6248c664e9e9ebb5dabe",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\ApprovalGlobalSearchProvider.java": {
+    "mtime": 1783314644.125628,
+    "ast_hash": "f2f14a5abefc12f135fe8c949f8aa4f3",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\AuditLogGlobalSearchProvider.java": {
+    "mtime": 1783314568.1790683,
+    "ast_hash": "34d9c9a3c29e320533148bd4041a7741",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\BoardGlobalSearchProvider.java": {
+    "mtime": 1783314536.152956,
+    "ast_hash": "5444d34b65b213119a333b11b114c847",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\EmployeeGlobalSearchProvider.java": {
+    "mtime": 1783314546.8117006,
+    "ast_hash": "b28e38fae70a24b0aaadcd550165807d",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\GlobalSearchController.java": {
+    "mtime": 1783314343.7418253,
+    "ast_hash": "d01ee736f80d1fc746e3f69b5601bf57",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\GlobalSearchGroupResponse.java": {
+    "mtime": 1783314300.814739,
+    "ast_hash": "3e1b3a4281f9582afcef2eadbc58621e",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\GlobalSearchItemResponse.java": {
+    "mtime": 1783314290.0953188,
+    "ast_hash": "083a68be975f4e31b14cf01ab2810842",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\GlobalSearchProvider.java": {
+    "mtime": 1783314322.295219,
+    "ast_hash": "b37dc1a0de3728d574a8a9c6f6a539a7",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\GlobalSearchResponse.java": {
+    "mtime": 1783314311.5791051,
+    "ast_hash": "ac0077b843bfbaece28ae7ef6035c8a0",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\GlobalSearchService.java": {
+    "mtime": 1783314333.0137553,
+    "ast_hash": "4e0524310b2848fb1858e5684d349a8d",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\GlobalSearchText.java": {
+    "mtime": 1783314514.7232254,
+    "ast_hash": "8532234d6c1256479544cd9796ec48f3",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\NoticeGlobalSearchProvider.java": {
+    "mtime": 1783314525.418597,
+    "ast_hash": "7b1e88e435d4ad6a751d0ce6e4255983",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\NotificationGlobalSearchProvider.java": {
+    "mtime": 1783314557.502465,
+    "ast_hash": "7e86f4073ff0eaa2979447546f6e3a5b",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\java\\com\\kjh\\groupware\\domain\\search\\PdmGlobalSearchProvider.java": {
+    "mtime": 1783314654.5610113,
+    "ast_hash": "665488045aa254192ed8a1ab501a3952",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\approval_delegation_auto_patch.sql": {
+    "mtime": 1783495749.4391406,
+    "ast_hash": "cfd3ee6da626f57d20847041f7b56ed5",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\approval_missing_template_drafts_patch.sql": {
+    "mtime": 1782455203.377504,
+    "ast_hash": "71511490df03edb97af90373b04ec376",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\approval_purchase_request_template_patch.sql": {
+    "mtime": 1782782934.55839,
+    "ast_hash": "3355c6428c5a59ee047f66ef8ae76d1d",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\approval_training_request_template_patch.sql": {
+    "mtime": 1782886907.1993308,
+    "ast_hash": "bb7570921f753d1a9dfd9391faebc61d",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\board_single_patch.sql": {
+    "mtime": 1783496880.2705154,
+    "ast_hash": "fd500fca5fd0fefa691b2a7e0e26e575",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\pdm_folder_order_patch.sql": {
+    "mtime": 1783497613.4671326,
+    "ast_hash": "4c44bdc6332efcd8ddd13b5d0077ca47",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\main\\resources\\db\\schema\\pdm_phase1_patch.sql": {
+    "mtime": 1782980165.8844266,
+    "ast_hash": "8e88ce592d25a030070206bcb6d04fa5",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\backend\\src\\test\\java\\com\\kjh\\groupware\\domain\\pdm\\PdmControllerFolderActionTest.java": {
+    "mtime": 1783067140.165815,
+    "ast_hash": "d3e90c4fcf1dc72851fbe209213b913e",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\context\\drawing-management-20260702-115209.md": {
+    "mtime": 1782963397.7164092,
+    "ast_hash": "db3f2b4dbb46bf62271fce95afbe2670",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\context\\drawing-ui-vault-20260702-144142.md": {
+    "mtime": 1782972076.734858,
+    "ast_hash": "71eda5f9162bb29edcd140c718881443",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\context\\global-search-20260706.md": {
+    "mtime": 1783314085.4911335,
+    "ast_hash": "da86175181133193ea17100ebb0b92be",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\context\\groupware-ui-redesign-20260707-110544.md": {
+    "mtime": 1783390038.047937,
+    "ast_hash": "9dec5cf2c4f8835d1924861e63ae45df",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\interviews\\drawing-management-20260702-115209.md": {
+    "mtime": 1782963806.9333103,
+    "ast_hash": "5b0fc57d92425465806436a590f352b5",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\interviews\\global-search-20260706.md": {
+    "mtime": 1783314126.7721276,
+    "ast_hash": "c921c5d3e967b9f02641df0353341762",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\interviews\\groupware-ui-redesign-20260707-110544.md": {
+    "mtime": 1783390038.060558,
+    "ast_hash": "3dbbff55986cfef9600525a39052f53b",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\specs\\deep-interview-approval-restructure.md": {
+    "mtime": 1783494378.0586886,
+    "ast_hash": "d62d9664111ab0bbc3236d755b34f9b0",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\specs\\deep-interview-drawing-management-ui.md": {
+    "mtime": 1782972134.1878655,
+    "ast_hash": "2a952a6a79148392dc93d85c830fdefa",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\specs\\deep-interview-drawing-management.md": {
+    "mtime": 1782963806.939917,
+    "ast_hash": "bf1993c4efbfb7a666bb27a4286e5566",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\specs\\deep-interview-global-search.md": {
+    "mtime": 1783314126.7721276,
+    "ast_hash": "0871d49d78c25445608e1d43baa71a80",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\specs\\deep-interview-groupware-ui-redesign.md": {
+    "mtime": 1783390038.0612166,
+    "ast_hash": "6407c7d1555fb2c57bffeae72aa12208",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\.codex\\deep-interview\\specs\\groupware-ui-preview.html": {
+    "mtime": 1783391065.2113364,
+    "ast_hash": "0cbdf02f5b3788b9c3d1df47f1c48511",
     "semantic_hash": ""
   }
 }

@@ -147,6 +147,45 @@ From the repository root, the easiest local launcher is path-independent and wor
 .\start-web.ps1
 ```
 
+## Local PostgreSQL Setup
+
+The backend uses PostgreSQL in the `dev` profile and validates the schema at startup. If the database, schema, or seed data is missing, the backend can fail before login or API testing begins.
+
+Default local database settings:
+
+- database: `groupware`
+- username: `groupware`
+- password: `groupware`
+- JDBC URL: `jdbc:postgresql://localhost:5432/groupware`
+
+To patch an existing local database with the current idempotent local patches and reapply local seed data:
+
+```powershell
+.\setup-local-db.ps1
+```
+
+Older migration patch files are kept for historical upgrade paths. Applying all of them to an already-migrated database with real data can fail on constraints that are now part of the baseline schema. Use `-ApplyLegacyPatches` only when intentionally upgrading an older local DB and after reviewing the output.
+
+To recreate the local database from `groupware_schema.sql` and then apply `local_seed.sql`:
+
+```powershell
+.\setup-local-db.ps1 -Recreate -AdminUser postgres
+```
+
+If the PostgreSQL admin account needs a password, pass it without storing it in source control:
+
+```powershell
+.\setup-local-db.ps1 -Recreate -AdminUser postgres -AdminPassword "<password>"
+```
+
+To verify the local DB and, when the backend is running, the health endpoint:
+
+```powershell
+.\verify-local-db.ps1
+```
+
+If `psql.exe` is not on `PATH`, the scripts try common PostgreSQL install locations. You can also pass `-PsqlPath "C:\Program Files\PostgreSQL\17\bin\psql.exe"`.
+
 Backend-only commands:
 
 ```powershell
