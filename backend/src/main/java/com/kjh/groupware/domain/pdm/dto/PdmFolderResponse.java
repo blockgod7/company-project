@@ -10,7 +10,8 @@ public record PdmFolderResponse(
     String businessUnit,
     String processName,
     String folderKind,
-    String folderName
+    String folderName,
+    Integer sortOrder
 ) {
     public static PdmFolderResponse from(PdmFolder folder) {
         return new PdmFolderResponse(
@@ -21,7 +22,8 @@ public record PdmFolderResponse(
             folder.getBusinessUnit(),
             folder.getProcessName(),
             folder.getFolderKind(),
-            folder.getFolderName()
+            folder.getFolderName(),
+            folder.getSortOrder()
         );
     }
 }

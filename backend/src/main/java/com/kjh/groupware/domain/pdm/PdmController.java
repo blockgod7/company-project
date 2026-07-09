@@ -8,10 +8,12 @@ import com.kjh.groupware.domain.pdm.dto.PdmDrawingStatusRequest;
 import com.kjh.groupware.domain.pdm.dto.PdmDuplicateCheckResponse;
 import com.kjh.groupware.domain.pdm.dto.PdmFolderPathRenameRequest;
 import com.kjh.groupware.domain.pdm.dto.PdmFolderPathRequest;
+import com.kjh.groupware.domain.pdm.dto.PdmFolderMoveRequest;
 import com.kjh.groupware.domain.pdm.dto.PdmFolderRequest;
 import com.kjh.groupware.domain.pdm.dto.PdmFolderResponse;
 import com.kjh.groupware.domain.pdm.dto.PdmPermissionAdminResponse;
 import com.kjh.groupware.domain.pdm.dto.PdmPermissionRequest;
+import com.kjh.groupware.domain.pdm.dto.PdmPermissionResponse;
 import com.kjh.groupware.global.response.ApiResponse;
 import com.kjh.groupware.global.response.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,6 +61,14 @@ public class PdmController {
         return ApiResponse.ok(pdmService.folders());
     }
 
+    @GetMapping("/permissions/effective")
+    public ApiResponse<PdmPermissionResponse> effectivePermission(
+        @RequestParam(required = false) String category,
+        @RequestParam(required = false) Long drawingId
+    ) {
+        return ApiResponse.ok(pdmService.effectivePermission(category, drawingId));
+    }
+
     @PostMapping("/folders")
     public ApiResponse<PdmFolderResponse> createFolder(@Valid @RequestBody PdmFolderRequest request) {
         return ApiResponse.ok(pdmService.createFolder(request));
@@ -77,6 +87,11 @@ public class PdmController {
     @PostMapping("/folders/actions/delete")
     public ApiResponse<List<PdmFolderResponse>> deleteFolderPath(@Valid @RequestBody PdmFolderPathRequest request) {
         return ApiResponse.ok(pdmService.deleteFolderPath(request));
+    }
+
+    @PostMapping("/folders/{folderId}/actions/move")
+    public ApiResponse<List<PdmFolderResponse>> moveFolder(@PathVariable Long folderId, @Valid @RequestBody PdmFolderMoveRequest request) {
+        return ApiResponse.ok(pdmService.moveFolder(folderId, request));
     }
 
     @GetMapping("/drawings/{drawingId}")

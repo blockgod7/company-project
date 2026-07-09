@@ -157,6 +157,170 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
         select distinct d from ApprovalDocument d
         join ApprovalLine l on l.document = d
         where d.deletedYn = 'N'
+          and (
+            (
+              l.assignedEmp in :decisionAssignees
+              and l.lineType in ('AGREEMENT', 'APPROVAL')
+              and l.status = 'PENDING'
+            )
+            or (
+              l.assignedEmp = :currentEmp
+              and l.lineType in ('REFERENCE', 'READER')
+              and l.status = 'READ'
+            )
+            or (
+              l.assignedEmp = :currentEmp
+              and l.lineType = 'RECEIVER'
+              and l.status in ('RECEIVED', 'READ')
+              and not exists (
+                select 1 from ApprovalLine receiverDecisionLine
+                where receiverDecisionLine.document = d
+                  and receiverDecisionLine.lineType in ('AGREEMENT', 'APPROVAL')
+                  and receiverDecisionLine.lineOrder > l.lineOrder
+              )
+            )
+          )
+        order by d.approvalId desc
+        """)
+    Page<ApprovalDocument> findActionRequiredDocuments(
+        @Param("decisionAssignees") Collection<Emp> decisionAssignees,
+        @Param("currentEmp") Emp currentEmp,
+        Pageable pageable
+    );
+
+    @Query("""
+        select distinct d from ApprovalDocument d
+        join ApprovalLine myLine on myLine.document = d
+        where d.deletedYn = 'N'
+          and d.status = 'IN_PROGRESS'
+          and d.requester <> :currentEmp
+          and myLine.lineType in ('AGREEMENT', 'APPROVAL')
+          and myLine.status = 'APPROVED'
+          and (myLine.actedEmp = :currentEmp or myLine.assignedEmp = :currentEmp)
+          and exists (
+            select 1 from ApprovalLine nextLine
+            where nextLine.document = d
+              and nextLine.lineType in ('AGREEMENT', 'APPROVAL')
+              and nextLine.lineOrder > myLine.lineOrder
+              and nextLine.status in ('WAITING', 'PENDING')
+          )
+        order by d.approvalId desc
+        """)
+    Page<ApprovalDocument> findApprovedByMeAndStillInProgress(
+        @Param("currentEmp") Emp currentEmp,
+        Pageable pageable
+    );
+
+    @Query("""
+        select distinct d from ApprovalDocument d
+        join ApprovalLine myLine on myLine.document = d
+        where d.deletedYn = 'N'
+          and d.status = 'IN_PROGRESS'
+          and myLine.lineType in ('AGREEMENT', 'APPROVAL')
+          and (
+            (
+              myLine.status = 'APPROVED'
+              and (myLine.actedEmp = :currentEmp or myLine.assignedEmp = :currentEmp)
+              and exists (
+                select 1 from ApprovalLine nextLine
+                where nextLine.document = d
+                  and nextLine.lineType in ('AGREEMENT', 'APPROVAL')
+                  and nextLine.lineOrder > myLine.lineOrder
+                  and nextLine.status in ('WAITING', 'PENDING')
+              )
+            )
+            or (
+              myLine.assignedEmp = :currentEmp
+              and myLine.status = 'WAITING'
+              and exists (
+                select 1 from ApprovalLine previousLine
+                where previousLine.document = d
+                  and previousLine.lineType in ('AGREEMENT', 'APPROVAL')
+                  and previousLine.lineOrder < myLine.lineOrder
+                  and previousLine.status in ('WAITING', 'PENDING')
+              )
+            )
+          )
+        order by d.approvalId desc
+        """)
+    Page<ApprovalDocument> findApprovalInProgressForMe(
+        @Param("currentEmp") Emp currentEmp,
+        Pageable pageable
+    );
+
+    @Query("""
+        select distinct d from ApprovalDocument d
+        where d.deletedYn = 'N'
+          and d.status in ('APPROVED', 'REJECTED', 'WITHDRAWN', 'CANCELED')
+          and (:hasKeyword = false or lower(coalesce(d.searchText, '')) like lower(concat('%', :keyword, '%')))
+          and (:hasTemplateCode = false or d.templateCode = :templateCode)
+          and (:hasStatus = false or d.status = :status)
+          and (:hasRequester = false or d.requester = :requester)
+          and (:hasDateFrom = false or d.requestedAt >= :dateFrom)
+          and (:hasDateTo = false or d.requestedAt < :dateTo)
+          and (
+            d.requester = :currentEmp
+            or exists (
+              select 1 from ApprovalLine involvedLine
+              where involvedLine.document = d
+                and (
+                  involvedLine.assignedEmp = :currentEmp
+                  or involvedLine.actedEmp = :currentEmp
+                )
+            )
+          )
+          and (
+            :role = 'ALL'
+            or (:role = 'REQUESTER' and d.requester = :currentEmp)
+            or (:role = 'APPROVER' and exists (
+              select 1 from ApprovalLine approverLine
+              where approverLine.document = d
+                and approverLine.lineType in ('AGREEMENT', 'APPROVAL')
+                and (approverLine.assignedEmp = :currentEmp or approverLine.actedEmp = :currentEmp)
+            ))
+            or (:role = 'RECEIVER' and exists (
+              select 1 from ApprovalLine receiverLine
+              where receiverLine.document = d
+                and receiverLine.lineType = 'RECEIVER'
+                and receiverLine.assignedEmp = :currentEmp
+            ))
+            or (:role = 'SHARED' and exists (
+              select 1 from ApprovalLine sharedLine
+              where sharedLine.document = d
+                and sharedLine.lineType in ('REFERENCE', 'READER')
+                and sharedLine.assignedEmp = :currentEmp
+            ))
+            or (:role = 'DELEGATED' and exists (
+              select 1 from ApprovalLine delegatedLine
+              where delegatedLine.document = d
+                and delegatedLine.actedEmp = :currentEmp
+                and delegatedLine.assignedEmp <> :currentEmp
+            ))
+          )
+        order by d.completedAt desc, d.approvalId desc
+        """)
+    Page<ApprovalDocument> findCompletedInvolved(
+        @Param("hasKeyword") boolean hasKeyword,
+        @Param("keyword") String keyword,
+        @Param("hasTemplateCode") boolean hasTemplateCode,
+        @Param("templateCode") String templateCode,
+        @Param("hasStatus") boolean hasStatus,
+        @Param("status") String status,
+        @Param("hasRequester") boolean hasRequester,
+        @Param("requester") Emp requester,
+        @Param("currentEmp") Emp currentEmp,
+        @Param("role") String role,
+        @Param("hasDateFrom") boolean hasDateFrom,
+        @Param("dateFrom") LocalDateTime dateFrom,
+        @Param("hasDateTo") boolean hasDateTo,
+        @Param("dateTo") LocalDateTime dateTo,
+        Pageable pageable
+    );
+
+    @Query("""
+        select distinct d from ApprovalDocument d
+        join ApprovalLine l on l.document = d
+        where d.deletedYn = 'N'
           and l.assignedEmp = :approver
         order by d.approvalId desc
         """)

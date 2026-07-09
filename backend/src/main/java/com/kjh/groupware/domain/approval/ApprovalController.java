@@ -80,9 +80,10 @@ public class ApprovalController {
         @RequestParam(required = false) Long requesterEmpId,
         @RequestParam(required = false) LocalDate dateFrom,
         @RequestParam(required = false) LocalDate dateTo,
-        @RequestParam(required = false) String dashboardFilter
+        @RequestParam(required = false) String dashboardFilter,
+        @RequestParam(required = false) String role
     ) {
-        return ApiResponse.ok(approvalQueryService.findPage(box, page, size, keyword, templateCode, status, requesterEmpId, dateFrom, dateTo, dashboardFilter));
+        return ApiResponse.ok(approvalQueryService.findPage(box, page, size, keyword, templateCode, status, requesterEmpId, dateFrom, dateTo, dashboardFilter, role));
     }
 
     @PostMapping

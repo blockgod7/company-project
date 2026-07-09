@@ -45,6 +45,9 @@ public class PdmFolder extends BaseEntity {
     @Column(name = "folder_name", nullable = false, length = 150)
     private String folderName;
 
+    @Column(name = "sort_order", nullable = false)
+    private Integer sortOrder;
+
     @Column(name = "created_by_emp_id", nullable = false)
     private Long createdByEmpId;
 
@@ -57,6 +60,7 @@ public class PdmFolder extends BaseEntity {
         String processName,
         String folderKind,
         String folderName,
+        Integer sortOrder,
         Emp createdBy
     ) {
         this.category = category;
@@ -66,11 +70,16 @@ public class PdmFolder extends BaseEntity {
         this.processName = processName;
         this.folderKind = folderKind;
         this.folderName = folderName;
+        this.sortOrder = sortOrder == null ? 0 : sortOrder;
         this.createdByEmpId = createdBy == null ? null : createdBy.getEmpId();
     }
 
     public void rename(String folderName) {
         this.folderName = folderName;
+    }
+
+    public void updateSortOrder(int sortOrder) {
+        this.sortOrder = sortOrder;
     }
 
     public void renameCompany(String oldName, String newName) {

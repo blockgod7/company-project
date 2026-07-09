@@ -33,11 +33,15 @@ public class ApprovalQueryService {
     private static final String BOX_SHARED = "shared";
     private static final String BOX_PROCESSED = "processed";
     private static final String BOX_ALL = "all";
+    private static final String DASHBOARD_ACTION_REQUIRED = "actionRequired";
+    private static final String DASHBOARD_APPROVED_IN_PROGRESS = "approvedInProgress";
     private static final String DASHBOARD_MY_PENDING = "myPending";
     private static final String DASHBOARD_DELEGATED_PENDING = "delegatedPending";
     private static final String DASHBOARD_OVERDUE = "overdue";
     private static final String DASHBOARD_REQUESTED_IN_PROGRESS = "requestedInProgress";
     private static final String DASHBOARD_RECENT_COMPLETED = "recentCompleted";
+    private static final String DASHBOARD_DRAFTS = "drafts";
+    private static final String DASHBOARD_COMPLETED_INVOLVED = "completedInvolved";
     private static final List<String> APPROVAL_BOX_ORDER = List.of(
         BOX_AGREEMENT,
         BOX_PENDING,
@@ -134,7 +138,8 @@ public class ApprovalQueryService {
         Long requesterEmpId,
         LocalDate dateFrom,
         LocalDate dateTo,
-        String dashboardFilter
+        String dashboardFilter,
+        String role
     ) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         int safePage = Math.max(page, 0);
@@ -143,6 +148,19 @@ public class ApprovalQueryService {
         PageRequest linePageRequest = PageRequest.of(safePage, safeSize);
         String normalizedBox = box == null || box.isBlank() ? BOX_PENDING : box;
         validateBox(normalizedBox, currentEmp);
+        if (DASHBOARD_COMPLETED_INVOLVED.equals(dashboardFilter)) {
+            return findCompletedInvolvedPage(
+                currentEmp,
+                keyword,
+                templateCode,
+                status,
+                requesterEmpId,
+                dateFrom,
+                dateTo,
+                role,
+                documentPageRequest
+            );
+        }
         if (hasText(dashboardFilter)) {
             return findDashboardPage(dashboardFilter, currentEmp, documentPageRequest, linePageRequest);
         }
@@ -273,6 +291,21 @@ public class ApprovalQueryService {
             ? List.of(currentEmp)
             : foundDecisionAssignees;
         return switch (dashboardFilter) {
+            case DASHBOARD_ACTION_REQUIRED -> PageResponse.from(documentRepository.findActionRequiredDocuments(
+                decisionAssignees,
+                currentEmp,
+                documentPageRequest
+            ).map(this::summary));
+            case DASHBOARD_APPROVED_IN_PROGRESS -> PageResponse.from(documentRepository.findApprovalInProgressForMe(
+                currentEmp,
+                documentPageRequest
+            ).map(this::summary));
+            case DASHBOARD_DRAFTS -> PageResponse.from(documentRepository.findByRequesterAndDeletedYnAndStatusOrderByApprovalIdDesc(
+                currentEmp,
+                "N",
+                ApprovalDocument.STATUS_DRAFT,
+                documentPageRequest
+            ).map(this::summary));
             case DASHBOARD_MY_PENDING -> PageResponse.from(lineRepository.findByAssignedEmpInAndLineTypeInAndStatusOrderByLineIdDesc(
                 List.of(currentEmp),
                 decisionTypes,
@@ -319,6 +352,41 @@ public class ApprovalQueryService {
     private List<Emp> decisionAssigneesFor(Emp currentEmp) {
         List<Emp> found = delegationService.decisionAssigneesFor(currentEmp);
         return found == null || found.isEmpty() ? List.of(currentEmp) : found;
+    }
+
+    private PageResponse<ApprovalSummaryResponse> findCompletedInvolvedPage(
+        Emp currentEmp,
+        String keyword,
+        String templateCode,
+        String status,
+        Long requesterEmpId,
+        LocalDate dateFrom,
+        LocalDate dateTo,
+        String role,
+        PageRequest pageRequest
+    ) {
+        Emp requester = requesterEmpId == null ? null : empRepository.findById(requesterEmpId)
+            .orElseThrow(() -> BusinessException.notFound("REQUESTER_NOT_FOUND", "Requester was not found"));
+        LocalDateTime from = dateFrom == null ? null : dateFrom.atStartOfDay();
+        LocalDateTime to = dateTo == null ? null : dateTo.plusDays(1).atStartOfDay();
+        String normalizedRole = hasText(role) ? role.trim().toUpperCase() : "ALL";
+        return PageResponse.from(documentRepository.findCompletedInvolved(
+            hasText(keyword),
+            valueOrEmpty(keyword),
+            hasText(templateCode),
+            valueOrEmpty(templateCode),
+            hasText(status),
+            valueOrEmpty(status),
+            requesterEmpId != null,
+            requester == null ? currentEmp : requester,
+            currentEmp,
+            normalizedRole,
+            from != null,
+            from == null ? LocalDateTime.now() : from,
+            to != null,
+            to == null ? LocalDateTime.now() : to,
+            pageRequest
+        ).map(this::summary));
     }
 
     private ApprovalSummaryResponse summary(ApprovalDocument document) {

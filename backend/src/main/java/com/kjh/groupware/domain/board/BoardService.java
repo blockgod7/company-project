@@ -26,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class BoardService {
 
+    private static final String DEFAULT_BOARD_CODE = "GENERAL";
+
     private final BoardRepository boardRepository;
     private final BoardPostRepository boardPostRepository;
     private final BoardCommentRepository boardCommentRepository;
@@ -38,6 +40,7 @@ public class BoardService {
     @Transactional(readOnly = true)
     public List<BoardResponse> findBoards() {
         return boardRepository.findByUseYnOrderByBoardIdAsc("Y").stream()
+            .filter(board -> DEFAULT_BOARD_CODE.equals(board.getBoardCode()))
             .map(BoardResponse::from)
             .toList();
     }

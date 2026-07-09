@@ -33,6 +33,7 @@ public class ApprovalDraftService {
     private final ApprovalLinePolicyService linePolicyService;
     private final ApprovalEquipmentProposalService equipmentProposalService;
     private final ApprovalLeaveUsageService leaveUsageService;
+    private final ApprovalDelegationService delegationService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
@@ -72,6 +73,7 @@ public class ApprovalDraftService {
         } else {
             linePolicyService.createLines(document, request, true);
             document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
+            delegationService.applyAutoDelegationForAbsenceDocument(requester, document, request.formDataJson());
             notifyInitialPendingLines(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
         }
 
@@ -166,6 +168,7 @@ public class ApprovalDraftService {
         lineRepository.flush();
         linePolicyService.createLines(document, request, true);
         document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
+        delegationService.applyAutoDelegationForAbsenceDocument(requester, document, request.formDataJson());
         equipmentProposalService.syncFromApprovalRequest(document, request);
         notifyInitialPendingLines(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
         auditApproval(requester, AuditActionType.SUBMIT, document, "상신", true, ipAddress, userAgent);

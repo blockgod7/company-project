@@ -417,6 +417,7 @@ export type PdmFolder = {
   processName: string | null;
   folderKind: "COMPANY" | "PROJECT" | "BUSINESS" | "PROCESS" | "COMMON" | "EQUIPMENT";
   folderName: string;
+  sortOrder: number;
 };
 
 export type PdmRevision = {

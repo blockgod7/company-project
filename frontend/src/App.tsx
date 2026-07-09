@@ -1,5 +1,7 @@
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   Bell,
   BookOpen,
   Building2,
@@ -64,6 +66,7 @@ import type {
   PdmDrawingDetail,
   PdmDuplicateCheck,
   PdmFolder,
+  PdmPermission,
   PdmPermissionAdmin,
   PdmRevision,
   PageResponse,
@@ -109,14 +112,16 @@ type ApprovalTemplateField = {
   required?: boolean | string;
 };
 type ApprovalBox = "agreement" | "pending" | "received" | "shared" | "requested" | "processed" | "all";
-type ApprovalDashboardFilter = "myPending" | "delegatedPending" | "overdue" | "requestedInProgress" | "recentCompleted";
+type ApprovalDashboardFilter = "actionRequired" | "approvedInProgress" | "drafts" | "completedInvolved" | "myPending" | "delegatedPending" | "overdue" | "requestedInProgress" | "recentCompleted";
 type ApprovalLaunch = { box: ApprovalBox; dashboardFilter?: ApprovalDashboardFilter; label: string };
+type ApprovalCategory = "active" | "completed";
 type ApprovalSearchForm = {
   keyword: string;
   status: string;
   templateCode: string;
   dateFrom: string;
   dateTo: string;
+  role: string;
 };
 type ApprovalForm = {
   title: string;
@@ -175,7 +180,8 @@ const DEFAULT_APPROVAL_SEARCH: ApprovalSearchForm = {
   status: "",
   templateCode: "",
   dateFrom: "",
-  dateTo: ""
+  dateTo: "",
+  role: ""
 };
 const APPROVAL_TEMPLATE_CATEGORIES: ApprovalTemplateCategory[] = [
   { id: "draft", label: "1. 기안 공문", codes: ["DRAFT", "EQUIPMENT_PROPOSAL", "MOLD_FIXTURE_PROPOSAL"] },
@@ -540,6 +546,8 @@ function trainingRequestDefaultFieldValues(user: User, employees: Employee[], cu
     requesterName: current.requesterName || user.empName,
     trainingName: current.trainingName ?? "",
     institution: current.institution ?? "",
+    trainingStartDate: current.trainingStartDate ?? "",
+    trainingEndDate: current.trainingEndDate ?? "",
     reason: current.reason ?? "",
     requestDate: current.requestDate || todayDate()
   };
@@ -549,6 +557,7 @@ function trainingRequestContent(values: Record<string, string>) {
   return [
     `교육명: ${values.trainingName || "-"}`,
     `교육기관: ${values.institution || "-"}`,
+    `교육기간: ${values.trainingStartDate || "-"} ~ ${values.trainingEndDate || "-"}`,
     `신청 구분: ${values.requestType || "수강"}`,
     `사유: ${values.reason || "-"}`
   ].join("\n");
@@ -566,6 +575,7 @@ function validateTrainingRequest(values: Record<string, string>, title: string, 
   if (!["수강", "변경", "불참"].includes(values.requestType ?? "")) return "수강, 변경, 불참 중 하나를 선택해 주세요.";
   if (!values.trainingName?.trim()) return "교육명을 입력해 주세요.";
   if (!values.institution?.trim()) return "교육기관을 입력해 주세요.";
+  if (values.approvalDelegationEnabled === "Y" && (!values.trainingStartDate?.trim() || !values.trainingEndDate?.trim())) return "대리결재를 적용하려면 교육 시작일과 종료일을 입력해 주세요.";
   if (!values.reason?.trim()) return "사유를 입력해 주세요.";
   if (receiverEmpIds.length !== 1) return "주관부서 수신자는 1명만 지정해 주세요.";
   return "";
@@ -870,7 +880,7 @@ const routeLabels: Record<Route, string> = {
 const menu: { route: Route; label: string; icon: LucideIcon }[] = [
   { route: "dashboard", label: "홈", icon: Home },
   { route: "notices", label: "공지사항", icon: BookOpen },
-  { route: "boards", label: "통합게시판", icon: MessageSquare },
+  { route: "boards", label: "게시판", icon: MessageSquare },
   { route: "approvals", label: "전자결재", icon: ClipboardCheck },
   { route: "pdm", label: "도면관리", icon: FolderKanban },
   { route: "organization", label: "조직도", icon: Building2 },
@@ -910,10 +920,6 @@ async function uploadAttachments(targetType: string, targetId: number, attachmen
   formData.set("targetId", String(targetId));
   attachmentsToUpload.forEach((attachment) => formData.append("files", attachment.file));
   await api<AttachFile[]>("/files/batch", { method: "POST", body: formData });
-}
-
-function displayBoardName(board: Board) {
-  return board.boardName === "CRUD Test Board" ? "통합게시판" : board.boardName;
 }
 
 function App() {
@@ -1306,7 +1312,7 @@ function Dashboard({ user, go, openApprovals }: { user: User; go: (route: Route)
       </div>
 
       <div className="portal-card board-card">
-        <CardHeader title="통합게시판" action="바로가기" icon={MessageSquare} onAction={() => go("notices")} />
+        <CardHeader title="게시판" action="바로가기" icon={MessageSquare} onAction={() => go("boards")} />
         <div className="tab-row">
           <span className="active">공지사항</span>
           <span>게시판</span>
@@ -1475,7 +1481,7 @@ function NoticePage({ user, target }: { user: User; target: GlobalSearchTarget |
                 onOpen: () => loadDetail(item.noticeId)
               }))}
             />
-          ) : <Empty text="공지사항이 없습니다." />}
+          ) : <Empty text="게시글이 없습니다." />}
         </>
       )}
       {mode === "detail" && selected && (
@@ -1495,7 +1501,7 @@ function NoticePage({ user, target }: { user: User; target: GlobalSearchTarget |
       {(mode === "create" || mode === "edit") && (
         <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
           <NoticeEditor
-            title={mode === "create" ? "공지 작성" : "공지 수정"}
+            title={mode === "create" ? "게시글 작성" : "게시글 수정"}
             form={form}
             setForm={setForm}
             pendingFiles={pendingFiles}
@@ -1612,17 +1618,10 @@ function BoardPage({ user, target }: { user: User; target: GlobalSearchTarget | 
 
   return (
     <section className="panel board-screen">
-      <div className="board-tabs">
-        {boards.map((board) => (
-          <button key={board.boardId} className={boardId === board.boardId ? "active" : ""} onClick={() => changeBoard(board.boardId)}>
-            {displayBoardName(board)}
-          </button>
-        ))}
-      </div>
-      <Toolbar title="게시글" onNew={startCreate} onRefresh={() => loadPosts()} />
+      <Toolbar title="게시판" onNew={startCreate} onRefresh={() => loadPosts()} />
       {mode === "list" && (
         <>
-          <ListSummary count={posts.length} text="표시 중인 게시글" />
+          <ListSummary count={posts.length} text="게시글" />
           {posts.length ? (
             <ContentTable
               rows={posts.map((post) => ({
@@ -1677,6 +1676,7 @@ function BoardPage({ user, target }: { user: User; target: GlobalSearchTarget | 
 function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLaunch | null; target: GlobalSearchTarget | null }) {
   const [box, setBox] = useState<ApprovalBox>(launch?.box ?? "pending");
   const [dashboardFilter, setDashboardFilter] = useState<ApprovalLaunch | null>(launch);
+  const [approvalCategory, setApprovalCategory] = useState<ApprovalCategory>("active");
   const [items, setItems] = useState<ApprovalSummary[]>([]);
   const [retentionAudits, setRetentionAudits] = useState<AuditLog[]>([]);
   const [approvalBoxes, setApprovalBoxes] = useState<{ box: ApprovalBox; label: string }[]>(APPROVAL_BOXES);
@@ -2121,6 +2121,7 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
 
   async function openDelegationSettings() {
     setApprovalError("");
+    setApprovalCategory("active");
     setDashboardFilter(null);
     setSelected(null);
     setMode("delegation");
@@ -2302,6 +2303,7 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
       return;
     }
     setDashboardFilter(launch);
+    setApprovalCategory("active");
     setBox(launch.box);
     setSelected(null);
     setMode("list");
@@ -2312,6 +2314,7 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
   useEffect(() => {
     if (target?.type === "APPROVAL") {
       setDashboardFilter(null);
+      setApprovalCategory("active");
       setBox("requested");
       setItems([]);
       void loadDetail(target.targetId);
@@ -2339,6 +2342,18 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
     await load(nextBox, null);
   }
 
+  async function openApprovalWorkView(view: { box: ApprovalBox; label: string; dashboardFilter?: ApprovalDashboardFilter }) {
+    setApprovalError("");
+    setApprovalCategory("active");
+    const nextFilter = view.dashboardFilter ? { box: view.box, dashboardFilter: view.dashboardFilter, label: view.label } : null;
+    setDashboardFilter(nextFilter);
+    setBox(view.box);
+    setSelected(null);
+    setMode("list");
+    setItems([]);
+    await load(view.box, view.dashboardFilter ?? null);
+  }
+
   async function applyApprovalSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     await applyApprovalSearchValues(approvalSearch);
@@ -2346,11 +2361,31 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
 
   async function applyApprovalSearchValues(search: ApprovalSearchForm) {
     setApprovalError("");
-    setDashboardFilter(null);
+    const nextFilter = approvalCategory === "completed" ? { box: "processed" as ApprovalBox, dashboardFilter: "completedInvolved" as ApprovalDashboardFilter, label: "결재 완료문서" } : null;
+    setDashboardFilter(nextFilter);
     setSelected(null);
     setMode("list");
     setItems([]);
-    await load(box, null, search);
+    await load(approvalCategory === "completed" ? "processed" : box, nextFilter?.dashboardFilter ?? null, search);
+  }
+
+  async function changeApprovalCategory(nextCategory: ApprovalCategory) {
+    setApprovalError("");
+    setApprovalCategory(nextCategory);
+    setSelected(null);
+    setMode("list");
+    setItems([]);
+    if (nextCategory === "completed") {
+      const nextFilter = { box: "processed" as ApprovalBox, dashboardFilter: "completedInvolved" as ApprovalDashboardFilter, label: "결재 완료문서" };
+      setDashboardFilter(nextFilter);
+      setBox("processed");
+      await load("processed", "completedInvolved", approvalSearch);
+      return;
+    }
+    const nextFilter = { box: "pending" as ApprovalBox, dashboardFilter: "actionRequired" as ApprovalDashboardFilter, label: "결재할 문서" };
+    setDashboardFilter(nextFilter);
+    setBox("pending");
+    await load("pending", "actionRequired", approvalSearch);
   }
 
   async function resetApprovalSearch() {
@@ -2484,12 +2519,13 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
     const isTrainingRequest = isTrainingRequestTemplateCode(template.code);
     const isTrainingReport = isTrainingReportTemplateCode(template.code);
     const isTrainingTemplate = isTrainingTemplateCode(template.code);
+    const isDelegationEligible = isLeaveRequest || isTrainingRequest || isTrainingReport;
     const peManagerId = productionEngineeringManagerId(employees);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
     const receiverEmpIds = isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
-    const fieldValues = isEquipmentProposalTemplateCode(template.code)
+    const baseFieldValues = isEquipmentProposalTemplateCode(template.code)
       ? { ...form.fieldValues, requestDeptName: requesterDeptName }
       : isPurchaseRequest
         ? purchaseDefaultFieldValues(user, employees, form.fieldValues)
@@ -2498,6 +2534,9 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
       : isTrainingReport
         ? trainingReportDefaultFieldValues(user, employees, form.fieldValues)
       : form.fieldValues;
+    const fieldValues = isDelegationEligible
+      ? { ...baseFieldValues, approvalDelegationEnabled: baseFieldValues.approvalDelegationEnabled ?? "N" }
+      : baseFieldValues;
     const content = isEquipmentProposalTemplateCode(template.code)
       ? equipmentProposalContent(fieldValues, template.code)
       : isLeaveRequest
@@ -2812,24 +2851,61 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
   const isTrainingRequestForm = isTrainingRequestTemplateCode(selectedTemplate.code);
   const isTrainingReportForm = isTrainingReportTemplateCode(selectedTemplate.code);
   const isEquipmentProposalForm = isEquipmentProposalTemplateCode(selectedTemplate.code);
+  const isDelegationEligibleForm = isLeaveRequestForm || isTrainingRequestForm || isTrainingReportForm;
   const restrictedIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
   const peManagerEmployee = employees.find((employee) => employee.empId === productionEngineeringManagerId(employees));
   const permissions = selected?.permissions;
   const equipmentInputStage = equipmentProposal?.workflowStage === "PE_INPUT" || equipmentProposal?.workflowStage === "PURCHASE_INPUT";
+  const primaryApprovalViews = [
+    { id: "todo", label: "결재할 문서", box: "pending" as ApprovalBox, dashboardFilter: "actionRequired" as ApprovalDashboardFilter },
+    { id: "progress", label: "결재진행문서", box: "processed" as ApprovalBox, dashboardFilter: "approvedInProgress" as ApprovalDashboardFilter },
+    { id: "drafts", label: "임시보관함", box: "requested" as ApprovalBox, dashboardFilter: "drafts" as ApprovalDashboardFilter }
+  ];
+  const activePrimaryApprovalViewId = (
+    mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "deleted"
+      ? dashboardFilter?.dashboardFilter === "actionRequired" ? "todo"
+        : dashboardFilter?.dashboardFilter === "approvedInProgress" ? "progress"
+          : dashboardFilter?.dashboardFilter === "drafts" ? "drafts"
+            : ""
+      : ""
+  );
+  const isPrimaryDashboardFilter = ["actionRequired", "approvedInProgress", "drafts", "completedInvolved"].includes(dashboardFilter?.dashboardFilter ?? "");
+  const approvalListLabel = dashboardFilter?.label ?? (box === "requested" ? "임시보관함" : approvalBoxes.find((item) => item.box === box)?.label ?? "문서");
 
   return (
     <section className="panel board-screen approval-screen">
-      <div className="board-tabs approval-tabs">
-        {approvalBoxes.map((tab) => (
-          <button key={tab.box} className={mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "deleted" && box === tab.box ? "active" : ""} onClick={() => void changeBox(tab.box)}>{tab.label}</button>
-        ))}
-        <button className={mode === "delegation" ? "active" : ""} onClick={() => void openDelegationSettings()}>대리설정</button>
-        {isApprovalAdmin && <button className={mode === "templates" ? "active" : ""} onClick={() => void openTemplateAdmin()}>양식관리</button>}
-        {isApprovalAdmin && <button className={mode === "operationSettings" ? "active" : ""} onClick={() => openOperationSettings()}>운영설정</button>}
-        {isApprovalAdmin && <button className={mode === "deleted" ? "active" : ""} onClick={() => void openDeletedApprovals()}>보존삭제함</button>}
+      <div className="approval-category-tabs">
+        <button type="button" className={approvalCategory === "active" ? "active" : ""} onClick={() => void changeApprovalCategory("active")}>전자결재</button>
+        <button type="button" className={approvalCategory === "completed" ? "active" : ""} onClick={() => void changeApprovalCategory("completed")}>결재 완료문서</button>
       </div>
-      {mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "deleted" && <Toolbar title={dashboardFilter ? `전자결재 · ${dashboardFilter.label}` : "전자결재"} onNew={startCreate} onRefresh={() => load(box)} />}
+      <div className="board-tabs approval-tabs">
+        {approvalCategory === "active" && primaryApprovalViews.map((view) => (
+          <button key={view.id} className={activePrimaryApprovalViewId === view.id ? "active" : ""} onClick={() => void openApprovalWorkView(view)}>{view.label}</button>
+        ))}
+        {approvalCategory === "active" && (
+          <div className="approval-tab-actions">
+            <button type="button" className={mode === "delegation" ? "active" : ""} onClick={() => void openDelegationSettings()}>대리설정</button>
+            {isApprovalAdmin && <button type="button" className={mode === "templates" ? "active" : ""} onClick={() => void openTemplateAdmin()}>양식관리</button>}
+            {isApprovalAdmin && <button type="button" className={mode === "operationSettings" ? "active" : ""} onClick={() => void openOperationSettings()}>운영설정</button>}
+            {isApprovalAdmin && <button type="button" className={mode === "deleted" ? "active" : ""} onClick={() => void openDeletedApprovals()}>보존삭제함</button>}
+          </div>
+        )}
+      </div>
+      {mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "deleted" && <Toolbar title={approvalCategory === "completed" ? "결재 완료문서" : "전자결재"} onNew={startCreate} onRefresh={() => load(box, dashboardFilter?.dashboardFilter ?? null)} />}
       {approvalError && <p className="error">{approvalError}</p>}
+      {mode === "detail" && selected && (
+        <div className={`approval-focus-bar approval-focus-${selected.status.toLowerCase()}`}>
+          <div>
+            <span className="approval-focus-kicker">{selected.documentNo ?? selected.title}</span>
+            <strong>{statusLabel(selected.status)}</strong>
+          </div>
+          <div className="approval-focus-meta">
+            <span>{stageLabel(selected.currentStage)}</span>
+            <span>{approvalProgress(selected.lines)}</span>
+            {selected.currentApproverName && <span>{selected.currentApproverName}</span>}
+          </div>
+        </div>
+      )}
       {mode === "detail" && selected && (
         <div className="approval-action-panel">
           {permissions?.canApprove && !equipmentInputStage && (
@@ -2843,28 +2919,36 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
               />
             </label>
           )}
-          <div className="approval-actions approval-actions-top">
-          {permissions?.canEditDraft && <button onClick={editDraft}><Edit3 size={16} /> 수정</button>}
-          {permissions?.canSubmit && selected.status !== "IN_PROGRESS" && <button onClick={() => { editDraft(); }}><Check size={16} /> 상신</button>}
-          {permissions?.canApprove && !equipmentInputStage && <button className="primary-action" onClick={() => action("approve")}><Check size={16} /> 승인</button>}
-          {permissions?.canReject && <button className="danger" onClick={() => action("reject")}><X size={16} /> 반려</button>}
-          {permissions?.canWithdraw && <button className="ghost" onClick={withdraw}><RefreshCw size={16} /> 회수</button>}
-          {permissions?.canRedraft && <button onClick={redraft}><Save size={16} /> 재상신</button>}
-          {permissions?.canReceive && <button onClick={() => action("receive")}><Inbox size={16} /> 수신 확인</button>}
-          {permissions?.canCompleteReceipt && <button onClick={() => action("complete-receipt")}><Check size={16} /> 접수완료</button>}
-          {permissions?.canCancel && <button className="ghost" onClick={() => action("cancel")}><X size={16} /> 취소</button>}
-          {permissions?.canPrintPdf && selected.pdfStatus === "GENERATED" && selected.pdfFileId != null && <button className="ghost" onClick={() => downloadApprovalPdf(selected.approvalId, selected.documentNo ?? selected.title)}><Paperclip size={16} /> PDF 출력</button>}
-          {isApprovalAdmin && <button className="ghost" onClick={() => void correctStatus()}><RefreshCw size={16} /> 상태 보정</button>}
-          {isApprovalAdmin && <button className="danger" onClick={() => void deleteForRetention()}><Trash2 size={16} /> 보존삭제</button>}
-        </div>
+          <div className="approval-action-layout">
+            <div className="approval-actions approval-actions-primary">
+              {permissions?.canApprove && !equipmentInputStage && <button className="primary-action" onClick={() => action("approve")}><Check size={16} /> 승인</button>}
+              {permissions?.canReject && <button className="danger" onClick={() => action("reject")}><X size={16} /> 반려</button>}
+              {permissions?.canSubmit && selected.status !== "IN_PROGRESS" && <button onClick={() => { editDraft(); }}><Check size={16} /> 상신</button>}
+              {permissions?.canReceive && <button onClick={() => action("receive")}><Inbox size={16} /> 수신 확인</button>}
+              {permissions?.canCompleteReceipt && <button onClick={() => action("complete-receipt")}><Check size={16} /> 접수완료</button>}
+            </div>
+            <div className="approval-actions approval-actions-secondary">
+              {permissions?.canEditDraft && <button className="ghost" onClick={editDraft}><Edit3 size={16} /> 수정</button>}
+              {permissions?.canWithdraw && <button className="ghost" onClick={withdraw}><RefreshCw size={16} /> 회수</button>}
+              {permissions?.canRedraft && <button className="ghost" onClick={redraft}><Save size={16} /> 재상신</button>}
+              {permissions?.canCancel && <button className="ghost" onClick={() => action("cancel")}><X size={16} /> 취소</button>}
+              {permissions?.canPrintPdf && selected.pdfStatus === "GENERATED" && selected.pdfFileId != null && <button className="ghost" onClick={() => downloadApprovalPdf(selected.approvalId, selected.documentNo ?? selected.title)}><Paperclip size={16} /> PDF 출력</button>}
+            </div>
+            {isApprovalAdmin && (
+              <div className="approval-actions approval-actions-admin">
+                <button className="ghost" onClick={() => void correctStatus()}><RefreshCw size={16} /> 상태 보정</button>
+                <button className="danger" onClick={() => void deleteForRetention()}><Trash2 size={16} /> 보존삭제</button>
+              </div>
+            )}
+          </div>
         </div>
       )}
       {mode === "delegation" && (
         <div className="approval-template-editor">
           <div className="panel-head">
             <div>
-              <h3>대리결재 설정</h3>
-              <p className="muted-text">지정 기간 동안 대리자가 내 합의/결재 대기 문서를 처리할 수 있습니다.</p>
+              <h3>기본 대리자 설정</h3>
+              <p className="muted-text">휴가/교육 결재서에서 대리결재를 켜면, 실제 부재 기간에만 이 사람이 결재를 대신 처리합니다.</p>
             </div>
             <div className="actions">
               <button type="button" onClick={() => void saveDelegation()}><Save size={16} /> 저장</button>
@@ -2874,15 +2958,12 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
           {delegationMessage && <p className="template-note"><span>{delegationMessage}</span></p>}
           {delegation && (
             <div className="template-note">
-              <strong>{delegation.activeNow ? "현재 적용 중" : "현재 미적용"}</strong>
-              <span>{delegation.delegateName} · {delegation.startDate} ~ {delegation.endDate ?? "종료일 없음"}</span>
+              <strong>기본 대리자</strong>
+              <span>{delegation.delegateName} · 휴가/교육 결재서에서 켰을 때만 기간 적용</span>
             </div>
           )}
           <div className="template-form">
-            <label>시작일<input type="date" value={delegationForm.startDate} onChange={(event) => setDelegationForm({ ...delegationForm, startDate: event.target.value })} /></label>
-            <label>종료일<input type="date" value={delegationForm.endDate} onChange={(event) => setDelegationForm({ ...delegationForm, endDate: event.target.value })} /></label>
-            <label className="checkbox-label"><input type="checkbox" checked={delegationForm.active} onChange={(event) => setDelegationForm({ ...delegationForm, active: event.target.checked })} /> 활성화</label>
-            <label className="wide">사유<input value={delegationForm.reason} onChange={(event) => setDelegationForm({ ...delegationForm, reason: event.target.value })} placeholder="휴가, 출장 등" /></label>
+            <label className="wide">메모<input value={delegationForm.reason} onChange={(event) => setDelegationForm({ ...delegationForm, reason: event.target.value })} placeholder="예: 팀 내 기본 대리자" /></label>
           </div>
           <div className="line-picker-grid">
             <EmployeeMultiPicker
@@ -3036,6 +3117,19 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
                 ))}
               </select>
             </label>
+            {approvalCategory === "completed" && (
+              <label>
+                <span>내 역할</span>
+                <select value={approvalSearch.role} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, role: event.target.value })}>
+                  <option value="">전체</option>
+                  <option value="REQUESTER">기안자</option>
+                  <option value="APPROVER">결재/합의</option>
+                  <option value="RECEIVER">수신</option>
+                  <option value="SHARED">참조/열람</option>
+                  <option value="DELEGATED">대리 처리</option>
+                </select>
+              </label>
+            )}
             <label>
               <span>시작일</span>
               <input type="date" value={approvalSearch.dateFrom} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, dateFrom: event.target.value })} />
@@ -3049,14 +3143,14 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
               <button type="button" className="ghost" onClick={() => void resetApprovalSearch()}><RefreshCw size={16} /> 초기화</button>
             </div>
           </form>
-          {dashboardFilter && (
+          {dashboardFilter && !isPrimaryDashboardFilter && (
             <div className="approval-filter-banner">
               <span>{dashboardFilter.label} 기준으로 표시 중</span>
               <button type="button" className="ghost" onClick={() => void changeBox(dashboardFilter.box)}>필터 해제</button>
             </div>
           )}
-          <ListSummary count={items.length} text={`${approvalBoxes.find((item) => item.box === box)?.label ?? "문서"} 문서`} />
-          {items.length ? <ApprovalListTable items={items} templates={templates} onOpen={loadDetail} /> : <Empty text="표시할 전자결재 문서가 없습니다." />}
+          <ListSummary count={items.length} text={`${approvalListLabel} 문서`} />
+          {items.length ? <ApprovalListTable items={items} templates={templates} onOpen={loadDetail} /> : <Empty text="게시글이 없습니다." />}
         </>
       )}
       {mode === "detail" && selected && (
@@ -3127,6 +3221,19 @@ function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLa
               onChange={(name, value) => setForm({ ...form, fieldValues: { ...form.fieldValues, [name]: value } })}
             />
               </>
+            )}
+            {isDelegationEligibleForm && (
+              <div className="approval-delegation-option">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={form.fieldValues.approvalDelegationEnabled === "Y"}
+                    onChange={(event) => setForm({ ...form, fieldValues: { ...form.fieldValues, approvalDelegationEnabled: event.target.checked ? "Y" : "N" } })}
+                  />
+                  <span>부재 기간에 대리결재 적용</span>
+                </label>
+                <p>기본 대리자로 지정한 1명에게 실제 휴가/교육 기간에만 결재 권한이 열립니다.</p>
+              </div>
             )}
             <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
             <div className="line-picker-grid">
@@ -3316,6 +3423,10 @@ function TrainingRequestEditor({ user, employees, form, onChange }: { user: User
         </div>
         <div className="training-field-row">
           <label><span>교육기관</span><input required value={values.institution} onChange={(event) => setField("institution", event.target.value)} /></label>
+        </div>
+        <div className="training-field-row training-date-row">
+          <label><span>교육 시작일</span><input type="date" value={values.trainingStartDate} onChange={(event) => setField("trainingStartDate", event.target.value)} /></label>
+          <label><span>교육 종료일</span><input type="date" value={values.trainingEndDate} onChange={(event) => setField("trainingEndDate", event.target.value)} /></label>
         </div>
         <div className="training-reason-row">
           <label><span>사유(구체적)</span><textarea required value={values.reason} onChange={(event) => setField("reason", event.target.value)} /></label>
@@ -4396,14 +4507,14 @@ function ApprovalListTable({ items, templates, onOpen }: { items: ApprovalSummar
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.approvalId}>
+            <tr key={item.approvalId} className={`approval-row approval-row-${item.status.toLowerCase()}`}>
               <td>{item.documentNo ?? "상신 전"}</td>
               <td><span className={`priority priority-${item.priority.toLowerCase()}`}>{priorityLabel(item.priority)}</span></td>
               <td>{templateName(templates, item.templateCode)}</td>
               <td><button className="title-link" onClick={() => onOpen(item.approvalId)}>{item.title}</button></td>
               <td>{item.requesterName}</td>
-              <td>{stageLabel(item.currentStage)}</td>
-              <td>{statusLabel(item.status)}</td>
+              <td><span className="approval-stage-pill">{stageLabel(item.currentStage)}</span></td>
+              <td><span className={`approval-status-pill approval-status-${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span></td>
               <td>{formatDate(item.requestedAt)}</td>
               <td>{item.completedAt ? formatDate(item.completedAt) : "-"}</td>
               <td>{item.currentApproverName ? `결재 ${item.currentApproverName}` : stageLabel(item.currentStage)}</td>
@@ -6746,6 +6857,8 @@ type PdmTreeNode = {
   processName?: string;
   groupName?: string;
   equipmentName?: string;
+  folderKind?: PdmFolder["folderKind"];
+  sortOrder?: number;
   children?: PdmTreeNode[];
 };
 
@@ -6801,6 +6914,7 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
   const [bottomTab, setBottomTab] = useState<PdmBottomTab>("preview");
   const [downloads, setDownloads] = useState<PdmDownloadRequest[]>([]);
   const [permissions, setPermissions] = useState<PdmPermissionAdmin[]>([]);
+  const [categoryPermissions, setCategoryPermissions] = useState<Record<"PRODUCT" | "EQUIPMENT", PdmPermission | null>>({ PRODUCT: null, EQUIPMENT: null });
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<DeptNode[]>([]);
   const [message, setMessage] = useState("");
@@ -6830,14 +6944,47 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
     canDownloadRequest: true,
     canDownloadApprove: false
   });
+  const [permissionTargetMode, setPermissionTargetMode] = useState<"DEPT" | "EMP">("DEPT");
+  const [permissionListFilter, setPermissionListFilter] = useState<"ALL" | "DEPT" | "EMP">("ALL");
+  const [permissionKeyword, setPermissionKeyword] = useState("");
+  const [permissionEmployeeFilter, setPermissionEmployeeFilter] = useState("");
 
   const canAdmin = user.roleCode === "ADMIN" || user.roleCode === "APPROVAL_ADMIN";
+  const canManagePdmPermissions = canAdmin || user.roleCode === "MANAGER";
   const tree = buildPdmTree(drawings, folders);
+  const activePdmCategory = selectedNode?.category ?? selected?.drawing.category ?? null;
+  const canRegisterProduct = canAdmin || Boolean(categoryPermissions.PRODUCT?.canRegister);
+  const canRegisterEquipment = canAdmin || Boolean(categoryPermissions.EQUIPMENT?.canRegister);
+  const canRegisterPdmCategory = (categoryValue: PdmDrawing["category"] | null | undefined) => (
+    categoryValue ? categoryValue === "PRODUCT" ? canRegisterProduct : canRegisterEquipment : canRegisterProduct || canRegisterEquipment
+  );
+  const canRegisterCurrentPdmCategory = canRegisterPdmCategory(activePdmCategory);
   const selectedRevision = selected?.revisions.find((revision) => revision.latestYn === "Y") ?? selected?.revisions[0] ?? null;
   const selectedDownloads = selected ? downloads.filter((request) => request.drawingId === selected.drawing.drawingId) : downloads;
+  const selectedApprovedDownloads = selectedDownloads.filter((request) => request.approvalStatus === "APPROVED").length;
+  const selectedOpenDownloads = selectedDownloads.filter((request) => request.approvalStatus === "PENDING" || request.approvalStatus === "IN_PROGRESS").length;
+  const selectedOldRevisionCount = selected?.revisions.filter((revision) => revision.latestYn !== "Y").length ?? 0;
   const selectedFileName = selectedRevision?.originalFileName ?? selected?.drawing.currentOriginalFileName ?? selected?.drawing.title ?? "";
   const selectedExtension = fileExtension(selectedFileName);
   const selectedPath = selectedNode ? pdmNodePath(selectedNode) : "도면관리";
+  const assignableEmployees = canAdmin ? employees : employees.filter((employee) => employee.deptId === user.deptId);
+  const permissionKeywordNormalized = permissionKeyword.trim().toLowerCase();
+  const filteredPermissions = permissions
+    .filter((permission) => permissionListFilter === "ALL" || (permissionListFilter === "DEPT" ? permission.deptId != null : permission.empId != null))
+    .filter((permission) => !permissionEmployeeFilter || permission.empId === Number(permissionEmployeeFilter))
+    .filter((permission) => {
+      if (!permissionKeywordNormalized) return true;
+      return [
+        permission.deptName,
+        permission.empName,
+        permission.category,
+        pdmPermissionScopeLabel(permission.category),
+        pdmPermissionTargetKindLabel(permission),
+        pdmPermissionNames(permission).join(" ")
+      ].filter(Boolean).join(" ").toLowerCase().includes(permissionKeywordNormalized);
+    });
+  const departmentPermissionCount = permissions.filter((permission) => permission.deptId != null).length;
+  const personalPermissionCount = permissions.filter((permission) => permission.empId != null).length;
 
   async function loadDrawings() {
     const params = new URLSearchParams();
@@ -6864,14 +7011,28 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
     setDownloads(await api<PdmDownloadRequest[]>("/pdm/download-requests/me"));
   }
 
+  async function loadEffectivePdmPermissions() {
+    try {
+      const [product, equipment] = await Promise.all([
+        api<PdmPermission>("/pdm/permissions/effective?category=PRODUCT"),
+        api<PdmPermission>("/pdm/permissions/effective?category=EQUIPMENT")
+      ]);
+      setCategoryPermissions({ PRODUCT: product, EQUIPMENT: equipment });
+    } catch {
+      setCategoryPermissions({ PRODUCT: null, EQUIPMENT: null });
+    }
+  }
+
   async function loadAdminData() {
+    const employeeParams = new URLSearchParams({ size: "200" });
+    if (!canAdmin && user.deptId != null) employeeParams.set("deptId", String(user.deptId));
     const [employeePage, deptTree] = await Promise.all([
-      api<PageResponse<Employee>>("/emps?size=200"),
+      api<PageResponse<Employee>>(`/emps?${employeeParams.toString()}`),
       api<DeptNode[]>("/depts/tree")
     ]);
     setEmployees(employeePage.content);
     setDepartments(deptTree);
-    if (canAdmin) {
+    if (canManagePdmPermissions) {
       setPermissions(await api<PdmPermissionAdmin[]>("/pdm/permissions"));
     }
   }
@@ -6880,6 +7041,7 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
     void loadDrawings();
     void loadFolders();
     void loadDownloads();
+    void loadEffectivePdmPermissions();
     void loadAdminData();
   }, []);
 
@@ -7121,12 +7283,21 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
 
   async function savePermission(event: FormEvent) {
     event.preventDefault();
+    const effectivePermissionTargetMode = canAdmin ? permissionTargetMode : "EMP";
+    if (effectivePermissionTargetMode === "DEPT" && !permissionForm.deptId) {
+      setMessage("권한 범위를 설정할 부서를 선택해 주세요.");
+      return;
+    }
+    if (effectivePermissionTargetMode === "EMP" && !permissionForm.empId) {
+      setMessage("권한을 배정할 직원을 선택해 주세요.");
+      return;
+    }
     await api<PdmPermissionAdmin>("/pdm/permissions", {
       method: "POST",
       body: jsonBody({
         category: permissionForm.category || null,
-        deptId: permissionForm.deptId ? Number(permissionForm.deptId) : null,
-        empId: permissionForm.empId ? Number(permissionForm.empId) : null,
+        deptId: effectivePermissionTargetMode === "DEPT" && permissionForm.deptId ? Number(permissionForm.deptId) : null,
+        empId: effectivePermissionTargetMode === "EMP" && permissionForm.empId ? Number(permissionForm.empId) : null,
         canRegister: permissionForm.canRegister,
         canRevise: permissionForm.canRevise,
         canView: permissionForm.canView,
@@ -7174,6 +7345,10 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
       alert("수정할 폴더를 선택해 주세요.");
       return;
     }
+    if (!canRegisterPdmCategory(selectedNode.category)) {
+      setMessage("도면 파일 등록 권한이 있어야 폴더명을 수정할 수 있습니다.");
+      return;
+    }
     const folderName = folderForm.folderName.trim();
     if (!folderName) {
       alert("폴더명을 입력해 주세요.");
@@ -7210,6 +7385,10 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
       alert("삭제할 폴더를 선택해 주세요.");
       return;
     }
+    if (!canRegisterPdmCategory(selectedNode.category)) {
+      setMessage("도면 파일 등록 권한이 있어야 폴더를 삭제할 수 있습니다.");
+      return;
+    }
     if (!window.confirm(`${selectedNode.label} 폴더를 삭제할까요? 도면이 들어 있는 폴더는 삭제되지 않습니다.`)) return;
     if (visibleDrawings.length > 0) {
       alert("도면이 들어 있는 폴더는 삭제할 수 없습니다. 도면을 먼저 이동하거나 정리해 주세요.");
@@ -7238,6 +7417,29 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
     }
   }
 
+  async function moveSelectedFolder(direction: "UP" | "DOWN") {
+    if (!selectedNode?.folderId || selectedNode.folderId < 0 || selectedNode.type === "root") {
+      setMessage("순서를 변경할 서버 폴더를 선택해 주세요.");
+      return;
+    }
+    if (!canRegisterPdmCategory(selectedNode.category)) {
+      setMessage("도면 파일 등록 권한이 없어 폴더 순서를 변경할 수 없습니다.");
+      return;
+    }
+    try {
+      const updated = await api<PdmFolder[]>(`/pdm/folders/${selectedNode.folderId}/actions/move`, {
+        method: "POST",
+        body: jsonBody({ direction })
+      });
+      setFolders([...updated, ...loadLocalPdmFolders()]);
+      setMessage(direction === "UP" ? "폴더를 위로 이동했습니다." : "폴더를 아래로 이동했습니다.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "폴더 순서 변경 중 오류가 발생했습니다.";
+      setMessage(message);
+      alert(message);
+    }
+  }
+
   const flatDepartments = flattenDepartments(departments);
   const approverOptions = employees.filter((employee) => employee.status === "ACTIVE");
   const productCompanyOptions = Array.from(new Set([
@@ -7251,18 +7453,24 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
     .sort((a, b) => b.drawingId - a.drawingId);
 
   function openUploadFromNode(node: PdmTreeNode | null) {
-    const next: PdmUploadForm = { ...DEFAULT_PDM_UPLOAD };
-    if (node?.category === "PRODUCT") {
-      next.category = "PRODUCT";
-      next.companyName = node.companyName ?? "";
-      next.projectName = node.projectName ?? "";
+    const targetCategory = node?.category ?? (canRegisterProduct ? "PRODUCT" : canRegisterEquipment ? "EQUIPMENT" : null);
+    if (!targetCategory || (targetCategory === "PRODUCT" ? !canRegisterProduct : !canRegisterEquipment)) {
+      setMessage("도면 파일 등록 권한이 필요합니다.");
+      return;
     }
-    if (node?.category === "EQUIPMENT") {
+    const next: PdmUploadForm = { ...DEFAULT_PDM_UPLOAD };
+    next.category = targetCategory;
+    if (targetCategory === "PRODUCT") {
+      next.category = "PRODUCT";
+      next.companyName = node?.companyName ?? "";
+      next.projectName = node?.projectName ?? "";
+    }
+    if (targetCategory === "EQUIPMENT") {
       next.category = "EQUIPMENT";
-      next.businessUnit = node.businessUnit ?? "";
-      next.processName = node.processName ?? "";
-      next.groupName = node.type === "common" ? node.groupName ?? "공통도면" : "";
-      next.equipmentName = node.type === "equipment" ? node.equipmentName ?? "" : "";
+      next.businessUnit = node?.businessUnit ?? "";
+      next.processName = node?.processName ?? "";
+      next.groupName = node?.type === "common" ? node.groupName ?? "공통도면" : "";
+      next.equipmentName = node?.type === "equipment" ? node.equipmentName ?? "" : "";
     }
     setUploadForm(next);
     setUploadFile(null);
@@ -7270,18 +7478,24 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
   }
 
   function openFolderFromNode(node: PdmTreeNode | null) {
-    const next: PdmFolderForm = { ...DEFAULT_PDM_FOLDER_FORM };
-    if (node?.category === "PRODUCT") {
-      next.category = "PRODUCT";
-      next.companyName = node.companyName ?? "";
-      next.projectName = node.projectName ?? "";
-      next.folderKind = node.type === "company" ? "PROJECT" : "COMPANY";
+    const targetCategory = node?.category ?? (canRegisterProduct ? "PRODUCT" : canRegisterEquipment ? "EQUIPMENT" : null);
+    if (!targetCategory || (targetCategory === "PRODUCT" ? !canRegisterProduct : !canRegisterEquipment)) {
+      setMessage("도면 파일 등록 권한이 있어야 폴더를 추가할 수 있습니다.");
+      return;
     }
-    if (node?.category === "EQUIPMENT") {
+    const next: PdmFolderForm = { ...DEFAULT_PDM_FOLDER_FORM };
+    next.category = targetCategory;
+    if (targetCategory === "PRODUCT") {
+      next.category = "PRODUCT";
+      next.companyName = node?.companyName ?? "";
+      next.projectName = node?.projectName ?? "";
+      next.folderKind = node?.type === "company" ? "PROJECT" : "COMPANY";
+    }
+    if (targetCategory === "EQUIPMENT") {
       next.category = "EQUIPMENT";
-      next.businessUnit = node.businessUnit ?? "";
-      next.processName = node.processName ?? "";
-      next.folderKind = node.type === "business" ? "PROCESS" : node.type === "process" ? "EQUIPMENT" : "BUSINESS";
+      next.businessUnit = node?.businessUnit ?? "";
+      next.processName = node?.processName ?? "";
+      next.folderKind = node?.type === "business" ? "PROCESS" : node?.type === "process" ? "EQUIPMENT" : "BUSINESS";
     }
     setFolderForm(next);
     setFolderOpen(true);
@@ -7314,10 +7528,12 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
     <section className="page-section pdm-page pdm-workbench">
       <div className="pdm-commandbar">
         <div className="pdm-command-left pdm-actions">
-          <button className="primary-action" onClick={() => openUploadFromNode(selectedNode)}><Upload size={16} /> 파일 등록</button>
-          <button className="ghost" onClick={() => openFolderFromNode(selectedNode)}><Folder size={16} /> 폴더 추가</button>
-          <button className="ghost" onClick={() => openFolderRenameFromNode(selectedNode)}><Edit3 size={16} /> 폴더명 수정</button>
-          <button className="ghost danger" onClick={() => void deleteSelectedFolder()}><Trash2 size={16} /> 폴더 삭제</button>
+          <button className="primary-action" onClick={() => openUploadFromNode(selectedNode)} disabled={!canRegisterCurrentPdmCategory}><Upload size={16} /> 파일 등록</button>
+          <button className="ghost" onClick={() => openFolderFromNode(selectedNode)} disabled={!canRegisterCurrentPdmCategory}><Folder size={16} /> 폴더 추가</button>
+          <button className="ghost" onClick={() => openFolderRenameFromNode(selectedNode)} disabled={!selectedNode || selectedNode.type === "root" || !canRegisterCurrentPdmCategory}><Edit3 size={16} /> 폴더명 수정</button>
+          <button className="ghost danger" onClick={() => void deleteSelectedFolder()} disabled={!selectedNode || selectedNode.type === "root" || !canRegisterCurrentPdmCategory}><Trash2 size={16} /> 폴더 삭제</button>
+          <button className="ghost" onClick={() => void moveSelectedFolder("UP")} disabled={!selectedNode?.folderId || selectedNode.folderId < 0 || !canRegisterCurrentPdmCategory}><ArrowUp size={16} /> 위로</button>
+          <button className="ghost" onClick={() => void moveSelectedFolder("DOWN")} disabled={!selectedNode?.folderId || selectedNode.folderId < 0 || !canRegisterCurrentPdmCategory}><ArrowDown size={16} /> 아래로</button>
           {selected?.permissions.canRevise && (
             <button className="ghost" onClick={openStatusChange}><Edit3 size={16} /> 상태 변경</button>
           )}
@@ -7333,7 +7549,22 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
             <Search size={16} />
             <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="도면번호, 파일명, 도면명, 리비전 검색" />
             <label><input type="checkbox" checked={searchAll} onChange={(event) => setSearchAll(event.target.checked)} /> 전체 검색</label>
-            {canAdmin && <button className="ghost" onClick={() => { setAdminOpen(true); void loadAdminData(); }}><Shield size={16} /> 권한</button>}
+          {canManagePdmPermissions && (
+            <button
+              className="ghost"
+              onClick={() => {
+                if (!canAdmin) {
+                  setPermissionTargetMode("EMP");
+                  setPermissionListFilter("ALL");
+                  setPermissionForm({ ...permissionForm, deptId: "" });
+                }
+                setAdminOpen(true);
+                void loadAdminData();
+              }}
+            >
+              <Shield size={16} /> {canAdmin ? "권한" : "우리 부서 권한"}
+            </button>
+          )}
           </div>
         </div>
       </div>
@@ -7376,12 +7607,12 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
               </thead>
               <tbody>
                 {visibleDrawings.map((drawing) => (
-                  <tr key={drawing.drawingId} className={selected?.drawing.drawingId === drawing.drawingId ? "selected" : ""} onClick={() => { setBottomTab("preview"); void loadDetail(drawing.drawingId); }}>
+                  <tr key={drawing.drawingId} className={`pdm-row-status-${drawing.status.toLowerCase()} ${selected?.drawing.drawingId === drawing.drawingId ? "selected" : ""}`} onClick={() => { setBottomTab("preview"); void loadDetail(drawing.drawingId); }}>
                     <td><FileText size={15} /> {drawing.currentOriginalFileName ?? drawing.title}</td>
                     <td>{fileExtension(drawing.currentOriginalFileName ?? "") || "-"}</td>
                     <td>{drawing.drawingNo}</td>
                     <td>{drawing.title}</td>
-                    <td>{drawing.currentRevisionLabel ?? "-"}</td>
+                    <td><span className="pdm-revision-badge">Rev {drawing.currentRevisionLabel ?? "-"}</span></td>
                     <td><span className={`status-pill pdm-status-${drawing.status.toLowerCase()}`}>{pdmStatusLabel(drawing.status)}</span></td>
                     <td>-</td>
                     <td>{formatDate(drawing.createdAt)}</td>
@@ -7406,6 +7637,26 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
                   <button className={bottomTab === "revisions" ? "active" : ""} onClick={() => setBottomTab("revisions")}><History size={14} /> 리비전 이력</button>
                   <button className={bottomTab === "downloads" ? "active" : ""} onClick={() => setBottomTab("downloads")}><Download size={14} /> 요청 이력</button>
                   <button className={bottomTab === "properties" ? "active" : ""} onClick={() => setBottomTab("properties")}><FileText size={14} /> 속성</button>
+                </div>
+              </div>
+              <div className="pdm-signal-strip">
+                <div className={`pdm-signal-card pdm-signal-${selected.drawing.status.toLowerCase()}`}>
+                  <span>도면 상태</span>
+                  <strong>{pdmStatusLabel(selected.drawing.status)}</strong>
+                </div>
+                <div className="pdm-signal-card">
+                  <span>최신 리비전</span>
+                  <strong>Rev {selected.drawing.currentRevisionLabel ?? "-"}</strong>
+                </div>
+                <div className="pdm-signal-card">
+                  <span>리비전 이력</span>
+                  <strong>{selected.revisions.length}건</strong>
+                  {selectedOldRevisionCount > 0 && <em>구버전 {selectedOldRevisionCount}건</em>}
+                </div>
+                <div className="pdm-signal-card">
+                  <span>반출 요청</span>
+                  <strong>{selectedDownloads.length}건</strong>
+                  <em>승인 {selectedApprovedDownloads} · 진행 {selectedOpenDownloads}</em>
                 </div>
               </div>
 
@@ -7487,9 +7738,9 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
                     <button className="ghost" onClick={loadDownloads}><RefreshCw size={16} /> 새로고침</button>
                   </div>
                   {selectedDownloads.length ? selectedDownloads.map((request) => (
-                    <div className="file-row" key={request.requestId}>
+                    <div className={`file-row pdm-request-${request.approvalStatus.toLowerCase()}`} key={request.requestId}>
                       <strong>{request.drawingNo} · Rev {request.revisionLabel}</strong>
-                      <span>{request.approvalStatus} · 유효기한 {formatDate(request.approvedUntil)} · {request.reason}</span>
+                      <span><em className={`pdm-request-status pdm-request-status-${request.approvalStatus.toLowerCase()}`}>{approvalStatusLabel(request.approvalStatus)}</em> · 유효기한 {formatDate(request.approvedUntil)} · {request.reason}</span>
                       <div className="pdm-row-actions">
                         <button onClick={() => downloadRequest(request)} disabled={request.approvalStatus !== "APPROVED"}><Download size={15} /> 다운로드</button>
                       </div>
@@ -7518,9 +7769,9 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
                 <button className="ghost" onClick={loadDownloads}><RefreshCw size={16} /> 새로고침</button>
               </div>
               {selectedDownloads.length ? selectedDownloads.map((request) => (
-                <div className="file-row" key={request.requestId}>
+                <div className={`file-row pdm-request-${request.approvalStatus.toLowerCase()}`} key={request.requestId}>
                   <strong>{request.drawingNo} · Rev {request.revisionLabel}</strong>
-                  <span>{request.approvalStatus} · 유효기한 {formatDate(request.approvedUntil)} · {request.reason}</span>
+                  <span><em className={`pdm-request-status pdm-request-status-${request.approvalStatus.toLowerCase()}`}>{approvalStatusLabel(request.approvalStatus)}</em> · 유효기한 {formatDate(request.approvedUntil)} · {request.reason}</span>
                   <div className="pdm-row-actions">
                     <button onClick={() => downloadRequest(request)} disabled={request.approvalStatus !== "APPROVED"}><Download size={15} /> 다운로드</button>
                   </div>
@@ -7533,40 +7784,94 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
 
       {uploadOpen && (
         <div className="modal-backdrop" role="presentation">
-          <form className="pdm-upload-modal" onSubmit={uploadDrawing} role="dialog" aria-modal="true" aria-label="도면 파일 등록">
+          <form className="pdm-upload-modal pdm-file-modal" onSubmit={uploadDrawing} role="dialog" aria-modal="true" aria-label="도면 파일 등록">
             <div className="modal-head">
               <h3>도면 파일 등록</h3>
               <button type="button" className="icon-button" onClick={() => setUploadOpen(false)}><X size={18} /></button>
             </div>
-            <div className="form-grid compact">
-              <select value={uploadForm.category} onChange={(event) => setUploadForm({ ...uploadForm, category: event.target.value as "PRODUCT" | "EQUIPMENT" })}>
-                <option value="PRODUCT">제품도면</option>
-                <option value="EQUIPMENT">설비도면</option>
-              </select>
-              <input value={uploadForm.drawingNo} onBlur={checkDuplicate} onChange={(event) => setUploadForm({ ...uploadForm, drawingNo: event.target.value })} placeholder="도면번호" />
-              <input value={uploadForm.title} onChange={(event) => setUploadForm({ ...uploadForm, title: event.target.value })} placeholder="도면명" />
-              {uploadForm.category === "PRODUCT" ? (
-                <>
-                  <input value={uploadForm.companyName} onChange={(event) => setUploadForm({ ...uploadForm, companyName: event.target.value })} placeholder="업체명" />
-                  <input value={uploadForm.projectName} onChange={(event) => setUploadForm({ ...uploadForm, projectName: event.target.value })} placeholder="프로젝트/제품명" />
-                </>
-              ) : (
-                <>
-                  <input value={uploadForm.businessUnit} onChange={(event) => setUploadForm({ ...uploadForm, businessUnit: event.target.value })} placeholder="사업부" />
-                  <input value={uploadForm.processName} onChange={(event) => setUploadForm({ ...uploadForm, processName: event.target.value })} placeholder="공정" />
-                  <input value={uploadForm.groupName} onChange={(event) => setUploadForm({ ...uploadForm, groupName: event.target.value })} placeholder="공통도면 폴더" />
-                  <input value={uploadForm.equipmentName} onChange={(event) => setUploadForm({ ...uploadForm, equipmentName: event.target.value })} placeholder="설비명" />
-                </>
-              )}
-              <input value={uploadForm.revisionLabel} onChange={(event) => setUploadForm({ ...uploadForm, revisionLabel: event.target.value })} placeholder="리비전 표기" />
-              <select value={uploadForm.status} onChange={(event) => setUploadForm({ ...uploadForm, status: event.target.value as PdmUploadForm["status"] })}>
-                <option value="ACTIVE">사용중</option>
-                <option value="ON_HOLD">보류</option>
-                <option value="VOIDED">폐기/무효</option>
-              </select>
-              <input type="file" accept=".pdf,.dwg,.dxf,.step,.stp,.igs,.iges" onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)} />
-              <textarea className="wide" value={uploadForm.changeNote} onChange={(event) => setUploadForm({ ...uploadForm, changeNote: event.target.value })} placeholder="변경/접수 메모" />
-              <textarea className="wide" value={uploadForm.description} onChange={(event) => setUploadForm({ ...uploadForm, description: event.target.value })} placeholder="도면 설명" />
+            <div className="pdm-file-fields">
+              <fieldset>
+                <legend>기본 정보</legend>
+                <label>
+                  <span>도면 구분</span>
+                  <select value={uploadForm.category} onChange={(event) => setUploadForm({ ...uploadForm, category: event.target.value as "PRODUCT" | "EQUIPMENT" })}>
+                    <option value="PRODUCT">제품도면</option>
+                    <option value="EQUIPMENT">설비도면</option>
+                  </select>
+                </label>
+                <label>
+                  <span>도면번호</span>
+                  <input value={uploadForm.drawingNo} onBlur={checkDuplicate} onChange={(event) => setUploadForm({ ...uploadForm, drawingNo: event.target.value })} placeholder="도면번호" />
+                </label>
+                <label className="wide">
+                  <span>도면명</span>
+                  <input value={uploadForm.title} onChange={(event) => setUploadForm({ ...uploadForm, title: event.target.value })} placeholder="도면명" />
+                </label>
+              </fieldset>
+              <fieldset>
+                <legend>분류 위치</legend>
+                {uploadForm.category === "PRODUCT" ? (
+                  <>
+                    <label>
+                      <span>업체명</span>
+                      <input value={uploadForm.companyName} onChange={(event) => setUploadForm({ ...uploadForm, companyName: event.target.value })} placeholder="업체명" />
+                    </label>
+                    <label>
+                      <span>프로젝트/제품명</span>
+                      <input value={uploadForm.projectName} onChange={(event) => setUploadForm({ ...uploadForm, projectName: event.target.value })} placeholder="프로젝트/제품명" />
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <label>
+                      <span>사업부</span>
+                      <input value={uploadForm.businessUnit} onChange={(event) => setUploadForm({ ...uploadForm, businessUnit: event.target.value })} placeholder="사업부" />
+                    </label>
+                    <label>
+                      <span>공정</span>
+                      <input value={uploadForm.processName} onChange={(event) => setUploadForm({ ...uploadForm, processName: event.target.value })} placeholder="공정" />
+                    </label>
+                    <label>
+                      <span>공통도면 폴더</span>
+                      <input value={uploadForm.groupName} onChange={(event) => setUploadForm({ ...uploadForm, groupName: event.target.value })} placeholder="공통도면 폴더" />
+                    </label>
+                    <label>
+                      <span>설비명</span>
+                      <input value={uploadForm.equipmentName} onChange={(event) => setUploadForm({ ...uploadForm, equipmentName: event.target.value })} placeholder="설비명" />
+                    </label>
+                  </>
+                )}
+              </fieldset>
+              <fieldset>
+                <legend>리비전 및 파일</legend>
+                <label>
+                  <span>리비전 표기</span>
+                  <input value={uploadForm.revisionLabel} onChange={(event) => setUploadForm({ ...uploadForm, revisionLabel: event.target.value })} placeholder="A, B, 1, 2 등" />
+                </label>
+                <label>
+                  <span>도면 상태</span>
+                  <select value={uploadForm.status} onChange={(event) => setUploadForm({ ...uploadForm, status: event.target.value as PdmUploadForm["status"] })}>
+                    <option value="ACTIVE">사용중</option>
+                    <option value="ON_HOLD">보류</option>
+                    <option value="VOIDED">폐기/무효</option>
+                  </select>
+                </label>
+                <label className="wide">
+                  <span>도면 파일</span>
+                  <input type="file" accept=".pdf,.dwg,.dxf,.step,.stp,.igs,.iges" onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)} />
+                </label>
+              </fieldset>
+              <fieldset>
+                <legend>메모</legend>
+                <label>
+                  <span>변경/접수 메모</span>
+                  <textarea value={uploadForm.changeNote} onChange={(event) => setUploadForm({ ...uploadForm, changeNote: event.target.value })} placeholder="변경/접수 메모" />
+                </label>
+                <label>
+                  <span>도면 설명</span>
+                  <textarea value={uploadForm.description} onChange={(event) => setUploadForm({ ...uploadForm, description: event.target.value })} placeholder="도면 설명" />
+                </label>
+              </fieldset>
             </div>
             <div className="modal-actions">
               <button type="button" className="ghost" onClick={() => setUploadOpen(false)}>취소</button>
@@ -7578,45 +7883,73 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
 
       {folderOpen && (
         <div className="modal-backdrop" role="presentation">
-          <form className="pdm-upload-modal" onSubmit={saveFolder} role="dialog" aria-modal="true" aria-label="도면 폴더 추가">
+          <form className="pdm-upload-modal pdm-folder-modal" onSubmit={saveFolder} role="dialog" aria-modal="true" aria-label="도면 폴더 추가">
             <div className="modal-head">
               <h3>도면 폴더 추가</h3>
               <button type="button" className="icon-button" onClick={() => setFolderOpen(false)}><X size={18} /></button>
             </div>
-            <div className="form-grid compact">
-              <select value={folderForm.category} onChange={(event) => {
-                const nextCategory = event.target.value as "PRODUCT" | "EQUIPMENT";
-                setFolderForm({ ...DEFAULT_PDM_FOLDER_FORM, category: nextCategory, folderKind: nextCategory === "PRODUCT" ? "COMPANY" : "BUSINESS" });
-              }}>
-                <option value="PRODUCT">제품도면</option>
-                <option value="EQUIPMENT">설비도면</option>
-              </select>
+            <div className="pdm-folder-fields">
+              <label className="pdm-folder-field">
+                <span>도면 구분</span>
+                <select value={folderForm.category} onChange={(event) => {
+                  const nextCategory = event.target.value as "PRODUCT" | "EQUIPMENT";
+                  setFolderForm({ ...DEFAULT_PDM_FOLDER_FORM, category: nextCategory, folderKind: nextCategory === "PRODUCT" ? "COMPANY" : "BUSINESS" });
+                }}>
+                  <option value="PRODUCT">제품도면</option>
+                  <option value="EQUIPMENT">설비도면</option>
+                </select>
+              </label>
               {folderForm.category === "PRODUCT" ? (
                 <>
-                  <select value={folderForm.folderKind} onChange={(event) => setFolderForm({ ...folderForm, folderKind: event.target.value as PdmFolder["folderKind"] })}>
-                    <option value="COMPANY">업체 폴더</option>
-                    <option value="PROJECT">프로젝트/제품 폴더</option>
-                  </select>
-                  {folderForm.folderKind === "PROJECT" && (
-                    <select value={folderForm.companyName} onChange={(event) => setFolderForm({ ...folderForm, companyName: event.target.value })}>
-                      <option value="">상위 업체 선택</option>
-                      {productCompanyOptions.map((companyName) => <option key={companyName} value={companyName}>{companyName}</option>)}
+                  <label className="pdm-folder-field">
+                    <span>추가 위치</span>
+                    <select value={folderForm.folderKind} onChange={(event) => setFolderForm({ ...folderForm, folderKind: event.target.value as PdmFolder["folderKind"] })}>
+                      <option value="COMPANY">업체 폴더</option>
+                      <option value="PROJECT">프로젝트/제품 폴더</option>
                     </select>
+                  </label>
+                  {folderForm.folderKind === "PROJECT" && (
+                    <label className="pdm-folder-field">
+                      <span>상위 업체</span>
+                      <select value={folderForm.companyName} onChange={(event) => setFolderForm({ ...folderForm, companyName: event.target.value })}>
+                        <option value="">상위 업체 선택</option>
+                        {productCompanyOptions.map((companyName) => <option key={companyName} value={companyName}>{companyName}</option>)}
+                      </select>
+                    </label>
                   )}
-                  {folderForm.folderKind === "PROJECT" && !productCompanyOptions.length && <small>업체 폴더를 먼저 추가하거나 제품도면을 등록하면 선택할 수 있습니다.</small>}
-                  <input value={folderForm.folderName} onChange={(event) => setFolderForm({ ...folderForm, folderName: event.target.value })} placeholder={folderForm.folderKind === "COMPANY" ? "업체명" : "프로젝트/제품명"} />
+                  {folderForm.folderKind === "PROJECT" && !productCompanyOptions.length && <small className="pdm-folder-help">업체 폴더를 먼저 추가하거나 제품도면을 등록하면 선택할 수 있습니다.</small>}
+                  <label className="pdm-folder-field wide">
+                    <span>{folderForm.folderKind === "COMPANY" ? "업체명" : "프로젝트/제품명"}</span>
+                    <input value={folderForm.folderName} onChange={(event) => setFolderForm({ ...folderForm, folderName: event.target.value })} placeholder={folderForm.folderKind === "COMPANY" ? "업체명을 입력하세요" : "프로젝트/제품명을 입력하세요"} />
+                  </label>
                 </>
               ) : (
                 <>
-                  <select value={folderForm.folderKind} onChange={(event) => setFolderForm({ ...folderForm, folderKind: event.target.value as PdmFolder["folderKind"] })}>
-                    <option value="BUSINESS">사업부 폴더</option>
-                    <option value="PROCESS">공정 폴더</option>
-                    <option value="COMMON">공통도면 폴더</option>
-                    <option value="EQUIPMENT">설비 폴더</option>
-                  </select>
-                  {folderForm.folderKind !== "BUSINESS" && <input value={folderForm.businessUnit} onChange={(event) => setFolderForm({ ...folderForm, businessUnit: event.target.value })} placeholder="상위 사업부" />}
-                  {(folderForm.folderKind === "COMMON" || folderForm.folderKind === "EQUIPMENT") && <input value={folderForm.processName} onChange={(event) => setFolderForm({ ...folderForm, processName: event.target.value })} placeholder="상위 공정" />}
-                  <input value={folderForm.folderName} onChange={(event) => setFolderForm({ ...folderForm, folderName: event.target.value })} placeholder="추가할 폴더명" />
+                  <label className="pdm-folder-field">
+                    <span>추가 위치</span>
+                    <select value={folderForm.folderKind} onChange={(event) => setFolderForm({ ...folderForm, folderKind: event.target.value as PdmFolder["folderKind"] })}>
+                      <option value="BUSINESS">사업부 폴더</option>
+                      <option value="PROCESS">공정 폴더</option>
+                      <option value="COMMON">공통도면 폴더</option>
+                      <option value="EQUIPMENT">설비 폴더</option>
+                    </select>
+                  </label>
+                  {folderForm.folderKind !== "BUSINESS" && (
+                    <label className="pdm-folder-field">
+                      <span>상위 사업부</span>
+                      <input value={folderForm.businessUnit} onChange={(event) => setFolderForm({ ...folderForm, businessUnit: event.target.value })} placeholder="상위 사업부" />
+                    </label>
+                  )}
+                  {(folderForm.folderKind === "COMMON" || folderForm.folderKind === "EQUIPMENT") && (
+                    <label className="pdm-folder-field">
+                      <span>상위 공정</span>
+                      <input value={folderForm.processName} onChange={(event) => setFolderForm({ ...folderForm, processName: event.target.value })} placeholder="상위 공정" />
+                    </label>
+                  )}
+                  <label className="pdm-folder-field wide">
+                    <span>추가할 폴더명</span>
+                    <input value={folderForm.folderName} onChange={(event) => setFolderForm({ ...folderForm, folderName: event.target.value })} placeholder="추가할 폴더명" />
+                  </label>
                 </>
               )}
             </div>
@@ -7672,49 +8005,140 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
         </div>
       )}
 
-      {adminOpen && canAdmin && (
+      {adminOpen && canManagePdmPermissions && (
         <div className="modal-backdrop" role="presentation">
           <div className="pdm-admin-modal" role="dialog" aria-modal="true" aria-label="도면 권한 관리">
             <div className="modal-head">
-              <h3>도면 권한 관리</h3>
+              <h3>{canAdmin ? "도면 권한 관리" : "우리 부서 권한"}</h3>
               <button type="button" className="icon-button" onClick={() => setAdminOpen(false)}><X size={18} /></button>
             </div>
             <div className="pdm-admin-layout">
               <form className="form-grid compact" onSubmit={savePermission}>
+                {canAdmin ? (
+                  <div className="pdm-permission-mode" aria-label="권한 대상 유형">
+                    <button
+                      type="button"
+                      className={permissionTargetMode === "DEPT" ? "active" : ""}
+                      onClick={() => {
+                        setPermissionTargetMode("DEPT");
+                        setPermissionForm({ ...permissionForm, empId: "" });
+                      }}
+                    >
+                      부서 권한 범위
+                    </button>
+                    <button
+                      type="button"
+                      className={permissionTargetMode === "EMP" ? "active" : ""}
+                      onClick={() => {
+                        setPermissionTargetMode("EMP");
+                        setPermissionForm({ ...permissionForm, deptId: "" });
+                      }}
+                    >
+                      직원 권한 배정
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pdm-permission-mode single" aria-label="권한 대상 유형">
+                    <button type="button" className="active">직원 권한 배정</button>
+                  </div>
+                )}
+                <div className="pdm-permission-note">
+                  <strong>{canAdmin && permissionTargetMode === "DEPT" ? "부서가 가질 수 있는 최대 권한" : "직원이 실제로 사용할 권한"}</strong>
+                  <span>{canAdmin && permissionTargetMode === "DEPT" ? "관리자가 부서별 허용 범위를 정하면, 부서장은 이 범위 안에서 직원에게 권한을 배정합니다." : "부서에 허용된 권한 안에서 특정 직원이 실제로 사용할 권한을 지정합니다."}</span>
+                </div>
                 <select value={permissionForm.category} onChange={(event) => setPermissionForm({ ...permissionForm, category: event.target.value })}>
                   <option value="">전체 구분</option>
                   <option value="PRODUCT">제품도면</option>
                   <option value="EQUIPMENT">설비도면</option>
                 </select>
-                <select value={permissionForm.deptId} onChange={(event) => setPermissionForm({ ...permissionForm, deptId: event.target.value })}>
-                  <option value="">부서 선택 안함</option>
-                  {flatDepartments.map((dept) => <option key={dept.deptId} value={dept.deptId}>{dept.deptName}</option>)}
-                </select>
-                <select value={permissionForm.empId} onChange={(event) => setPermissionForm({ ...permissionForm, empId: event.target.value })}>
-                  <option value="">사용자 선택 안함</option>
-                  {employees.map((employee) => <option key={employee.empId} value={employee.empId}>{employee.empName} · {employee.deptName ?? "-"}</option>)}
-                </select>
-                {(["canRegister", "canRevise", "canView", "canDownloadRequest", "canDownloadApprove"] as const).map((key) => (
-                  <label className="check-line" key={key}>
-                    <input type="checkbox" checked={permissionForm[key]} onChange={(event) => setPermissionForm({ ...permissionForm, [key]: event.target.checked })} />
-                    {pdmPermissionLabel(key)}
-                  </label>
-                ))}
-                <button><Save size={16} /> 저장</button>
+                {canAdmin && permissionTargetMode === "DEPT" ? (
+                  <select value={permissionForm.deptId} onChange={(event) => setPermissionForm({ ...permissionForm, deptId: event.target.value })}>
+                    <option value="">부서 선택</option>
+                    {flatDepartments.map((dept) => <option key={dept.deptId} value={dept.deptId}>{dept.deptName}</option>)}
+                  </select>
+                ) : (
+                  <select value={permissionForm.empId} onChange={(event) => setPermissionForm({ ...permissionForm, empId: event.target.value })}>
+                    <option value="">사용자 선택</option>
+                    {assignableEmployees.map((employee) => <option key={employee.empId} value={employee.empId}>{employee.empName} · {employee.deptName ?? "-"}</option>)}
+                  </select>
+                )}
+                <div className="pdm-permission-checks" aria-label="권한 항목">
+                  {(["canRegister", "canRevise", "canView", "canDownloadRequest", "canDownloadApprove"] as const).map((key) => (
+                    <label className="check-line" key={key}>
+                      <input type="checkbox" checked={permissionForm[key]} onChange={(event) => setPermissionForm({ ...permissionForm, [key]: event.target.checked })} />
+                      <span>{pdmPermissionLabel(key)}</span>
+                    </label>
+                  ))}
+                </div>
+                <button className="pdm-permission-save"><Save size={16} /> 저장</button>
               </form>
-              <div className="pdm-permission-list">
-                {permissions.length ? permissions.map((permission) => (
-                  <div className="file-row" key={permission.permissionId}>
-                    <strong>{permission.empName ?? permission.deptName}</strong>
-                    <span>{permission.category ?? "전체"} · {[
-                      permission.canRegister && "등록",
-                      permission.canRevise && "개정/폐기",
-                      permission.canView && "조회",
-                      permission.canDownloadRequest && "다운로드요청",
-                      permission.canDownloadApprove && "다운로드승인"
-                    ].filter(Boolean).join(", ")}</span>
+              <div className="pdm-permission-workbench">
+                <div className="pdm-permission-summary">
+                  <div>
+                    <strong>{departmentPermissionCount}</strong>
+                    <span>부서 권한 범위</span>
                   </div>
-                )) : <Empty text="등록된 도면 권한이 없습니다." />}
+                  <div>
+                    <strong>{personalPermissionCount}</strong>
+                    <span>직원 권한 배정</span>
+                  </div>
+                  <div className="muted">
+                    <strong>다음</strong>
+                    <span>권한 요청/승인</span>
+                  </div>
+                </div>
+                <div className="pdm-role-group-preview">
+                  <strong>추가 권한은 승인 절차로 처리</strong>
+                  <span>직원이 부서 범위를 넘는 권한을 요청하면 부서장 또는 관리자가 승인한 뒤 반영합니다.</span>
+                </div>
+                <div className="pdm-permission-toolbar">
+                  <input value={permissionKeyword} onChange={(event) => setPermissionKeyword(event.target.value)} placeholder="부서, 직원, 권한 검색" />
+                  <select value={permissionEmployeeFilter} onChange={(event) => {
+                    const nextEmployeeId = event.target.value;
+                    setPermissionEmployeeFilter(nextEmployeeId);
+                    if (nextEmployeeId) setPermissionListFilter("EMP");
+                  }}>
+                    <option value="">직원 전체</option>
+                    {assignableEmployees.map((employee) => (
+                      <option key={employee.empId} value={employee.empId}>{employee.empName} · {employee.deptName ?? "-"}</option>
+                    ))}
+                  </select>
+                  <select value={permissionListFilter} onChange={(event) => {
+                    const nextFilter = event.target.value as "ALL" | "DEPT" | "EMP";
+                    setPermissionListFilter(nextFilter);
+                    if (nextFilter === "DEPT") setPermissionEmployeeFilter("");
+                  }}>
+                    <option value="ALL">전체</option>
+                    <option value="DEPT">부서 권한 범위</option>
+                    <option value="EMP">직원 권한 배정</option>
+                  </select>
+                </div>
+                {filteredPermissions.length ? (
+                  <div className="pdm-permission-table">
+                    <div className="pdm-permission-row head">
+                      <span>대상</span>
+                      <span>유형</span>
+                      <span>범위</span>
+                      <span>등록</span>
+                      <span>개정</span>
+                      <span>조회</span>
+                      <span>반출요청</span>
+                      <span>반출승인</span>
+                    </div>
+                    {filteredPermissions.map((permission) => (
+                      <div className="pdm-permission-row" key={permission.permissionId}>
+                        <strong>{permission.empName ?? permission.deptName ?? "-"}</strong>
+                        <span>{pdmPermissionTargetKindLabel(permission)}</span>
+                        <span>{pdmPermissionScopeLabel(permission.category)}</span>
+                        <span>{pdmPermissionMark(permission.canRegister)}</span>
+                        <span>{pdmPermissionMark(permission.canRevise)}</span>
+                        <span>{pdmPermissionMark(permission.canView)}</span>
+                        <span>{pdmPermissionMark(permission.canDownloadRequest)}</span>
+                        <span>{pdmPermissionMark(permission.canDownloadApprove)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <Empty text="조건에 맞는 도면 권한이 없습니다." />}
               </div>
             </div>
           </div>
@@ -7899,7 +8323,7 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
               <div className="file-row" key={permission.permissionId}>
                 <strong>{permission.empName ?? permission.deptName}</strong>
                 <span>{permission.category ?? "전체"} · {[
-                  permission.canRegister && "등록",
+                  permission.canRegister && "파일/폴더 등록",
                   permission.canRevise && "개정/폐기",
                   permission.canView && "조회",
                   permission.canDownloadRequest && "다운로드요청",
@@ -7916,7 +8340,7 @@ function DrawingManagementPage({ user, openApprovals, target }: { user: User; op
 */
 
 function PdmTreeItem({ node, selectedId, onSelect, depth = 0 }: { node: PdmTreeNode; selectedId: string; onSelect: (node: PdmTreeNode) => void; depth?: number }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(depth === 0);
   const hasChildren = Boolean(node.children?.length);
   return (
     <div>
@@ -7924,6 +8348,7 @@ function PdmTreeItem({ node, selectedId, onSelect, depth = 0 }: { node: PdmTreeN
         {hasChildren ? (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <span className="pdm-tree-spacer" />}
         {node.type === "root" || node.type === "company" || node.type === "business" || node.type === "process" ? <Folder size={15} /> : <FileText size={15} />}
         <span>{node.label}</span>
+        {hasChildren && <em>{node.children?.length}</em>}
       </button>
       {open && node.children?.map((child) => (
         <PdmTreeItem key={child.id} node={child} selectedId={selectedId} onSelect={onSelect} depth={depth + 1} />
@@ -7938,42 +8363,47 @@ function buildPdmTree(drawings: PdmDrawing[], folders: PdmFolder[]): PdmTreeNode
   const ensure = (parent: PdmTreeNode, node: PdmTreeNode) => {
     parent.children ??= [];
     const found = parent.children.find((child) => child.id === node.id);
-    if (found) return found;
+    if (found) {
+      found.folderId ??= node.folderId;
+      found.folderKind ??= node.folderKind;
+      found.sortOrder ??= node.sortOrder;
+      return found;
+    }
     parent.children.push(node);
-    parent.children.sort((a, b) => a.label.localeCompare(b.label, "ko"));
+    parent.children.sort(pdmTreeNodeComparator);
     return node;
   };
 
-  const ensureProduct = (company: string, project?: string, folderId?: number, kind?: PdmFolder["folderKind"]) => {
-    const companyNode = ensure(productRoot, { id: `product:${company}`, label: company, type: "company", category: "PRODUCT", companyName: company, folderId: kind === "COMPANY" ? folderId : undefined, children: [] });
+  const ensureProduct = (company: string, project?: string, folderId?: number, kind?: PdmFolder["folderKind"], sortOrder?: number) => {
+    const companyNode = ensure(productRoot, { id: `product:${company}`, label: company, type: "company", category: "PRODUCT", companyName: company, folderId: kind === "COMPANY" ? folderId : undefined, folderKind: kind === "COMPANY" ? kind : undefined, sortOrder: kind === "COMPANY" ? sortOrder : undefined, children: [] });
     if (project) {
-      ensure(companyNode, { id: `product:${company}:${project}`, label: project, type: "project", category: "PRODUCT", companyName: company, projectName: project, folderId: kind === "PROJECT" ? folderId : undefined });
+      ensure(companyNode, { id: `product:${company}:${project}`, label: project, type: "project", category: "PRODUCT", companyName: company, projectName: project, folderId: kind === "PROJECT" ? folderId : undefined, folderKind: kind === "PROJECT" ? kind : undefined, sortOrder: kind === "PROJECT" ? sortOrder : undefined });
     }
   };
 
-  const ensureEquipment = (business: string, process?: string, kind?: "common" | "equipment", name?: string, folderId?: number, folderKind?: PdmFolder["folderKind"]) => {
-    const businessNode = ensure(equipmentRoot, { id: `equipment:${business}`, label: business, type: "business", category: "EQUIPMENT", businessUnit: business, folderId: folderKind === "BUSINESS" ? folderId : undefined, children: [] });
+  const ensureEquipment = (business: string, process?: string, kind?: "common" | "equipment", name?: string, folderId?: number, folderKind?: PdmFolder["folderKind"], sortOrder?: number) => {
+    const businessNode = ensure(equipmentRoot, { id: `equipment:${business}`, label: business, type: "business", category: "EQUIPMENT", businessUnit: business, folderId: folderKind === "BUSINESS" ? folderId : undefined, folderKind: folderKind === "BUSINESS" ? folderKind : undefined, sortOrder: folderKind === "BUSINESS" ? sortOrder : undefined, children: [] });
     if (!process) return;
-    const processNode = ensure(businessNode, { id: `equipment:${business}:${process}`, label: process, type: "process", category: "EQUIPMENT", businessUnit: business, processName: process, folderId: folderKind === "PROCESS" ? folderId : undefined, children: [] });
+    const processNode = ensure(businessNode, { id: `equipment:${business}:${process}`, label: process, type: "process", category: "EQUIPMENT", businessUnit: business, processName: process, folderId: folderKind === "PROCESS" ? folderId : undefined, folderKind: folderKind === "PROCESS" ? folderKind : undefined, sortOrder: folderKind === "PROCESS" ? sortOrder : undefined, children: [] });
     if (kind === "equipment" && name) {
-      ensure(processNode, { id: `equipment:${business}:${process}:eq:${name}`, label: name, type: "equipment", category: "EQUIPMENT", businessUnit: business, processName: process, equipmentName: name, folderId: folderKind === "EQUIPMENT" ? folderId : undefined });
+      ensure(processNode, { id: `equipment:${business}:${process}:eq:${name}`, label: name, type: "equipment", category: "EQUIPMENT", businessUnit: business, processName: process, equipmentName: name, folderId: folderKind === "EQUIPMENT" ? folderId : undefined, folderKind: folderKind === "EQUIPMENT" ? folderKind : undefined, sortOrder: folderKind === "EQUIPMENT" ? sortOrder : undefined });
     }
     if (kind === "common") {
       const group = name || "공통도면";
-      ensure(processNode, { id: `equipment:${business}:${process}:common:${group}`, label: group, type: "common", category: "EQUIPMENT", businessUnit: business, processName: process, groupName: group, folderId: folderKind === "COMMON" ? folderId : undefined });
+      ensure(processNode, { id: `equipment:${business}:${process}:common:${group}`, label: group, type: "common", category: "EQUIPMENT", businessUnit: business, processName: process, groupName: group, folderId: folderKind === "COMMON" ? folderId : undefined, folderKind: folderKind === "COMMON" ? folderKind : undefined, sortOrder: folderKind === "COMMON" ? sortOrder : undefined });
     }
   };
 
   folders.forEach((folder) => {
     if (folder.category === "PRODUCT") {
-      if (folder.folderKind === "COMPANY") ensureProduct(folder.folderName, undefined, folder.folderId, folder.folderKind);
-      if (folder.folderKind === "PROJECT") ensureProduct(folder.companyName || "업체 미지정", folder.folderName, folder.folderId, folder.folderKind);
+      if (folder.folderKind === "COMPANY") ensureProduct(folder.folderName, undefined, folder.folderId, folder.folderKind, folder.sortOrder);
+      if (folder.folderKind === "PROJECT") ensureProduct(folder.companyName || "업체 미지정", folder.folderName, folder.folderId, folder.folderKind, folder.sortOrder);
       return;
     }
-    if (folder.folderKind === "BUSINESS") ensureEquipment(folder.folderName, undefined, undefined, undefined, folder.folderId, folder.folderKind);
-    if (folder.folderKind === "PROCESS") ensureEquipment(folder.businessUnit || "사업부 미지정", folder.folderName, undefined, undefined, folder.folderId, folder.folderKind);
-    if (folder.folderKind === "COMMON") ensureEquipment(folder.businessUnit || "사업부 미지정", folder.processName || "공정 미지정", "common", folder.folderName, folder.folderId, folder.folderKind);
-    if (folder.folderKind === "EQUIPMENT") ensureEquipment(folder.businessUnit || "사업부 미지정", folder.processName || "공정 미지정", "equipment", folder.folderName, folder.folderId, folder.folderKind);
+    if (folder.folderKind === "BUSINESS") ensureEquipment(folder.folderName, undefined, undefined, undefined, folder.folderId, folder.folderKind, folder.sortOrder);
+    if (folder.folderKind === "PROCESS") ensureEquipment(folder.businessUnit || "사업부 미지정", folder.folderName, undefined, undefined, folder.folderId, folder.folderKind, folder.sortOrder);
+    if (folder.folderKind === "COMMON") ensureEquipment(folder.businessUnit || "사업부 미지정", folder.processName || "공정 미지정", "common", folder.folderName, folder.folderId, folder.folderKind, folder.sortOrder);
+    if (folder.folderKind === "EQUIPMENT") ensureEquipment(folder.businessUnit || "사업부 미지정", folder.processName || "공정 미지정", "equipment", folder.folderName, folder.folderId, folder.folderKind, folder.sortOrder);
   });
 
   drawings.forEach((drawing) => {
@@ -7993,6 +8423,13 @@ function buildPdmTree(drawings: PdmDrawing[], folders: PdmFolder[]): PdmTreeNode
   });
 
   return [productRoot, equipmentRoot];
+}
+
+function pdmTreeNodeComparator(a: PdmTreeNode, b: PdmTreeNode) {
+  const orderA = a.sortOrder ?? 999999;
+  const orderB = b.sortOrder ?? 999999;
+  if (orderA !== orderB) return orderA - orderB;
+  return a.label.localeCompare(b.label, "ko");
 }
 
 function matchesPdmNode(drawing: PdmDrawing, node: PdmTreeNode | null) {
@@ -8054,6 +8491,18 @@ function pdmStatusLabel(status: PdmDrawing["status"]) {
   }[status];
 }
 
+function approvalStatusLabel(status: PdmDownloadRequest["approvalStatus"]) {
+  return {
+    DRAFT: "임시저장",
+    PENDING: "대기",
+    IN_PROGRESS: "진행",
+    APPROVED: "승인",
+    REJECTED: "반려",
+    WITHDRAWN: "회수",
+    CANCELED: "취소"
+  }[status];
+}
+
 function loadLocalPdmFolders(): PdmFolder[] {
   try {
     return JSON.parse(localStorage.getItem("pdmLocalFolders") ?? "[]") as PdmFolder[];
@@ -8080,7 +8529,8 @@ function localPdmFolderFromForm(form: PdmFolderForm): PdmFolder {
     businessUnit: form.folderKind === "BUSINESS" ? folderName : form.businessUnit || null,
     processName: form.folderKind === "PROCESS" ? folderName : form.processName || null,
     folderKind: form.folderKind,
-    folderName
+    folderName,
+    sortOrder: Date.now()
   };
 }
 
@@ -8146,12 +8596,38 @@ function flattenDepartments(nodes: DeptNode[]): DeptNode[] {
 
 function pdmPermissionLabel(key: string) {
   return {
-    canRegister: "등록",
+    canRegister: "파일/폴더 등록",
     canRevise: "개정/폐기",
     canView: "조회",
     canDownloadRequest: "다운로드 요청",
     canDownloadApprove: "다운로드 승인"
   }[key] ?? key;
+}
+
+function pdmPermissionTargetKindLabel(permission: PdmPermissionAdmin) {
+  if (permission.deptId != null) return "부서 권한 범위";
+  if (permission.empId != null) return "직원 권한 배정";
+  return "권한";
+}
+
+function pdmPermissionScopeLabel(category: PdmPermissionAdmin["category"]) {
+  if (category === "PRODUCT") return "제품도면";
+  if (category === "EQUIPMENT") return "설비도면";
+  return "전체";
+}
+
+function pdmPermissionNames(permission: PdmPermissionAdmin) {
+  return [
+    permission.canRegister && "파일/폴더 등록",
+    permission.canRevise && "개정/폐기",
+    permission.canView && "조회",
+    permission.canDownloadRequest && "반출요청",
+    permission.canDownloadApprove && "반출승인"
+  ].filter(Boolean) as string[];
+}
+
+function pdmPermissionMark(enabled: boolean) {
+  return enabled ? "✓" : "-";
 }
 
 function RichContent({ content }: { content: string }) {

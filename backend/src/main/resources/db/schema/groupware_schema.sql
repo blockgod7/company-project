@@ -761,6 +761,10 @@ CREATE TABLE approval_delegation (
     delegate_emp_id BIGINT NOT NULL,
     start_date DATE NOT NULL DEFAULT CURRENT_DATE,
     end_date DATE NULL,
+    start_at TIMESTAMP NULL,
+    end_at TIMESTAMP NULL,
+    delegation_type VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
+    source_approval_id BIGINT NULL,
     reason TEXT NULL,
     active_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     deleted_yn VARCHAR(1) NOT NULL DEFAULT 'N',
@@ -770,16 +774,21 @@ CREATE TABLE approval_delegation (
     updated_by BIGINT NULL,
     CONSTRAINT chk_approval_delegation_active CHECK (active_yn IN ('Y', 'N')),
     CONSTRAINT chk_approval_delegation_deleted CHECK (deleted_yn IN ('Y', 'N')),
+    CONSTRAINT chk_approval_delegation_type CHECK (delegation_type IN ('MANUAL', 'DEFAULT', 'AUTO')),
     CONSTRAINT chk_approval_delegation_period CHECK (end_date IS NULL OR end_date >= start_date),
+    CONSTRAINT chk_approval_delegation_datetime_period CHECK (end_at IS NULL OR start_at IS NULL OR end_at > start_at),
     CONSTRAINT chk_approval_delegation_not_self CHECK (owner_emp_id <> delegate_emp_id),
     CONSTRAINT fk_approval_delegation_owner FOREIGN KEY (owner_emp_id) REFERENCES emp(emp_id),
     CONSTRAINT fk_approval_delegation_delegate FOREIGN KEY (delegate_emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_approval_delegation_source FOREIGN KEY (source_approval_id) REFERENCES approval_document(approval_id),
     CONSTRAINT fk_approval_delegation_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
     CONSTRAINT fk_approval_delegation_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
 );
 
 CREATE INDEX idx_approval_delegation_owner ON approval_delegation(owner_emp_id, active_yn, deleted_yn);
 CREATE INDEX idx_approval_delegation_delegate ON approval_delegation(delegate_emp_id, active_yn, deleted_yn, start_date, end_date);
+CREATE INDEX idx_approval_delegation_delegate_at ON approval_delegation(delegate_emp_id, active_yn, deleted_yn, delegation_type, start_at, end_at);
+CREATE INDEX idx_approval_delegation_source ON approval_delegation(source_approval_id);
 
 CREATE TRIGGER trg_approval_delegation_updated_at
 BEFORE UPDATE ON approval_delegation
@@ -1143,8 +1152,7 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO board (board_code, board_name, dept_id, use_yn, created_by)
 VALUES
-    ('GENERAL', '전사 게시판', NULL, 'Y', (SELECT emp_id FROM emp WHERE login_id = 'admin')),
-    ('FREE', '자유 게시판', NULL, 'Y', (SELECT emp_id FROM emp WHERE login_id = 'admin'))
+    ('GENERAL', '게시판', NULL, 'Y', (SELECT emp_id FROM emp WHERE login_id = 'admin'))
 ON CONFLICT (board_code) DO NOTHING;
 
 -- =========================================================
@@ -1215,6 +1223,7 @@ CREATE TABLE pdm_folder (
     process_name VARCHAR(150) NULL,
     folder_kind VARCHAR(30) NOT NULL,
     folder_name VARCHAR(150) NOT NULL,
+    sort_order INT NOT NULL DEFAULT 0,
     created_by_emp_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
@@ -1292,6 +1301,7 @@ CREATE TABLE pdm_download_log (
 CREATE INDEX idx_pdm_drawing_category ON pdm_drawing(category);
 CREATE INDEX idx_pdm_drawing_status ON pdm_drawing(status);
 CREATE INDEX idx_pdm_folder_category ON pdm_folder(category);
+CREATE INDEX idx_pdm_folder_order ON pdm_folder(category, company_name, business_unit, process_name, folder_kind, sort_order);
 CREATE INDEX idx_pdm_revision_drawing ON pdm_drawing_revision(drawing_id);
 CREATE INDEX idx_pdm_permission_emp ON pdm_drawing_permission(emp_id);
 CREATE INDEX idx_pdm_permission_dept ON pdm_drawing_permission(dept_id);

@@ -262,6 +262,7 @@ class ApprovalServiceWorkflowTest {
             linePolicyService,
             equipmentProposalService,
             leaveUsageService,
+            delegationService,
             jdbcTemplate,
             new ObjectMapper()
         );
