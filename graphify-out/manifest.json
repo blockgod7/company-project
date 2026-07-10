@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\App.tsx": {
-    "mtime": 1783497819.418154,
-    "ast_hash": "c37cd711c699d603ed0cd8202a481dcf",
+    "mtime": 1783661379.5553696,
+    "ast_hash": "50e68ecdc593bd245a16d1e204e49ab1",
     "semantic_hash": ""
   },
   "C:\\Project\\Groupware\\frontend\\src\\main.tsx": {
@@ -1372,6 +1372,181 @@
   "C:\\Project\\Groupware\\.codex\\deep-interview\\specs\\groupware-ui-preview.html": {
     "mtime": 1783391065.2113364,
     "ast_hash": "0cbdf02f5b3788b9c3d1df47f1c48511",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\AccessDenied.tsx": {
+    "mtime": 1783643927.2932336,
+    "ast_hash": "99a3c9c4bbdd6fb91fa15128c5343f29",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\ApprovalTables.tsx": {
+    "mtime": 1783645087.9442997,
+    "ast_hash": "48f395b8e67d54837d834730edb227f4",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\BoardEditors.tsx": {
+    "mtime": 1783644385.6328714,
+    "ast_hash": "02978bc1a2370726727ddf8f72903318",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\CardHeader.tsx": {
+    "mtime": 1783642717.8076892,
+    "ast_hash": "6141e4d6cb52faf3cf8a8412c23842b0",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\ContentTools.tsx": {
+    "mtime": 1783644576.844463,
+    "ast_hash": "52c75390f9ce06e2237f404cc2f08cde",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\DeptTree.tsx": {
+    "mtime": 1783643535.038496,
+    "ast_hash": "126a6a23829cd8a43cd2ee88b63c1b4a",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\EmployeePickers.tsx": {
+    "mtime": 1783646622.2603672,
+    "ast_hash": "ebeceb79ee010f211bcd9f2cbbdc18b0",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\Empty.tsx": {
+    "mtime": 1783643244.335343,
+    "ast_hash": "8e8666fe528dbc71d413ba61ec7c55a4",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\PageLayout.tsx": {
+    "mtime": 1783643773.4892468,
+    "ast_hash": "c9855c7924a592d2e4d992226e57532c",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\PdmTreeItem.tsx": {
+    "mtime": 1783646306.4257128,
+    "ast_hash": "a0882f51ef02d70ba715751c0c6d53ec",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\ApprovalPage.tsx": {
+    "mtime": 1783662565.2015984,
+    "ast_hash": "3ea123152f9fa60a239bb15d641dcffe",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\AuditLogPage.tsx": {
+    "mtime": 1783643864.4056933,
+    "ast_hash": "7fb945d3242076d4b59836daa063a5ff",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\BoardPage.tsx": {
+    "mtime": 1783644684.4098668,
+    "ast_hash": "92e535f61fbc9e36fbac6f9fb6b4662e",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\DashboardPage.tsx": {
+    "mtime": 1783642768.824191,
+    "ast_hash": "d933ee757950ea88fd3020ff8e2dbf16",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\DrawingManagementPage.tsx": {
+    "mtime": 1783662253.8101196,
+    "ast_hash": "9bfbf0fb7bc3756ea99956542ac85cff",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\GlobalSearchPage.tsx": {
+    "mtime": 1783642636.5285387,
+    "ast_hash": "db5ac43442d1e736a1a2cb264b7fe5d3",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\LoginPage.tsx": {
+    "mtime": 1783640824.439808,
+    "ast_hash": "4affdb2db8e141a3db77c6215ed57aee",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\NoticePage.tsx": {
+    "mtime": 1783644473.439163,
+    "ast_hash": "6137d4af4a97d2115812e7e352df7828",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\NotificationPage.tsx": {
+    "mtime": 1783643383.1717412,
+    "ast_hash": "9a9d474c8a8a754305d28d8e93117ed4",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\OrganizationPage.tsx": {
+    "mtime": 1783643557.822578,
+    "ast_hash": "1989746f05c253c777d27dae5eeb51ec",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\utils\\approvalDomain.ts": {
+    "mtime": 1783646844.5477014,
+    "ast_hash": "308d6580f3f1f830c8e1262119d3da36",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\utils\\approvalLabels.ts": {
+    "mtime": 1783644892.2952943,
+    "ast_hash": "2a7b06ccc736d3eb8412bc69c4a032bc",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\utils\\attachments.ts": {
+    "mtime": 1783643266.8817182,
+    "ast_hash": "f33694b14e695862a823fec673e8acf7",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\utils\\date.ts": {
+    "mtime": 1783643227.308836,
+    "ast_hash": "52a05ee8b9f2b79bd65646fc0aeb73b7",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\utils\\pdmForms.ts": {
+    "mtime": 1783646426.9677482,
+    "ast_hash": "6aa870ec7d1b69f31ad6334d0d09e301",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\utils\\pdmLabels.ts": {
+    "mtime": 1783645238.1974654,
+    "ast_hash": "8b7d36e16f14d9451701eb7dea4e605b",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\utils\\pdmTree.ts": {
+    "mtime": 1783646211.0158565,
+    "ast_hash": "dcf375665f4acf7766a5bd3170024ca0",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\utils\\search.ts": {
+    "mtime": 1783643401.7972064,
+    "ast_hash": "c0b3fe26f1ad85272401c90c4d17cd77",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\AppRouteContent.tsx": {
+    "mtime": 1783661313.819433,
+    "ast_hash": "d3d9c7fe9cf88e035a0e8e9e62459a95",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\components\\AppShell.tsx": {
+    "mtime": 1783661480.0936098,
+    "ast_hash": "35b17bcaae59b2e4ae10cdb0a3b8f439",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\hooks\\useGlobalSearch.ts": {
+    "mtime": 1783661283.3695977,
+    "ast_hash": "5e1d095d6543e6735f3ec438072b64ad",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\ApprovalFormParts.tsx": {
+    "mtime": 1783662170.0588124,
+    "ast_hash": "dd9caf201b264efc2e70c037921fa8ab",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\ApprovalParts.tsx": {
+    "mtime": 1783662614.0768912,
+    "ast_hash": "5385c6e1b0c6397a12e5b4e01be71c2e",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\ApprovalTemplateParts.tsx": {
+    "mtime": 1783662065.0369658,
+    "ast_hash": "f1d6fc3ae59c228762bf246005bac22b",
+    "semantic_hash": ""
+  },
+  "C:\\Project\\Groupware\\frontend\\src\\pages\\ApprovalClassicParts.tsx": {
+    "mtime": 1783662682.687584,
+    "ast_hash": "a833fdee99c9acd4bb7d6d7eaee55cac",
     "semantic_hash": ""
   }
 }
