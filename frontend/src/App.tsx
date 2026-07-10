@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowDown,
   ArrowUp,
   Bell,
@@ -38,9 +37,12 @@ import { FormEvent, useEffect, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { api, authenticatedFetch, clearTokens, jsonBody, setTokens } from "./api";
 import schunkLogo from "./assets/schunk-carbon-logo.png";
+import { AccessDenied } from "./components/AccessDenied";
 import { CardHeader } from "./components/CardHeader";
 import { DeptTree } from "./components/DeptTree";
 import { Empty, EmptyDetail } from "./components/Empty";
+import { ContentTable, DetailPage, ListSummary, Toolbar, TwoPane } from "./components/PageLayout";
+import { AuditLogPage } from "./pages/AuditLogPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GlobalSearchPage } from "./pages/GlobalSearchPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -6092,145 +6094,6 @@ function ApprovalLineView({ lines }: { lines: Approval["lines"] }) {
           {line.comment && <p>{line.comment}</p>}
         </div>
       ))}
-    </div>
-  );
-}
-
-function AuditLogPage({ target }: { target: GlobalSearchTarget | null }) {
-  const [items, setItems] = useState<AuditLog[]>([]);
-
-  useEffect(() => {
-    void api<PageResponse<AuditLog>>("/admin/audit-logs?size=100").then((page) => setItems(page.content));
-  }, []);
-
-  useEffect(() => {
-    if (target?.type === "AUDIT_LOG") {
-      void api<PageResponse<AuditLog>>("/admin/audit-logs?size=100").then((page) => setItems(page.content));
-    }
-  }, [target?.nonce]);
-
-  return (
-    <div className="panel">
-      <h3>감사 로그</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>사용자</th>
-            <th>작업</th>
-            <th>대상</th>
-            <th>IP</th>
-            <th>일시</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((log) => (
-            <tr key={log.auditId}>
-              <td>{log.auditId}</td>
-              <td>{log.empId ?? "-"}</td>
-              <td>{log.actionType}</td>
-              <td>{log.targetTable} #{log.targetId ?? "-"}</td>
-              <td>{log.ipAddress ?? "-"}</td>
-              <td>{formatDate(log.createdAt)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function AccessDenied() {
-  return (
-    <div className="panel access-denied">
-      <Shield />
-      <h3>접근 권한이 없습니다.</h3>
-    </div>
-  );
-}
-
-function Toolbar({ title, onNew, onRefresh, beforeRefresh }: { title: string; onNew: () => void; onRefresh?: () => void; beforeRefresh?: ReactNode }) {
-  return (
-    <div className="toolbar">
-      <h3>{title}</h3>
-      <div className="toolbar-actions">
-        {beforeRefresh}
-        {onRefresh && <button className="ghost" onClick={onRefresh}><RefreshCw size={16} /> 새로고침</button>}
-        <button onClick={onNew}><Plus size={16} /> 작성</button>
-      </div>
-    </div>
-  );
-}
-
-function ListSummary({ count, text }: { count: number; text: string }) {
-  return <div className="list-summary"><strong>{count}</strong><span>{text}</span></div>;
-}
-
-function ContentTable({ rows, pinnedLabel = "고정", metricLabel = "조회수" }: {
-  rows: {
-    id: number;
-    pinned?: boolean;
-    title: string;
-    writer: string;
-    date: string;
-    hasAttachment: boolean;
-    views: ReactNode;
-    onOpen: () => void;
-  }[];
-  pinnedLabel?: string;
-  metricLabel?: string;
-}) {
-  return (
-    <div className="table-wrap">
-      <table className="content-table">
-        <thead>
-          <tr>
-            <th className="col-no">번호</th>
-            <th>제목</th>
-            <th className="col-writer">작성자</th>
-            <th className="col-date">작성일</th>
-            <th className="col-attach">첨부</th>
-            <th className="col-views">{metricLabel}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className={row.pinned ? "pinned-row" : ""}>
-              <td className="col-no">{row.id}</td>
-              <td>
-                <button className="title-link" onClick={row.onOpen}>
-                  {row.pinned && <span className="pin-label"><Flag size={14} /> {pinnedLabel}</span>}
-                  <span>{row.title}</span>
-                </button>
-              </td>
-              <td className="col-writer">{row.writer}</td>
-              <td className="col-date">{row.date}</td>
-              <td className="col-attach">{row.hasAttachment ? <Paperclip size={16} /> : <span className="dash">-</span>}</td>
-              <td className="col-views"><Eye size={15} /> {row.views}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function DetailPage({ children, onBack }: { children: ReactNode; onBack: () => void }) {
-  return (
-    <div className="detail-page">
-      <button className="back-button" onClick={onBack}>
-        <ArrowLeft size={16} /> 목록으로
-      </button>
-      {children}
-    </div>
-  );
-}
-
-function TwoPane({ left, right }: { left: ReactNode; right: ReactNode }) {
-  return (
-    <div className="two-pane">
-      <section className="panel list-pane">{left}</section>
-      <section className="panel detail-pane">{right}</section>
     </div>
   );
 }
