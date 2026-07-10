@@ -38,6 +38,18 @@ import { FormEvent, useEffect, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { api, authenticatedFetch, clearTokens, jsonBody, setTokens } from "./api";
 import schunkLogo from "./assets/schunk-carbon-logo.png";
+import { CardHeader } from "./components/CardHeader";
+import { DeptTree } from "./components/DeptTree";
+import { Empty, EmptyDetail } from "./components/Empty";
+import { DashboardPage } from "./pages/DashboardPage";
+import { GlobalSearchPage } from "./pages/GlobalSearchPage";
+import { LoginPage } from "./pages/LoginPage";
+import { NotificationPage } from "./pages/NotificationPage";
+import { OrganizationPage } from "./pages/OrganizationPage";
+import { loadAttachmentPresence, uploadAttachments } from "./utils/attachments";
+import type { AttachmentPresence, DraftAttachment } from "./utils/attachments";
+import { formatDate } from "./utils/date";
+import type { GlobalSearchTarget } from "./utils/search";
 import type {
   AuditLog,
   AttachFile,
@@ -58,7 +70,6 @@ import type {
   GlobalSearchItem,
   GlobalSearchResponse,
   LeaveUsage,
-  LoginResponse,
   Notice,
   NotificationItem,
   PdmDownloadRequest,
@@ -75,7 +86,6 @@ import type {
 
 type Route = "dashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "notifications" | "organization" | "audit";
 type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "deleted";
-type GlobalSearchTarget = { type: GlobalSearchItem["type"]; targetId: number; parentId: number | null; keyword: string; nonce: number };
 type NoticeForm = { title: string; content: string; pinned: boolean };
 type BoardForm = { title: string; content: string; draft: boolean };
 type ApprovalDelegationForm = { delegateEmpId: number | null; startDate: string; endDate: string; reason: string; active: boolean };
@@ -136,9 +146,6 @@ type ApprovalForm = {
   referenceEmpIds: number[];
   readerEmpIds: number[];
 };
-type AttachmentPresence = Record<number, boolean>;
-type DraftAttachment = { id: string; file: File };
-type LoginOption = { loginId: string; empName: string; deptName?: string | null; positionName?: string | null; roleCode: string };
 type ApprovalBoxApi = { code: string; label: string };
 type MoldFixturePart = {
   partName: string;
@@ -887,41 +894,6 @@ const menu: { route: Route; label: string; icon: LucideIcon }[] = [
   { route: "notifications", label: "알림", icon: Bell }
 ];
 
-function formatDate(value?: string | null) {
-  if (!value) return "-";
-  return value.replace("T", " ").slice(0, 16);
-}
-
-function Empty({ text = "데이터가 없습니다." }) {
-  return (
-    <div className="empty">
-      <Inbox size={32} />
-      <span>{text}</span>
-    </div>
-  );
-}
-
-async function loadAttachmentPresence(targetType: string, targetIds: number[]) {
-  const pairs = await Promise.all(targetIds.map(async (targetId) => {
-    try {
-      const files = await api<AttachFile[]>(`/files?targetType=${targetType}&targetId=${targetId}`);
-      return [targetId, files.length > 0] as const;
-    } catch {
-      return [targetId, false] as const;
-    }
-  }));
-  return Object.fromEntries(pairs) as AttachmentPresence;
-}
-
-async function uploadAttachments(targetType: string, targetId: number, attachmentsToUpload: DraftAttachment[]) {
-  if (!attachmentsToUpload.length) return;
-  const formData = new FormData();
-  formData.set("targetType", targetType);
-  formData.set("targetId", String(targetId));
-  attachmentsToUpload.forEach((attachment) => formData.append("files", attachment.file));
-  await api<AttachFile[]>("/files/batch", { method: "POST", body: formData });
-}
-
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [route, setRoute] = useState<Route>("dashboard");
@@ -1103,7 +1075,7 @@ function App() {
               }}
             />
           )}
-          {route === "dashboard" && <Dashboard user={user} go={navigate} openApprovals={openApprovals} />}
+          {route === "dashboard" && <DashboardPage user={user} go={navigate} openApprovals={openApprovals} />}
           {route === "notices" && <NoticePage user={user} target={globalSearchTarget} />}
           {route === "boards" && <BoardPage user={user} target={globalSearchTarget} />}
           {route === "approvals" && <ApprovalPage user={user} launch={approvalLaunch} target={globalSearchTarget} />}
@@ -1112,283 +1084,6 @@ function App() {
           {route === "organization" && <OrganizationPage target={globalSearchTarget} />}
           {route === "audit" && (isAdmin ? <AuditLogPage target={globalSearchTarget} /> : <AccessDenied />)}
         </main>
-      </div>
-    </div>
-  );
-}
-
-function GlobalSearchPage({
-  keyword,
-  setKeyword,
-  result,
-  loading,
-  error,
-  total,
-  onSubmit,
-  onOpen,
-  onClear
-}: {
-  keyword: string;
-  setKeyword: (keyword: string) => void;
-  result: GlobalSearchResponse | null;
-  loading: boolean;
-  error: string;
-  total: number;
-  onSubmit: (event?: FormEvent) => void;
-  onOpen: (item: GlobalSearchItem, keyword: string) => void;
-  onClear: () => void;
-}) {
-  function groupIcon(code: string) {
-    if (code === "approvals") return ClipboardCheck;
-    if (code === "boards") return MessageSquare;
-    if (code === "notices") return BookOpen;
-    if (code === "pdm") return FolderKanban;
-    if (code === "employees") return Building2;
-    if (code === "notifications") return Bell;
-    if (code === "audit") return Shield;
-    return Search;
-  }
-
-  return (
-    <section className="search-page">
-      <div className="search-page-head">
-        <span>전역 검색</span>
-        <form className="search-page-form" onSubmit={onSubmit}>
-          <Search size={22} />
-          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="김민수, 도면번호, 문서제목 검색" />
-          {keyword && (
-            <button className="search-clear" type="button" onClick={onClear} title="검색어 지우기">
-              <X size={20} />
-            </button>
-          )}
-          <button className="search-page-submit" type="submit" disabled={loading}>{loading ? "검색 중" : "검색"}</button>
-        </form>
-      </div>
-
-      <div className="search-page-toolbar">
-        <strong>전체 결과 <b>{total}</b>건</strong>
-        <select defaultValue="relevance" aria-label="정렬">
-          <option value="relevance">정확도순</option>
-          <option value="latest">최신순</option>
-        </select>
-      </div>
-
-      {error && <p className="global-search-error">{error}</p>}
-
-      {result ? (
-        result.groups.length ? (
-          <div className="search-result-stack">
-            {result.groups.map((group) => {
-              const Icon = groupIcon(group.code);
-              return (
-                <section className="search-result-section" key={group.code}>
-                  <div className="search-result-head">
-                    <div>
-                      <Icon size={21} />
-                      <strong>{group.label}</strong>
-                      <span>{group.totalCount}건</span>
-                    </div>
-                    <small>권한 내 결과</small>
-                  </div>
-                  <div className="search-result-list">
-                    {group.items.map((item) => (
-                      <button className="search-result-row" key={`${item.type}-${item.targetId}`} type="button" onClick={() => onOpen(item, result.keyword)}>
-                        <span className="search-result-title">{item.title}</span>
-                        <span className="search-result-meta">{item.meta || item.summary || "관련 정보"}</span>
-                        <span className="search-result-date">작성일 {item.occurredAt ? formatDate(item.occurredAt) : "-"}</span>
-                        <span className="search-result-badges">
-                          {item.badges.slice(0, 3).map((badge) => <em key={badge}>{badge}</em>)}
-                        </span>
-                        <span className="search-result-open">상세로 이동 <ChevronRight size={17} /></span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        ) : (
-          <Empty text="검색 결과가 없습니다." />
-        )
-      ) : (
-        <Empty text="검색어를 입력하면 권한이 있는 항목만 표시됩니다." />
-      )}
-    </section>
-  );
-}
-
-function LoginPage({ onLogin, message }: { onLogin: (login: LoginResponse) => void; message: string }) {
-  const [loginId, setLoginId] = useState("admin");
-  const [password, setPassword] = useState("admin1234");
-  const [loginOptions, setLoginOptions] = useState<LoginOption[]>([]);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    void api<LoginOption[]>("/auth/login-options")
-      .then((options) => setLoginOptions(options))
-      .catch(() => setLoginOptions([]));
-  }, []);
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setError("");
-    try {
-      const login = await api<LoginResponse>("/auth/login", {
-        method: "POST",
-        body: jsonBody({ loginId, password })
-      });
-      onLogin(login);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
-    }
-  }
-
-  return (
-    <div className="login-page">
-      <form className="login-card" onSubmit={submit}>
-        <div className="login-visual">
-          <img className="login-logo" src={schunkLogo} alt="SCHUNK Carbon Technology" />
-          <h1>SCHUNK Groupware</h1>
-          <p>업무, 공지, 게시판, 조직 정보를 한 화면에서 관리합니다.</p>
-        </div>
-        <div className="login-fields">
-          <label>
-            테스트 계정
-            <select value={loginId} onChange={(event) => {
-              setLoginId(event.target.value);
-              setPassword("admin1234");
-            }}>
-              <option value="admin">admin · 관리자</option>
-              {loginOptions.filter((option) => option.loginId !== "admin").map((option) => (
-                <option key={option.loginId} value={option.loginId}>
-                  {option.loginId} · {option.empName} · {option.deptName ?? "-"} · {option.positionName ?? option.roleCode}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            아이디
-            <input value={loginId} onChange={(event) => setLoginId(event.target.value)} />
-          </label>
-          <label>
-            비밀번호
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-          </label>
-          {(message || error) && <p className="error">{error || message}</p>}
-          <button className="primary" type="submit">LOGIN</button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function Dashboard({ user, go, openApprovals }: { user: User; go: (route: Route) => void; openApprovals: (target?: ApprovalLaunch) => void }) {
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [approvalDashboard, setApprovalDashboard] = useState<ApprovalDashboard | null>(null);
-
-  useEffect(() => {
-    void api<PageResponse<Notice>>("/notices?size=5").then((page) => setNotices(page.content));
-    void api<Board[]>("/boards").then(setBoards);
-    void api<PageResponse<NotificationItem>>("/notifications?readYn=N&size=5").then((page) => setNotifications(page.content));
-    void api<ApprovalDashboard>("/approvals/dashboard").then(setApprovalDashboard).catch(() => setApprovalDashboard(null));
-  }, []);
-
-  return (
-    <section className="portal-grid">
-      <div className="portal-card schedule-card">
-        <CardHeader title="일정관리" action="예정 기능" icon={CalendarDays} />
-        <div className="schedule-date">{new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}</div>
-        <div className="empty compact">
-          <CalendarDays size={34} />
-          <span>캘린더 기능은 다음 단계에서 연결됩니다.</span>
-        </div>
-      </div>
-
-      <div className="portal-card calendar-card">
-        <CardHeader title="업무 캘린더" icon={CalendarDays} />
-        <MiniCalendar />
-      </div>
-
-      <div className="portal-card board-card">
-        <CardHeader title="게시판" action="바로가기" icon={MessageSquare} onAction={() => go("boards")} />
-        <div className="tab-row">
-          <span className="active">공지사항</span>
-          <span>게시판</span>
-          <span>알림</span>
-        </div>
-        {notices.length ? notices.map((notice) => (
-          <button className="feed-row" key={notice.noticeId} onClick={() => go("notices")}>
-            <strong>{notice.pinned ? "[고정] " : ""}{notice.title}</strong>
-            <span>{formatDate(notice.createdAt)}</span>
-          </button>
-        )) : <Empty text="최근 공지가 없습니다." />}
-      </div>
-
-      <div className="portal-card commute-card">
-        <CardHeader title="내 업무 현황" icon={UserRound} />
-        <p>{user.empName}님, 오늘도 좋은 하루입니다.</p>
-        <div className="action-pair">
-          <button onClick={() => go("notifications")}>알림 확인</button>
-          <button onClick={() => go("organization")}>조직도</button>
-        </div>
-      </div>
-
-      <MetricCard icon={BookOpen} label="공지사항" value={notices.length} caption="최근 표시 건수" onClick={() => go("notices")} />
-      <MetricCard icon={MessageSquare} label="게시판" value={boards.length} caption="사용 가능 게시판" onClick={() => go("boards")} />
-      <MetricCard icon={Bell} label="미읽음 알림" value={notifications.length} caption="확인 필요" onClick={() => go("notifications")} />
-
-      <div className="portal-card pending-card">
-        <CardHeader title="전자결재" action="바로가기" icon={ClipboardCheck} onAction={() => openApprovals()} />
-        <div className="approval-preview">
-          <button type="button" onClick={() => openApprovals({ box: "pending", dashboardFilter: "myPending", label: "내 결재대기" })}><strong>{approvalDashboard?.myPendingCount ?? 0}</strong><span>내 결재대기</span></button>
-          <button type="button" onClick={() => openApprovals({ box: "pending", dashboardFilter: "delegatedPending", label: "대리대기" })}><strong>{approvalDashboard?.delegatedPendingCount ?? 0}</strong><span>대리대기</span></button>
-          <button type="button" onClick={() => openApprovals({ box: "pending", dashboardFilter: "overdue", label: "기한초과" })}><strong>{approvalDashboard?.overdueCount ?? 0}</strong><span>기한초과</span></button>
-          <button type="button" onClick={() => openApprovals({ box: "requested", dashboardFilter: "requestedInProgress", label: "진행문서" })}><strong>{approvalDashboard?.requestedInProgressCount ?? 0}</strong><span>진행문서</span></button>
-          <button type="button" onClick={() => openApprovals({ box: "requested", dashboardFilter: "recentCompleted", label: "최근완료" })}><strong>{approvalDashboard?.recentCompletedCount ?? 0}</strong><span>최근완료</span></button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function CardHeader({ title, action, icon: Icon, onAction }: { title: string; action?: string; icon: LucideIcon; onAction?: () => void }) {
-  return (
-    <div className="card-head">
-      <h3><Icon size={18} /> {title}</h3>
-      {action && (
-        <button onClick={onAction} disabled={!onAction}>
-          {action} <ChevronRight size={15} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function MetricCard({ icon: Icon, label, value, caption, onClick }: { icon: LucideIcon; label: string; value: number; caption: string; onClick: () => void }) {
-  return (
-    <button className="portal-card metric-card" onClick={onClick}>
-      <Icon size={22} />
-      <strong>{value}</strong>
-      <span>{label}</span>
-      <small>{caption}</small>
-    </button>
-  );
-}
-
-function MiniCalendar() {
-  const today = new Date();
-  const days = Array.from({ length: 31 }, (_, index) => index + 1);
-
-  return (
-    <div className="mini-calendar">
-      <strong>{today.toLocaleDateString("en-US", { month: "short", year: "numeric" })}</strong>
-      <div className="weekdays">
-        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
-      </div>
-      <div className="days">
-        {days.map((day) => <span key={day} className={day === today.getDate() ? "today" : ""}>{day}</span>)}
       </div>
     </div>
   );
@@ -6401,141 +6096,6 @@ function ApprovalLineView({ lines }: { lines: Approval["lines"] }) {
   );
 }
 
-function NotificationPage({ go, target }: { go: (route: Route) => void; target: GlobalSearchTarget | null }) {
-  const [items, setItems] = useState<NotificationItem[]>([]);
-  const [unreadOnly, setUnreadOnly] = useState(false);
-
-  async function load() {
-    const page = await api<PageResponse<NotificationItem>>(`/notifications?size=50${unreadOnly ? "&readYn=N" : ""}`);
-    setItems(page.content);
-  }
-
-  useEffect(() => {
-    void load();
-  }, [unreadOnly]);
-
-  useEffect(() => {
-    if (target?.type === "NOTIFICATION") {
-      setUnreadOnly(false);
-      void load();
-    }
-  }, [target?.nonce]);
-
-  async function markRead(id: number) {
-    await api(`/notifications/${id}/read`, { method: "PUT" });
-    await load();
-  }
-
-  return (
-    <div className="panel">
-      <div className="panel-head">
-        <h3>알림</h3>
-        <label className="check">
-          <input type="checkbox" checked={unreadOnly} onChange={(event) => setUnreadOnly(event.target.checked)} /> 미읽음만
-        </label>
-      </div>
-      {items.length ? items.map((item) => (
-        <div key={item.notificationId} className={item.read ? "notice-row read" : "notice-row"}>
-          <div>
-            <strong>{item.title}</strong>
-            <p>{item.message}</p>
-            <span>{item.readStatus === "READ" ? "읽음" : "미읽음"} · {formatDate(item.createdAt)}</span>
-            {item.notificationStatus === "FAILED" && <span className="error">알림 발송 실패: {item.lastErrorMessage ?? "원인 미상"}</span>}
-          </div>
-          <div className="actions">
-            {item.targetType === "APPROVAL" && item.targetId && <button className="ghost" onClick={() => go("approvals")}><ClipboardCheck size={16} /> 문서 바로가기</button>}
-            {!item.read && (
-              <button className="ghost" onClick={() => markRead(item.notificationId)}>
-                <Check size={16} /> 읽음
-              </button>
-            )}
-          </div>
-        </div>
-      )) : <Empty />}
-    </div>
-  );
-}
-
-function OrganizationPage({ target }: { target: GlobalSearchTarget | null }) {
-  const [tree, setTree] = useState<DeptNode[]>([]);
-  const [deptId, setDeptId] = useState<number | null>(null);
-  const [keyword, setKeyword] = useState("");
-  const [emps, setEmps] = useState<Employee[]>([]);
-
-  useEffect(() => {
-    void api<DeptNode[]>("/depts/tree").then(setTree);
-  }, []);
-
-  async function search(targetDept = deptId) {
-    const params = new URLSearchParams({ page: "0", size: "20", status: "ACTIVE" });
-    if (keyword) params.set("keyword", keyword);
-    if (targetDept) params.set("deptId", String(targetDept));
-    const page = await api<PageResponse<Employee>>(`/emps?${params.toString()}`);
-    setEmps(page.content);
-  }
-
-  useEffect(() => {
-    void search();
-  }, [deptId]);
-
-  useEffect(() => {
-    if (target?.type === "EMPLOYEE") {
-      setDeptId(target.parentId);
-      setKeyword(target.keyword);
-      const params = new URLSearchParams({ page: "0", size: "20", status: "ACTIVE", keyword: target.keyword });
-      if (target.parentId) params.set("deptId", String(target.parentId));
-      void api<PageResponse<Employee>>(`/emps?${params.toString()}`).then((page) => setEmps(page.content));
-    }
-  }, [target?.nonce]);
-
-  return (
-    <div className="org-layout">
-      <div className="panel tree-panel">
-        <h3>조직도</h3>
-        {tree.map((node) => <DeptTree key={node.deptId} node={node} active={deptId} onSelect={setDeptId} />)}
-      </div>
-      <div className="panel">
-        <div className="searchbar">
-          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="직원명, 아이디, 사번 검색" />
-          <button onClick={() => search()}><Search size={16} /> 검색</button>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>이름</th>
-              <th>부서</th>
-              <th>직책</th>
-              <th>역할</th>
-              <th>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            {emps.map((emp) => (
-              <tr key={emp.empId}>
-                <td>{emp.empName}</td>
-                <td>{emp.deptName ?? "-"}</td>
-                <td>{emp.positionName ?? emp.jobTitle ?? "-"}</td>
-                <td>{emp.roleCode}</td>
-                <td>{emp.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!emps.length && <Empty text="검색된 직원이 없습니다." />}
-      </div>
-    </div>
-  );
-}
-
-function DeptTree({ node, active, onSelect }: { node: DeptNode; active: number | null; onSelect: (id: number) => void }) {
-  return (
-    <div className="tree-node">
-      <button className={active === node.deptId ? "active" : ""} onClick={() => onSelect(node.deptId)}>{node.deptName}</button>
-      {node.children.map((child) => <DeptTree key={child.deptId} node={child} active={active} onSelect={onSelect} />)}
-    </div>
-  );
-}
-
 function AuditLogPage({ target }: { target: GlobalSearchTarget | null }) {
   const [items, setItems] = useState<AuditLog[]>([]);
 
@@ -6671,16 +6231,6 @@ function TwoPane({ left, right }: { left: ReactNode; right: ReactNode }) {
     <div className="two-pane">
       <section className="panel list-pane">{left}</section>
       <section className="panel detail-pane">{right}</section>
-    </div>
-  );
-}
-
-function EmptyDetail({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="empty-detail">
-      <Inbox size={42} />
-      <h3>{title}</h3>
-      <p>{text}</p>
     </div>
   );
 }
