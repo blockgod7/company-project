@@ -38,25 +38,55 @@ import type { ChangeEvent, ReactNode } from "react";
 import { api, authenticatedFetch, clearTokens, jsonBody, setTokens } from "./api";
 import schunkLogo from "./assets/schunk-carbon-logo.png";
 import { AccessDenied } from "./components/AccessDenied";
+import { ApprovalListTable, ApprovalRetentionAuditTable, DeletedApprovalListTable } from "./components/ApprovalTables";
 import { CardHeader } from "./components/CardHeader";
+import { AttachmentBox, DraftAttachmentPicker, EditorHeader, EditorTools, ReadDetail, RichContent } from "./components/ContentTools";
 import { DeptTree } from "./components/DeptTree";
 import { Empty, EmptyDetail } from "./components/Empty";
-import { ContentTable, DetailPage, ListSummary, Toolbar, TwoPane } from "./components/PageLayout";
+import { DetailPage, ListSummary, Toolbar, TwoPane } from "./components/PageLayout";
 import { AuditLogPage } from "./pages/AuditLogPage";
+import { BoardPage } from "./pages/BoardPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GlobalSearchPage } from "./pages/GlobalSearchPage";
 import { LoginPage } from "./pages/LoginPage";
+import { NoticePage } from "./pages/NoticePage";
 import { NotificationPage } from "./pages/NotificationPage";
 import { OrganizationPage } from "./pages/OrganizationPage";
-import { loadAttachmentPresence, uploadAttachments } from "./utils/attachments";
-import type { AttachmentPresence, DraftAttachment } from "./utils/attachments";
+import { uploadAttachments } from "./utils/attachments";
+import type { DraftAttachment } from "./utils/attachments";
+import {
+  approvalProgress,
+  delegatedActionText,
+  documentPrefix,
+  isDelegatedAction,
+  lineActedName,
+  lineAssignedName,
+  lineDueText,
+  lineStatusLabel,
+  lineTypeLabel,
+  priorityLabel,
+  receiverProgress,
+  retentionAuditActionLabel,
+  stageLabel,
+  statusLabel,
+  templateName
+} from "./utils/approvalLabels";
 import { formatDate } from "./utils/date";
+import {
+  approvalStatusLabel,
+  fileExtension,
+  fileNameFromContentDisposition,
+  pdmPermissionLabel,
+  pdmPermissionMark,
+  pdmPermissionNames,
+  pdmPermissionScopeLabel,
+  pdmPermissionTargetKindLabel,
+  pdmStatusLabel
+} from "./utils/pdmLabels";
 import type { GlobalSearchTarget } from "./utils/search";
 import type {
   AuditLog,
-  AttachFile,
   Approval,
-  ApprovalDashboard,
   ApprovalDelegationApi,
   ApprovalDefaultLineApi,
   ApprovalDefaultLineStepApi,
@@ -64,16 +94,12 @@ import type {
   ApprovalOperationSettings,
   ApprovalSummary,
   ApprovalTemplateApi,
-  Board,
-  BoardPost,
   DeptNode,
   Employee,
   EquipmentProposal,
   GlobalSearchItem,
   GlobalSearchResponse,
   LeaveUsage,
-  Notice,
-  NotificationItem,
   PdmDownloadRequest,
   PdmDrawing,
   PdmDrawingDetail,
@@ -88,8 +114,6 @@ import type {
 
 type Route = "dashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "notifications" | "organization" | "audit";
 type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "deleted";
-type NoticeForm = { title: string; content: string; pinned: boolean };
-type BoardForm = { title: string; content: string; draft: boolean };
 type ApprovalDelegationForm = { delegateEmpId: number | null; startDate: string; endDate: string; reason: string; active: boolean };
 type ApprovalOperationSettingsForm = { decisionDueHours: number; reminderFixedDelayMs: number; deletedDocumentRetentionDays: number; permanentDeleteEnabled: boolean };
 type ApprovalTemplateOption = {
@@ -1088,285 +1112,6 @@ function App() {
         </main>
       </div>
     </div>
-  );
-}
-
-function NoticePage({ user, target }: { user: User; target: GlobalSearchTarget | null }) {
-  const [items, setItems] = useState<Notice[]>([]);
-  const [selected, setSelected] = useState<Notice | null>(null);
-  const [mode, setMode] = useState<ContentMode>("list");
-  const [form, setForm] = useState<NoticeForm>({ title: "", content: "", pinned: false });
-  const [attachments, setAttachments] = useState<AttachmentPresence>({});
-  const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
-  const canEdit = selected ? user.roleCode === "ADMIN" || selected.writerEmpId === user.empId : false;
-
-  async function load() {
-    const page = await api<PageResponse<Notice>>("/notices?size=20");
-    setItems(page.content);
-    const nextAttachments = await loadAttachmentPresence("NOTICE", page.content.map((item) => item.noticeId));
-    setAttachments(nextAttachments);
-  }
-
-  async function loadDetail(id: number) {
-    const detail = await api<Notice>(`/notices/${id}`);
-    setSelected(detail);
-    setForm({ title: detail.title, content: detail.content, pinned: detail.pinned });
-    setMode("detail");
-  }
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  useEffect(() => {
-    if (target?.type === "NOTICE") {
-      void loadDetail(target.targetId);
-    }
-  }, [target?.nonce]);
-
-  function startCreate() {
-    setSelected(null);
-    setForm({ title: "", content: "", pinned: false });
-    setPendingFiles([]);
-    setMode("create");
-  }
-
-  function startEdit() {
-    if (!selected || !canEdit) return;
-    setForm({ title: selected.title, content: selected.content, pinned: selected.pinned });
-    setPendingFiles([]);
-    setMode("edit");
-  }
-
-  async function save() {
-    const isEdit = mode === "edit" && selected && canEdit;
-    const path = isEdit ? `/notices/${selected.noticeId}` : "/notices";
-    const method = isEdit ? "PUT" : "POST";
-    const saved = await api<Notice>(path, { method, body: jsonBody(form) });
-    await uploadAttachments("NOTICE", saved.noticeId, pendingFiles);
-    setPendingFiles([]);
-    await load();
-    await loadDetail(saved.noticeId);
-  }
-
-  async function remove() {
-    if (!selected || !canEdit) return;
-    await api(`/notices/${selected.noticeId}`, { method: "DELETE" });
-    setSelected(null);
-    setForm({ title: "", content: "", pinned: false });
-    setPendingFiles([]);
-    setMode("list");
-    await load();
-  }
-
-  return (
-    <section className="panel board-screen">
-      <Toolbar title="공지사항" onNew={startCreate} onRefresh={load} />
-      {mode === "list" && (
-        <>
-          <ListSummary count={items.length} text="등록된 공지" />
-          {items.length ? (
-            <ContentTable
-              rows={items.map((item) => ({
-                id: item.noticeId,
-                pinned: item.pinned,
-                title: item.title,
-                writer: item.writerName,
-                date: formatDate(item.createdAt),
-                hasAttachment: !!attachments[item.noticeId],
-                views: item.viewCount,
-                onOpen: () => loadDetail(item.noticeId)
-              }))}
-            />
-          ) : <Empty text="게시글이 없습니다." />}
-        </>
-      )}
-      {mode === "detail" && selected && (
-        <DetailPage onBack={() => setMode("list")}>
-          <ReadDetail
-            title={selected.title}
-            content={selected.content}
-            meta={`${selected.writerName} · 조회 ${selected.viewCount} · ${formatDate(selected.createdAt)}`}
-            badge={selected.pinned ? "상단 고정" : undefined}
-            canEdit={canEdit}
-            onEdit={startEdit}
-            onDelete={remove}
-          />
-          <AttachmentBox targetType="NOTICE" targetId={selected.noticeId} />
-        </DetailPage>
-      )}
-      {(mode === "create" || mode === "edit") && (
-        <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
-          <NoticeEditor
-            title={mode === "create" ? "게시글 작성" : "게시글 수정"}
-            form={form}
-            setForm={setForm}
-            pendingFiles={pendingFiles}
-            setPendingFiles={setPendingFiles}
-            onSave={save}
-            onCancel={() => selected ? setMode("detail") : setMode("list")}
-            onDelete={mode === "edit" && canEdit ? remove : undefined}
-          />
-          {mode === "edit" && selected && <AttachmentBox targetType="NOTICE" targetId={selected.noticeId} />}
-        </DetailPage>
-      )}
-    </section>
-  );
-}
-
-function BoardPage({ user, target }: { user: User; target: GlobalSearchTarget | null }) {
-  const [boards, setBoards] = useState<Board[]>([]);
-  const [boardId, setBoardId] = useState<number | null>(null);
-  const [posts, setPosts] = useState<BoardPost[]>([]);
-  const [selected, setSelected] = useState<BoardPost | null>(null);
-  const [mode, setMode] = useState<ContentMode>("list");
-  const [form, setForm] = useState<BoardForm>({ title: "", content: "", draft: false });
-  const [attachments, setAttachments] = useState<AttachmentPresence>({});
-  const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
-  const canEdit = selected ? user.roleCode === "ADMIN" || selected.writerEmpId === user.empId : false;
-
-  async function loadBoards() {
-    const data = await api<Board[]>("/boards");
-    setBoards(data);
-    if (!boardId || !data.some((board) => board.boardId === boardId)) {
-      setBoardId(data[0]?.boardId ?? null);
-    }
-  }
-
-  async function loadPosts(id = boardId) {
-    if (!id) return;
-    const page = await api<PageResponse<BoardPost>>(`/boards/${id}/posts?size=20`);
-    setPosts(page.content);
-    const nextAttachments = await loadAttachmentPresence("BOARD_POST", page.content.map((post) => post.postId));
-    setAttachments(nextAttachments);
-  }
-
-  async function loadPost(id: number) {
-    const detail = await api<BoardPost>(`/boards/posts/${id}`);
-    setSelected(detail);
-    setForm({ title: detail.title, content: detail.content, draft: detail.draft });
-    setMode("detail");
-  }
-
-  useEffect(() => {
-    void loadBoards();
-  }, []);
-
-  useEffect(() => {
-    void loadPosts();
-  }, [boardId]);
-
-  useEffect(() => {
-    if (target?.type === "BOARD_POST") {
-      if (target.parentId) setBoardId(target.parentId);
-      void loadPost(target.targetId);
-    }
-  }, [target?.nonce]);
-
-  function changeBoard(nextBoardId: number) {
-    setBoardId(nextBoardId);
-    setSelected(null);
-    setForm({ title: "", content: "", draft: false });
-    setPendingFiles([]);
-    setMode("list");
-  }
-
-  function startCreate() {
-    setSelected(null);
-    setForm({ title: "", content: "", draft: false });
-    setPendingFiles([]);
-    setMode("create");
-  }
-
-  function startEdit() {
-    if (!selected || !canEdit) return;
-    setForm({ title: selected.title, content: selected.content, draft: selected.draft });
-    setPendingFiles([]);
-    setMode("edit");
-  }
-
-  async function save() {
-    if (!boardId && !selected) return;
-    const isEdit = mode === "edit" && selected && canEdit;
-    const path = isEdit ? `/boards/posts/${selected.postId}` : `/boards/${boardId}/posts`;
-    const method = isEdit ? "PUT" : "POST";
-    const saved = await api<BoardPost>(path, { method, body: jsonBody(form) });
-    await uploadAttachments("BOARD_POST", saved.postId, pendingFiles);
-    setPendingFiles([]);
-    await loadPosts(saved.boardId);
-    await loadPost(saved.postId);
-  }
-
-  async function remove() {
-    if (!selected || !canEdit) return;
-    await api(`/boards/posts/${selected.postId}`, { method: "DELETE" });
-    setSelected(null);
-    setForm({ title: "", content: "", draft: false });
-    setPendingFiles([]);
-    setMode("list");
-    await loadPosts();
-  }
-
-  async function comment(content: string) {
-    if (!selected || !content.trim()) return;
-    await api(`/boards/posts/${selected.postId}/comments`, { method: "POST", body: jsonBody({ content }) });
-    await loadPost(selected.postId);
-  }
-
-  return (
-    <section className="panel board-screen">
-      <Toolbar title="게시판" onNew={startCreate} onRefresh={() => loadPosts()} />
-      {mode === "list" && (
-        <>
-          <ListSummary count={posts.length} text="게시글" />
-          {posts.length ? (
-            <ContentTable
-              rows={posts.map((post) => ({
-                id: post.postId,
-                pinned: post.draft,
-                title: post.title,
-                writer: post.writerName,
-                date: formatDate(post.createdAt),
-                hasAttachment: !!attachments[post.postId],
-                views: post.viewCount,
-                onOpen: () => loadPost(post.postId)
-              }))}
-              pinnedLabel="임시"
-            />
-          ) : <Empty text="게시글이 없습니다." />}
-        </>
-      )}
-      {mode === "detail" && selected && (
-        <DetailPage onBack={() => setMode("list")}>
-          <ReadDetail
-            title={selected.title}
-            content={selected.content}
-            meta={`${selected.writerName} · 조회 ${selected.viewCount} · ${formatDate(selected.createdAt)}`}
-            badge={selected.draft ? "임시글" : undefined}
-            canEdit={canEdit}
-            onEdit={startEdit}
-            onDelete={remove}
-          />
-          <AttachmentBox targetType="BOARD_POST" targetId={selected.postId} />
-          <CommentBox comments={selected.comments} onSubmit={comment} />
-        </DetailPage>
-      )}
-      {(mode === "create" || mode === "edit") && (
-        <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
-          <BoardEditor
-            title={mode === "create" ? "게시글 작성" : "게시글 수정"}
-            form={form}
-            setForm={setForm}
-            pendingFiles={pendingFiles}
-            setPendingFiles={setPendingFiles}
-            onSave={save}
-            onCancel={() => selected ? setMode("detail") : setMode("list")}
-            onDelete={mode === "edit" && canEdit ? remove : undefined}
-          />
-          {mode === "edit" && selected && <AttachmentBox targetType="BOARD_POST" targetId={selected.postId} />}
-        </DetailPage>
-      )}
-    </section>
   );
 }
 
@@ -4184,115 +3929,6 @@ function TemplateMiniStamp({ label, writer, compact = false }: { label: string; 
   );
 }
 
-function ApprovalListTable({ items, templates, onOpen }: { items: ApprovalSummary[]; templates: ApprovalTemplateOption[]; onOpen: (id: number) => void }) {
-  return (
-    <div className="table-wrap">
-      <table className="content-table approval-list-table">
-        <thead>
-          <tr>
-            <th>문서번호</th>
-            <th>중요도</th>
-            <th>양식</th>
-            <th>제목</th>
-            <th>기안자</th>
-            <th>현재 단계</th>
-            <th>문서 상태</th>
-            <th>작성일</th>
-            <th>완료일</th>
-            <th>진행률</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.approvalId} className={`approval-row approval-row-${item.status.toLowerCase()}`}>
-              <td>{item.documentNo ?? "상신 전"}</td>
-              <td><span className={`priority priority-${item.priority.toLowerCase()}`}>{priorityLabel(item.priority)}</span></td>
-              <td>{templateName(templates, item.templateCode)}</td>
-              <td><button className="title-link" onClick={() => onOpen(item.approvalId)}>{item.title}</button></td>
-              <td>{item.requesterName}</td>
-              <td><span className="approval-stage-pill">{stageLabel(item.currentStage)}</span></td>
-              <td><span className={`approval-status-pill approval-status-${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span></td>
-              <td>{formatDate(item.requestedAt)}</td>
-              <td>{item.completedAt ? formatDate(item.completedAt) : "-"}</td>
-              <td>{item.currentApproverName ? `결재 ${item.currentApproverName}` : stageLabel(item.currentStage)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function DeletedApprovalListTable({ items, templates, onRestore }: { items: ApprovalSummary[]; templates: ApprovalTemplateOption[]; onRestore: (id: number) => void }) {
-  return (
-    <div className="table-wrap">
-      <table className="content-table approval-list-table">
-        <thead>
-          <tr>
-            <th>문서번호</th>
-            <th>양식</th>
-            <th>제목</th>
-            <th>기안자</th>
-            <th>문서 상태</th>
-            <th>삭제일</th>
-            <th>삭제자</th>
-            <th>복구</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.approvalId}>
-              <td>{item.documentNo ?? "상신 전"}</td>
-              <td>{templateName(templates, item.templateCode)}</td>
-              <td>{item.title}</td>
-              <td>{item.requesterName}</td>
-              <td>{statusLabel(item.status)}</td>
-              <td>{item.deletedAt ? formatDate(item.deletedAt) : "-"}</td>
-              <td>{item.deletedByName ?? "-"}</td>
-              <td><button type="button" className="ghost" onClick={() => onRestore(item.approvalId)}><RefreshCw size={16} /> 복구</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ApprovalRetentionAuditTable({ items }: { items: AuditLog[] }) {
-  return (
-    <div className="table-wrap">
-      <table className="content-table approval-list-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>작업</th>
-            <th>문서</th>
-            <th>사용자</th>
-            <th>사유</th>
-            <th>결과</th>
-            <th>IP</th>
-            <th>일시</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.auditId}>
-              <td>{item.auditId}</td>
-              <td>{retentionAuditActionLabel(item.actionType)}</td>
-              <td>#{item.targetId ?? "-"}</td>
-              <td>{item.empId ?? "-"}</td>
-              <td>{item.reason ?? "-"}</td>
-              <td>{item.success ? "성공" : "실패"}</td>
-              <td>{item.ipAddress ?? "-"}</td>
-              <td>{formatDate(item.createdAt)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function ApprovalDetailView({
   user,
   approval,
@@ -5585,124 +5221,6 @@ async function downloadApprovalPdf(approvalId: number, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-function documentPrefix(templateCode: string | null | undefined) {
-  if (templateCode === "LEAVE") return "LEV";
-  if (templateCode === "LEAVE_CANCEL") return "LVC";
-  if (templateCode === "PURCHASE") return "PUR";
-  if (templateCode === "TRAINING_REQUEST" || templateCode === "TRAINING_REPORT") return "EDU";
-  if (templateCode === "EQUIPMENT_PROPOSAL") return "EQP";
-  if (templateCode === "MOLD_FIXTURE_PROPOSAL") return "MFP";
-  return "APP";
-}
-
-function templateName(templates: ApprovalTemplateOption[], code: string | null) {
-  return templates.find((template) => template.code === code)?.name ?? code ?? "-";
-}
-
-function priorityLabel(priority: ApprovalSummary["priority"]) {
-  return priority === "URGENT" ? "긴급" : priority === "IMPORTANT" ? "중요" : "일반";
-}
-
-function statusLabel(status: ApprovalSummary["status"]) {
-  const labels: Record<ApprovalSummary["status"], string> = {
-    DRAFT: "임시저장",
-    PENDING: "진행중",
-    IN_PROGRESS: "진행중",
-    APPROVED: "승인",
-    REJECTED: "반려",
-    WITHDRAWN: "회수",
-    CANCELED: "취소"
-  };
-  return labels[status] ?? status;
-}
-
-function retentionAuditActionLabel(actionType: string) {
-  if (actionType === "DELETE_APPROVAL") return "보존삭제";
-  if (actionType === "RESTORE_APPROVAL") return "복구";
-  return actionType;
-}
-
-function stageLabel(stage: ApprovalSummary["currentStage"]) {
-  const labels: Record<ApprovalSummary["currentStage"], string> = {
-    DRAFT: "임시저장",
-    AGREEMENT_PROGRESS: "합의 진행",
-    APPROVAL_PROGRESS: "결재 진행",
-    RECEIVER_PROGRESS: "수신 전달",
-    COMPLETED: "완료",
-    REJECTED: "반려",
-    WITHDRAWN: "회수",
-    CANCELED: "취소"
-  };
-  return labels[stage] ?? stage;
-}
-
-function lineStatusLabel(status: ApprovalLine["status"]) {
-  const labels: Record<ApprovalLine["status"], string> = {
-    WAITING: "대기",
-    PENDING: "처리대기",
-    APPROVED: "승인",
-    REJECTED: "반려",
-    SKIPPED: "건너뜀",
-    RECEIVED: "수신",
-    READ: "열람",
-    RECEIPT_COMPLETED: "접수완료"
-  };
-  return labels[status] ?? status;
-}
-
-function lineTypeLabel(lineType: ApprovalLine["lineType"]) {
-  const labels: Record<ApprovalLine["lineType"], string> = {
-    AGREEMENT: "합의",
-    APPROVAL: "결재",
-    RECEIVER: "수신",
-    REFERENCE: "참조",
-    READER: "연람"
-  };
-  return labels[lineType] ?? lineType;
-}
-
-function lineDueText(line: ApprovalLine) {
-  if (!line.dueAt || line.status !== "PENDING") return null;
-  const overdue = new Date(line.dueAt).getTime() < Date.now();
-  return `${overdue ? "기한 초과" : "처리 기한"} ${formatDate(line.dueAt)}`;
-}
-
-function lineAssignedName(line: ApprovalLine) {
-  return line.empNameSnapshot ?? line.approverName;
-}
-
-function lineActedName(line: ApprovalLine) {
-  return line.actedEmpName ?? signatureDisplayName(line);
-}
-
-function isDelegatedAction(line: ApprovalLine) {
-  if (!line.actedEmpId || !line.assignedEmpId || line.actedEmpId === line.assignedEmpId) return false;
-  return line.status === "APPROVED" || line.status === "REJECTED" || line.status === "RECEIPT_COMPLETED";
-}
-
-function delegatedActionText(line: ApprovalLine) {
-  if (!isDelegatedAction(line)) return null;
-  return `${lineAssignedName(line)} 대리로 ${lineActedName(line)} 처리`;
-}
-
-function approvalProgress(lines: ApprovalLine[]) {
-  const agreements = lines.filter((line) => line.lineType === "AGREEMENT");
-  const approvals = lines.filter((line) => line.lineType === "APPROVAL");
-  const agreed = agreements.filter((line) => line.status === "APPROVED").length;
-  const approved = approvals.filter((line) => line.status === "APPROVED").length;
-  if (agreements.length && agreed < agreements.length) return `합의 ${agreed}/${agreements.length} 완료`;
-  if (approvals.length) return `결재 ${approved}/${approvals.length} 진행`;
-  return "-";
-}
-
-function receiverProgress(lines: ApprovalLine[]) {
-  const receivers = lines.filter((line) => line.lineType === "RECEIVER");
-  if (!receivers.length) return "-";
-  const completed = receivers.filter((line) => line.status === "RECEIPT_COMPLETED").length;
-  const read = receivers.filter((line) => line.status === "READ").length;
-  return completed ? `접수완료 ${completed}/${receivers.length}` : read ? `수신확인 ${read}/${receivers.length}` : "수신 미접수";
-}
-
 function ApproverPicker({ employees, selectedIds, onChange }: { employees: Employee[]; selectedIds: number[]; onChange: (ids: number[]) => void }) {
   const [open, setOpen] = useState(false);
   const [tree, setTree] = useState<DeptNode[]>([]);
@@ -6094,147 +5612,6 @@ function ApprovalLineView({ lines }: { lines: Approval["lines"] }) {
           {line.comment && <p>{line.comment}</p>}
         </div>
       ))}
-    </div>
-  );
-}
-
-function ReadDetail({ title, content, meta, badge, canEdit, onEdit, onDelete, editLabel = "수정", deleteLabel = "삭제" }: {
-  title: string;
-  content: string;
-  meta: string;
-  badge?: string;
-  canEdit: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-  editLabel?: string;
-  deleteLabel?: string;
-  headerAside?: ReactNode;
-}) {
-  return (
-    <article className="read-detail">
-      <div className="detail-actions">
-        <div>
-          {badge && <span className="badge">{badge}</span>}
-          <h2>{title}</h2>
-          <p>{meta}</p>
-        </div>
-        {canEdit && (
-          <div className="actions">
-            <button onClick={onEdit}><Edit3 size={16} /> {editLabel}</button>
-            <button className="danger" onClick={onDelete}><Trash2 size={16} /> {deleteLabel}</button>
-          </div>
-        )}
-      </div>
-      <div className="detail-content">{content ? <RichContent content={content} /> : "내용이 없습니다."}</div>
-    </article>
-  );
-}
-
-function NoticeEditor({ title, form, setForm, pendingFiles, setPendingFiles, onSave, onCancel, onDelete }: {
-  title: string;
-  form: NoticeForm;
-  setForm: (value: NoticeForm) => void;
-  pendingFiles: DraftAttachment[];
-  setPendingFiles: (value: DraftAttachment[]) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onDelete?: () => void;
-}) {
-  return (
-    <div className="editor">
-      <EditorHeader title={title} onSave={onSave} onCancel={onCancel} onDelete={onDelete} />
-      <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="제목" />
-      <EditorTools content={form.content} onChange={(content) => setForm({ ...form, content })} />
-      <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="내용" />
-      <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
-      <div className="editor-options">
-        <label className="check">
-          <input type="checkbox" checked={form.pinned} onChange={(event) => setForm({ ...form, pinned: event.target.checked })} />
-          <span>상단 고정</span>
-        </label>
-      </div>
-    </div>
-  );
-}
-
-function BoardEditor({ title, form, setForm, pendingFiles, setPendingFiles, onSave, onCancel, onDelete }: {
-  title: string;
-  form: BoardForm;
-  setForm: (value: BoardForm) => void;
-  pendingFiles: DraftAttachment[];
-  setPendingFiles: (value: DraftAttachment[]) => void;
-  onSave: () => void;
-  onCancel: () => void;
-  onDelete?: () => void;
-}) {
-  return (
-    <div className="editor">
-      <EditorHeader title={title} onSave={onSave} onCancel={onCancel} onDelete={onDelete} />
-      <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="제목" />
-      <EditorTools content={form.content} onChange={(content) => setForm({ ...form, content })} />
-      <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="내용" />
-      <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
-      <div className="editor-options">
-        <label className="check">
-          <input type="checkbox" checked={form.draft} onChange={(event) => setForm({ ...form, draft: event.target.checked })} />
-          <span>임시글</span>
-        </label>
-      </div>
-    </div>
-  );
-}
-
-function EditorTools({ content, onChange }: { content: string; onChange: (content: string) => void }) {
-  function insertImage() {
-    const url = window.prompt("본문에 넣을 이미지 URL을 입력하세요.");
-    if (!url?.trim()) return;
-    const alt = window.prompt("이미지 설명을 입력하세요.")?.trim() || "image";
-    const next = `${content}${content.endsWith("\n") || !content ? "" : "\n\n"}![${alt}](${url.trim()})`;
-    onChange(next);
-  }
-
-  return (
-    <div className="editor-tools">
-      <button type="button" className="ghost" onClick={insertImage}>
-        <Paperclip size={15} /> 본문 이미지
-      </button>
-      <span>이미지 URL은 본문 안에 바로 표시됩니다.</span>
-    </div>
-  );
-}
-
-function DraftAttachmentPicker({ files, onChange }: { files: DraftAttachment[]; onChange: (files: DraftAttachment[]) => void }) {
-  function add(fileList: FileList | null) {
-    if (!fileList?.length) return;
-    const next = Array.from(fileList).map((file) => ({
-      id: `${file.name}-${file.size}-${file.lastModified}-${crypto.randomUUID()}`,
-      file
-    }));
-    onChange([...files, ...next]);
-  }
-
-  function remove(id: string) {
-    onChange(files.filter((file) => file.id !== id));
-  }
-
-  return (
-    <div className="draft-attachments">
-      <div className="panel-head">
-        <h3>첨부파일</h3>
-        <label className="file-button">
-          <input type="file" multiple onChange={(event) => add(event.target.files)} />
-          <Plus size={16} /> 파일 선택
-        </label>
-      </div>
-      {files.length ? files.map((attachment) => (
-        <div className="file-row" key={attachment.id}>
-          <strong className="file-link">{attachment.file.name}</strong>
-          <span>{Math.ceil(attachment.file.size / 1024)} KB · 저장 시 업로드</span>
-          <button type="button" className="danger ghost" onClick={() => remove(attachment.id)}>
-            <Trash2 size={15} /> 제거
-          </button>
-        </div>
-      )) : <Empty text="저장 전에 첨부할 파일을 선택할 수 있습니다." />}
     </div>
   );
 }
@@ -7881,41 +7258,6 @@ function pdmNodePath(node: PdmTreeNode) {
   return node.label;
 }
 
-function fileExtension(fileName: string) {
-  const index = fileName.lastIndexOf(".");
-  return index >= 0 ? fileName.slice(index + 1).toLowerCase() : "";
-}
-
-function fileNameFromContentDisposition(disposition: string | null) {
-  if (!disposition) return null;
-  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1].trim().replace(/^"|"$/g, ""));
-  const fileNameMatch = disposition.match(/filename="?([^"]+)"?/i);
-  if (!fileNameMatch?.[1]) return null;
-  return decodeURIComponent(fileNameMatch[1].trim());
-}
-
-function pdmStatusLabel(status: PdmDrawing["status"]) {
-  return {
-    ACTIVE: "사용중",
-    OLD_VERSION: "구버전",
-    VOIDED: "폐기",
-    ON_HOLD: "보류"
-  }[status];
-}
-
-function approvalStatusLabel(status: PdmDownloadRequest["approvalStatus"]) {
-  return {
-    DRAFT: "임시저장",
-    PENDING: "대기",
-    IN_PROGRESS: "진행",
-    APPROVED: "승인",
-    REJECTED: "반려",
-    WITHDRAWN: "회수",
-    CANCELED: "취소"
-  }[status];
-}
-
 function loadLocalPdmFolders(): PdmFolder[] {
   try {
     return JSON.parse(localStorage.getItem("pdmLocalFolders") ?? "[]") as PdmFolder[];
@@ -8005,163 +7347,6 @@ function localPdmFolderInNode(folder: PdmFolder, node: PdmTreeNode) {
 
 function flattenDepartments(nodes: DeptNode[]): DeptNode[] {
   return nodes.flatMap((node) => [node, ...flattenDepartments(node.children ?? [])]);
-}
-
-function pdmPermissionLabel(key: string) {
-  return {
-    canRegister: "파일/폴더 등록",
-    canRevise: "개정/폐기",
-    canView: "조회",
-    canDownloadRequest: "다운로드 요청",
-    canDownloadApprove: "다운로드 승인"
-  }[key] ?? key;
-}
-
-function pdmPermissionTargetKindLabel(permission: PdmPermissionAdmin) {
-  if (permission.deptId != null) return "부서 권한 범위";
-  if (permission.empId != null) return "직원 권한 배정";
-  return "권한";
-}
-
-function pdmPermissionScopeLabel(category: PdmPermissionAdmin["category"]) {
-  if (category === "PRODUCT") return "제품도면";
-  if (category === "EQUIPMENT") return "설비도면";
-  return "전체";
-}
-
-function pdmPermissionNames(permission: PdmPermissionAdmin) {
-  return [
-    permission.canRegister && "파일/폴더 등록",
-    permission.canRevise && "개정/폐기",
-    permission.canView && "조회",
-    permission.canDownloadRequest && "반출요청",
-    permission.canDownloadApprove && "반출승인"
-  ].filter(Boolean) as string[];
-}
-
-function pdmPermissionMark(enabled: boolean) {
-  return enabled ? "✓" : "-";
-}
-
-function RichContent({ content }: { content: string }) {
-  const imagePattern = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
-  const parts: ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = imagePattern.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(<p key={`text-${lastIndex}`}>{content.slice(lastIndex, match.index)}</p>);
-    }
-    parts.push(<img key={`image-${match.index}`} src={match[2]} alt={match[1] || "본문 이미지"} />);
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < content.length) {
-    parts.push(<p key={`text-${lastIndex}`}>{content.slice(lastIndex)}</p>);
-  }
-
-  return <>{parts}</>;
-}
-
-function EditorHeader({ title, onSave, onCancel, onDelete }: { title: string; onSave: () => void; onCancel: () => void; onDelete?: () => void }) {
-  return (
-    <div className="panel-head">
-      <h3>{title}</h3>
-      <div className="actions">
-        <button onClick={onSave}><Save size={16} /> 저장</button>
-        <button className="ghost" onClick={onCancel}><X size={16} /> 취소</button>
-        {onDelete && <button className="danger" onClick={onDelete}><Trash2 size={16} /> 삭제</button>}
-      </div>
-    </div>
-  );
-}
-
-function CommentBox({ comments, onSubmit }: { comments: { commentId: number; writerName: string; content: string; createdAt: string }[]; onSubmit: (content: string) => void }) {
-  const [content, setContent] = useState("");
-
-  return (
-    <div className="comments">
-      <h3>댓글</h3>
-      {comments.length ? comments.map((comment) => (
-        <div className="comment" key={comment.commentId}>
-          <strong>{comment.writerName}</strong>
-          <span>{formatDate(comment.createdAt)}</span>
-          <p>{comment.content}</p>
-        </div>
-      )) : <Empty text="등록된 댓글이 없습니다." />}
-      <div className="comment-form">
-        <input value={content} onChange={(event) => setContent(event.target.value)} placeholder="댓글 작성" />
-        <button onClick={() => { onSubmit(content); setContent(""); }}>등록</button>
-      </div>
-    </div>
-  );
-}
-
-function AttachmentBox({ targetType, targetId, readOnly = false, canDownload = true }: { targetType: string; targetId: number; readOnly?: boolean; canDownload?: boolean }) {
-  const [files, setFiles] = useState<AttachFile[]>([]);
-  const [busy, setBusy] = useState(false);
-
-  async function load() {
-    const data = await api<AttachFile[]>(`/files?targetType=${targetType}&targetId=${targetId}`);
-    setFiles(data);
-  }
-
-  useEffect(() => {
-    void load();
-  }, [targetType, targetId]);
-
-  async function upload(selectedFiles: FileList | null) {
-    if (!selectedFiles?.length) return;
-    const formData = new FormData();
-    formData.set("targetType", targetType);
-    formData.set("targetId", String(targetId));
-    Array.from(selectedFiles).forEach((file) => formData.append("files", file));
-    setBusy(true);
-    try {
-      await api<AttachFile[]>("/files/batch", { method: "POST", body: formData });
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove(fileId: number) {
-    await api(`/files/${fileId}`, { method: "DELETE" });
-    await load();
-  }
-
-  async function download(file: AttachFile) {
-    if (!canDownload) return;
-    const response = await authenticatedFetch(`/files/${file.fileId}/download`);
-    if (!response.ok) return;
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = file.originalFileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <div className="attachments">
-      <div className="panel-head">
-        <h3>첨부파일</h3>
-        {!readOnly && <label className="file-button">
-          <input type="file" multiple onChange={(event) => upload(event.target.files)} disabled={busy} />
-          <Plus size={16} /> 파일 추가
-        </label>}
-      </div>
-      {files.length ? files.map((file) => (
-        <div className="file-row" key={file.fileId}>
-          <button className="file-link" onClick={() => download(file)} disabled={!canDownload}>{file.originalFileName}</button>
-          <span>{Math.ceil(file.fileSize / 1024)} KB · SHA-256</span>
-          {!readOnly && <button className="danger ghost" onClick={() => remove(file.fileId)}><Trash2 size={15} /> 삭제</button>}
-        </div>
-      )) : <Empty text="첨부파일이 없습니다." />}
-    </div>
-  );
 }
 
 export default App;
