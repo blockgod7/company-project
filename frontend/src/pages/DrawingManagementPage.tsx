@@ -73,6 +73,45 @@ import type {
   PageResponse,
   User
 } from "../types";
+
+function isSameServerFolderNode(folder: PdmFolder, node: PdmTreeNode) {
+  if (folder.folderId < 0 || folder.category !== node.category || folder.folderKind !== pdmFolderKindFromNode(node) || folder.folderName !== node.label) {
+    return false;
+  }
+  if (node.type === "project") return folder.companyName === node.companyName;
+  if (node.type === "process") return folder.businessUnit === node.businessUnit;
+  if (node.type === "common" || node.type === "equipment") {
+    return folder.businessUnit === node.businessUnit && folder.processName === node.processName;
+  }
+  return true;
+}
+
+function requiredLabel(label: string) {
+  return (
+    <span className="pdm-required-label">
+      {label}
+      <em>필수 입력</em>
+    </span>
+  );
+}
+
+function validateUploadRequiredFields(form: PdmUploadForm, file: File | null) {
+  const missing: string[] = [];
+  if (!form.drawingNo.trim()) missing.push("도면번호");
+  if (!form.title.trim()) missing.push("도면명");
+  if (form.category === "PRODUCT") {
+    if (!form.companyName.trim()) missing.push("업체명");
+    if (!form.projectName.trim()) missing.push("프로젝트/제품명");
+  } else {
+    if (!form.businessUnit.trim()) missing.push("사업부");
+    if (!form.processName.trim()) missing.push("공정");
+    if (!form.groupName.trim() && !form.equipmentName.trim()) missing.push("공통도면 폴더 또는 설비명");
+  }
+  if (!form.revisionLabel.trim()) missing.push("리비전 표기");
+  if (!file) missing.push("도면 파일");
+  return missing.length ? `필수 입력 항목을 입력해 주세요: ${missing.join(", ")}` : "";
+}
+
 export function DrawingManagementPage({ user, openApprovals, target }: { user: User; openApprovals: (target?: ApprovalLaunch) => void; target: GlobalSearchTarget | null }) {
   const [tab, setTab] = useState<"drawings" | "downloads" | "permissions">("drawings");
   const [category, setCategory] = useState("");
@@ -130,6 +169,8 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
     categoryValue ? categoryValue === "PRODUCT" ? canRegisterProduct : canRegisterEquipment : canRegisterProduct || canRegisterEquipment
   );
   const canRegisterCurrentPdmCategory = canRegisterPdmCategory(activePdmCategory);
+  const selectedServerFolder = selectedNode ? folders.find((folder) => isSameServerFolderNode(folder, selectedNode)) : null;
+  const selectedMoveFolderId = selectedNode?.folderId && selectedNode.folderId > 0 ? selectedNode.folderId : selectedServerFolder?.folderId;
   const selectedRevision = selected?.revisions.find((revision) => revision.latestYn === "Y") ?? selected?.revisions[0] ?? null;
   const selectedDownloads = selected ? downloads.filter((request) => request.drawingId === selected.drawing.drawingId) : downloads;
   const selectedApprovedDownloads = selectedDownloads.filter((request) => request.approvalStatus === "APPROVED").length;
@@ -280,6 +321,12 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
   async function uploadDrawing(event: FormEvent) {
     event.preventDefault();
     try {
+      const requiredMessage = validateUploadRequiredFields(uploadForm, uploadFile);
+      if (requiredMessage) {
+        setMessage(requiredMessage);
+        alert(requiredMessage);
+        return;
+      }
       if (!uploadFile) {
         setMessage("도면 파일을 선택해 주세요.");
         return;
@@ -589,7 +636,7 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
   }
 
   async function moveSelectedFolder(direction: "UP" | "DOWN") {
-    if (!selectedNode?.folderId || selectedNode.folderId < 0 || selectedNode.type === "root") {
+    if (!selectedNode || !selectedMoveFolderId || selectedNode.type === "root") {
       setMessage("순서를 변경할 서버 폴더를 선택해 주세요.");
       return;
     }
@@ -598,7 +645,7 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
       return;
     }
     try {
-      const updated = await api<PdmFolder[]>(`/pdm/folders/${selectedNode.folderId}/actions/move`, {
+      const updated = await api<PdmFolder[]>(`/pdm/folders/${selectedMoveFolderId}/actions/move`, {
         method: "POST",
         body: jsonBody({ direction })
       });
@@ -703,8 +750,6 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
           <button className="ghost" onClick={() => openFolderFromNode(selectedNode)} disabled={!canRegisterCurrentPdmCategory}><Folder size={16} /> 폴더 추가</button>
           <button className="ghost" onClick={() => openFolderRenameFromNode(selectedNode)} disabled={!selectedNode || selectedNode.type === "root" || !canRegisterCurrentPdmCategory}><Edit3 size={16} /> 폴더명 수정</button>
           <button className="ghost danger" onClick={() => void deleteSelectedFolder()} disabled={!selectedNode || selectedNode.type === "root" || !canRegisterCurrentPdmCategory}><Trash2 size={16} /> 폴더 삭제</button>
-          <button className="ghost" onClick={() => void moveSelectedFolder("UP")} disabled={!selectedNode?.folderId || selectedNode.folderId < 0 || !canRegisterCurrentPdmCategory}><ArrowUp size={16} /> 위로</button>
-          <button className="ghost" onClick={() => void moveSelectedFolder("DOWN")} disabled={!selectedNode?.folderId || selectedNode.folderId < 0 || !canRegisterCurrentPdmCategory}><ArrowDown size={16} /> 아래로</button>
           {selected?.permissions.canRevise && (
             <button className="ghost" onClick={openStatusChange}><Edit3 size={16} /> 상태 변경</button>
           )}
@@ -745,7 +790,11 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
         <aside className="pdm-tree-panel">
           <div className="panel-head">
             <h3>도면 폴더</h3>
-            <button className="ghost" onClick={loadDrawings}><RefreshCw size={15} /></button>
+            <div className="pdm-tree-head-actions">
+              <button className="ghost" onClick={() => void moveSelectedFolder("UP")} disabled={!selectedMoveFolderId || !canRegisterCurrentPdmCategory} aria-label="폴더 위로 이동"><ArrowUp size={15} /></button>
+              <button className="ghost" onClick={() => void moveSelectedFolder("DOWN")} disabled={!selectedMoveFolderId || !canRegisterCurrentPdmCategory} aria-label="폴더 아래로 이동"><ArrowDown size={15} /></button>
+              <button className="ghost" onClick={loadDrawings} aria-label="도면 폴더 새로고침"><RefreshCw size={15} /></button>
+            </div>
           </div>
           <div className="pdm-tree">
             {tree.map((node) => (
@@ -964,19 +1013,19 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
               <fieldset>
                 <legend>기본 정보</legend>
                 <label>
-                  <span>도면 구분</span>
-                  <select value={uploadForm.category} onChange={(event) => setUploadForm({ ...uploadForm, category: event.target.value as "PRODUCT" | "EQUIPMENT" })}>
+                  {requiredLabel("도면 구분")}
+                  <select required value={uploadForm.category} onChange={(event) => setUploadForm({ ...uploadForm, category: event.target.value as "PRODUCT" | "EQUIPMENT" })}>
                     <option value="PRODUCT">제품도면</option>
                     <option value="EQUIPMENT">설비도면</option>
                   </select>
                 </label>
                 <label>
-                  <span>도면번호</span>
-                  <input value={uploadForm.drawingNo} onBlur={checkDuplicate} onChange={(event) => setUploadForm({ ...uploadForm, drawingNo: event.target.value })} placeholder="도면번호" />
+                  {requiredLabel("도면번호")}
+                  <input required value={uploadForm.drawingNo} onBlur={checkDuplicate} onChange={(event) => setUploadForm({ ...uploadForm, drawingNo: event.target.value })} placeholder="도면번호" />
                 </label>
                 <label className="wide">
-                  <span>도면명</span>
-                  <input value={uploadForm.title} onChange={(event) => setUploadForm({ ...uploadForm, title: event.target.value })} placeholder="도면명" />
+                  {requiredLabel("도면명")}
+                  <input required value={uploadForm.title} onChange={(event) => setUploadForm({ ...uploadForm, title: event.target.value })} placeholder="도면명" />
                 </label>
               </fieldset>
               <fieldset>
@@ -984,30 +1033,30 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
                 {uploadForm.category === "PRODUCT" ? (
                   <>
                     <label>
-                      <span>업체명</span>
-                      <input value={uploadForm.companyName} onChange={(event) => setUploadForm({ ...uploadForm, companyName: event.target.value })} placeholder="업체명" />
+                      {requiredLabel("업체명")}
+                      <input required value={uploadForm.companyName} onChange={(event) => setUploadForm({ ...uploadForm, companyName: event.target.value })} placeholder="업체명" />
                     </label>
                     <label>
-                      <span>프로젝트/제품명</span>
-                      <input value={uploadForm.projectName} onChange={(event) => setUploadForm({ ...uploadForm, projectName: event.target.value })} placeholder="프로젝트/제품명" />
+                      {requiredLabel("프로젝트/제품명")}
+                      <input required value={uploadForm.projectName} onChange={(event) => setUploadForm({ ...uploadForm, projectName: event.target.value })} placeholder="프로젝트/제품명" />
                     </label>
                   </>
                 ) : (
                   <>
                     <label>
-                      <span>사업부</span>
-                      <input value={uploadForm.businessUnit} onChange={(event) => setUploadForm({ ...uploadForm, businessUnit: event.target.value })} placeholder="사업부" />
+                      {requiredLabel("사업부")}
+                      <input required value={uploadForm.businessUnit} onChange={(event) => setUploadForm({ ...uploadForm, businessUnit: event.target.value })} placeholder="사업부" />
                     </label>
                     <label>
-                      <span>공정</span>
-                      <input value={uploadForm.processName} onChange={(event) => setUploadForm({ ...uploadForm, processName: event.target.value })} placeholder="공정" />
+                      {requiredLabel("공정")}
+                      <input required value={uploadForm.processName} onChange={(event) => setUploadForm({ ...uploadForm, processName: event.target.value })} placeholder="공정" />
                     </label>
                     <label>
-                      <span>공통도면 폴더</span>
+                      <span className="pdm-required-label">공통도면 폴더<em>둘 중 하나 필수</em></span>
                       <input value={uploadForm.groupName} onChange={(event) => setUploadForm({ ...uploadForm, groupName: event.target.value })} placeholder="공통도면 폴더" />
                     </label>
                     <label>
-                      <span>설비명</span>
+                      <span className="pdm-required-label">설비명<em>둘 중 하나 필수</em></span>
                       <input value={uploadForm.equipmentName} onChange={(event) => setUploadForm({ ...uploadForm, equipmentName: event.target.value })} placeholder="설비명" />
                     </label>
                   </>
@@ -1016,8 +1065,8 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
               <fieldset>
                 <legend>리비전 및 파일</legend>
                 <label>
-                  <span>리비전 표기</span>
-                  <input value={uploadForm.revisionLabel} onChange={(event) => setUploadForm({ ...uploadForm, revisionLabel: event.target.value })} placeholder="A, B, 1, 2 등" />
+                  {requiredLabel("리비전 표기")}
+                  <input required value={uploadForm.revisionLabel} onChange={(event) => setUploadForm({ ...uploadForm, revisionLabel: event.target.value })} placeholder="A, B, 1, 2 등" />
                 </label>
                 <label>
                   <span>도면 상태</span>
@@ -1028,8 +1077,8 @@ export function DrawingManagementPage({ user, openApprovals, target }: { user: U
                   </select>
                 </label>
                 <label className="wide">
-                  <span>도면 파일</span>
-                  <input type="file" accept=".pdf,.dwg,.dxf,.step,.stp,.igs,.iges" onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)} />
+                  {requiredLabel("도면 파일")}
+                  <input required type="file" accept=".pdf,.dwg,.dxf,.step,.stp,.igs,.iges" onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)} />
                 </label>
               </fieldset>
               <fieldset>

@@ -36,8 +36,9 @@ export function buildPdmTree(drawings: PdmDrawing[], folders: PdmFolder[]): PdmT
     if (existing) {
       existing.folderId ??= node.folderId;
       existing.folderKind ??= node.folderKind;
-      existing.sortOrder ??= node.sortOrder;
+      if (node.sortOrder != null) existing.sortOrder = node.sortOrder;
       existing.children ??= node.children;
+      parent.children.sort(pdmTreeNodeComparator);
       return existing;
     }
     parent.children.push(node);
@@ -93,6 +94,8 @@ export function buildPdmTree(drawings: PdmDrawing[], folders: PdmFolder[]): PdmT
     }
   });
 
+  sortPdmTree(productRoot);
+  sortPdmTree(equipmentRoot);
   return [productRoot, equipmentRoot];
 }
 
@@ -101,6 +104,11 @@ export function pdmTreeNodeComparator(a: PdmTreeNode, b: PdmTreeNode) {
   const orderB = b.sortOrder ?? 999999;
   if (orderA !== orderB) return orderA - orderB;
   return a.label.localeCompare(b.label, "ko");
+}
+
+function sortPdmTree(node: PdmTreeNode) {
+  node.children?.sort(pdmTreeNodeComparator);
+  node.children?.forEach(sortPdmTree);
 }
 
 export function matchesPdmNode(drawing: PdmDrawing, node: PdmTreeNode | null) {

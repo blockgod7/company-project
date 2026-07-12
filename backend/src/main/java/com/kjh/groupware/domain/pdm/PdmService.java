@@ -101,8 +101,9 @@ public class PdmService {
         );
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PdmFolderResponse> folders() {
+        ensureFolderRowsForDrawingPaths(currentEmpProvider.getCurrentEmp());
         return folderRepository.findAllByOrderByCategoryAscCompanyNameAscProjectNameAscBusinessUnitAscProcessNameAscFolderKindAscSortOrderAscFolderNameAsc().stream()
             .map(PdmFolderResponse::from)
             .toList();
@@ -731,6 +732,106 @@ public class PdmService {
             .max(Integer::compareTo)
             .map(order -> order + 10)
             .orElse(10);
+    }
+
+    private void ensureFolderRowsForDrawingPaths(Emp current) {
+        Map<String, PdmFolder> existing = new LinkedHashMap<>();
+        for (PdmFolder folder : folderRepository.findAll()) {
+            existing.put(folderKey(folder.getCategory(), folder.getCompanyName(), folder.getProjectName(), folder.getBusinessUnit(), folder.getProcessName(), folder.getFolderKind(), folder.getFolderName()), folder);
+        }
+        for (PdmDrawing drawing : drawingRepository.findAll()) {
+            if (PdmDrawing.CATEGORY_PRODUCT.equals(drawing.getCategory())) {
+                String company = blankToNull(drawing.getCompanyName());
+                String project = blankToNull(drawing.getProjectName());
+                if (project == null) {
+                    project = blankToNull(drawing.getGroupName());
+                }
+                if (company != null) {
+                    ensureFolderRow(existing, current, PdmDrawing.CATEGORY_PRODUCT, null, null, null, null, "COMPANY", company);
+                    if (project != null) {
+                        ensureFolderRow(existing, current, PdmDrawing.CATEGORY_PRODUCT, company, project, null, null, "PROJECT", project);
+                    }
+                }
+                continue;
+            }
+            String business = blankToNull(drawing.getBusinessUnit());
+            String process = blankToNull(drawing.getProcessName());
+            String equipment = blankToNull(drawing.getEquipmentName());
+            String group = blankToNull(drawing.getGroupName());
+            if (business != null) {
+                ensureFolderRow(existing, current, PdmDrawing.CATEGORY_EQUIPMENT, null, null, null, null, "BUSINESS", business);
+                if (process != null) {
+                    ensureFolderRow(existing, current, PdmDrawing.CATEGORY_EQUIPMENT, null, null, business, null, "PROCESS", process);
+                    if (equipment != null) {
+                        ensureFolderRow(existing, current, PdmDrawing.CATEGORY_EQUIPMENT, null, null, business, process, "EQUIPMENT", equipment);
+                    } else if (group != null) {
+                        ensureFolderRow(existing, current, PdmDrawing.CATEGORY_EQUIPMENT, null, null, business, process, "COMMON", group);
+                    }
+                }
+            }
+        }
+    }
+
+    private void ensureFolderRow(
+        Map<String, PdmFolder> existing,
+        Emp current,
+        String category,
+        String companyName,
+        String projectName,
+        String businessUnit,
+        String processName,
+        String folderKind,
+        String folderName
+    ) {
+        String key = folderKey(category, companyName, projectName, businessUnit, processName, folderKind, folderName);
+        if (existing.containsKey(key)) {
+            return;
+        }
+        PdmFolderRequest request = new PdmFolderRequest(category, companyName, projectName, businessUnit, processName, folderKind, folderName);
+        PdmFolder saved = folderRepository.save(PdmFolder.builder()
+            .category(category)
+            .companyName(blankToNull(companyName))
+            .projectName(blankToNull(projectName))
+            .businessUnit(blankToNull(businessUnit))
+            .processName(blankToNull(processName))
+            .folderKind(folderKind)
+            .folderName(folderName)
+            .sortOrder(nextFolderSortOrder(category, request))
+            .createdBy(current)
+            .build());
+        existing.put(key, saved);
+    }
+
+    private String folderKey(String category, String companyName, String projectName, String businessUnit, String processName, String folderKind, String folderName) {
+        String normalizedCategory = Objects.toString(blankToNull(category), "");
+        String normalizedKind = Objects.toString(blankToNull(folderKind), "");
+        String normalizedName = Objects.toString(blankToNull(folderName), "");
+        if (PdmDrawing.CATEGORY_PRODUCT.equals(normalizedCategory)) {
+            if ("COMPANY".equals(normalizedKind)) {
+                return String.join("|", normalizedCategory, normalizedKind, normalizedName);
+            }
+            if ("PROJECT".equals(normalizedKind)) {
+                return String.join("|", normalizedCategory, normalizedKind, Objects.toString(blankToNull(companyName), ""), normalizedName);
+            }
+        }
+        if ("BUSINESS".equals(normalizedKind)) {
+            return String.join("|", normalizedCategory, normalizedKind, normalizedName);
+        }
+        if ("PROCESS".equals(normalizedKind)) {
+            return String.join("|", normalizedCategory, normalizedKind, Objects.toString(blankToNull(businessUnit), ""), normalizedName);
+        }
+        if ("COMMON".equals(normalizedKind) || "EQUIPMENT".equals(normalizedKind)) {
+            return String.join("|", normalizedCategory, normalizedKind, Objects.toString(blankToNull(businessUnit), ""), Objects.toString(blankToNull(processName), ""), normalizedName);
+        }
+        return String.join("|",
+            normalizedCategory,
+            Objects.toString(blankToNull(companyName), ""),
+            Objects.toString(blankToNull(projectName), ""),
+            Objects.toString(blankToNull(businessUnit), ""),
+            Objects.toString(blankToNull(processName), ""),
+            normalizedKind,
+            normalizedName
+        );
     }
 
     private boolean sameFolderOrderScope(PdmFolder left, PdmFolder right) {
