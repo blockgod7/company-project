@@ -477,3 +477,58 @@ export type PdmPermissionAdmin = {
   canDownloadRequest: boolean;
   canDownloadApprove: boolean;
 };
+
+export type Equipment = {
+  equipmentId: number;
+  equipmentNo: string;
+  equipmentName: string;
+  equipmentType: "GENERAL" | "UTILITY";
+  assetNo: string;
+  processId: number | null;
+  processName: string | null;
+  ownerDeptId: number | null;
+  ownerDeptName: string | null;
+  modelName: string | null;
+  introducedYear: number | null;
+  introducedPrice: number | null;
+  manufacturer: string | null;
+  status: string;
+};
+
+export type EquipmentProcess = { processId: number; processName: string; useYn: string };
+
+export type EquipmentReport = {
+  reportId: number;
+  equipmentId: number;
+  equipmentNo: string;
+  equipmentName: string;
+  title: string;
+  symptom: string;
+  requestContent: string;
+  priority: string;
+  occurredOn: string | null;
+  state: string;
+  reporterEmpId: number;
+  reporterName: string;
+  assigneeEmpId: number | null;
+  assigneeName: string | null;
+  plannedStartOn: string | null;
+  plannedEndOn: string | null;
+  assignmentInstruction: string | null;
+  workResult: string | null;
+  causeAnalysis: string | null;
+  actionTaken: string | null;
+  initialApprovalId: number | null;
+  completionApprovalId: number | null;
+  createdAt: string;
+};
+
+export type EquipmentHistoryEvent = {
+  eventId: number;
+  reportId: number;
+  eventType: string;
+  message: string;
+  actorEmpId: number | null;
+  actorName: string | null;
+  createdAt: string;
+};

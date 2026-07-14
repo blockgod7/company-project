@@ -114,6 +114,8 @@ $legacyPatchFiles = @(
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 
 $currentPatchFiles = @(
+    "equipment_management_phase1_patch.sql",
+    "equipment_master_pilot_patch.sql",
     "approval_delegation_auto_patch.sql",
     "board_single_patch.sql",
     "pdm_folder_order_patch.sql"
@@ -137,6 +139,9 @@ END
     Invoke-PsqlCommand -Database $AdminDatabase -User $AdminUser -Password $AdminPassword -Command "DROP DATABASE IF EXISTS $DbName;"
     Invoke-PsqlCommand -Database $AdminDatabase -User $AdminUser -Password $AdminPassword -Command "CREATE DATABASE $DbName OWNER $DbUser;"
     Invoke-PsqlFile -Database $DbName -User $DbUser -Password $DbPassword -File $baselineSchema
+    foreach ($file in $currentPatchFiles) {
+        Invoke-PsqlFile -Database $DbName -User $DbUser -Password $DbPassword -File $file
+    }
 } else {
     Write-Host "Non-destructive patch mode. Use -Recreate to rebuild from groupware_schema.sql."
     $patchFiles = $currentPatchFiles

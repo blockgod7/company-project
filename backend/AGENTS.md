@@ -21,6 +21,7 @@
 - `board` and `notice` own board and notice APIs.
 - `file` owns upload/download metadata and file access behavior.
 - `pdm` owns drawing-management folders, documents, revisions, and related actions.
+- `equipment` owns equipment masters, abnormal reports, assignment, completion-approval links, and equipment history APIs.
 - `search` owns global search APIs.
 - `emp`, `dept`, `role`, `code`, `notification`, and `log` own organization, role/code, notification, and audit-support APIs.
 - Keep backend DTO and frontend type changes coordinated when API shapes change.

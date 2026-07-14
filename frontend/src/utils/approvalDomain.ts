@@ -5,7 +5,8 @@
   ClipboardCheck,
   FolderKanban,
   Home,
-  MessageSquare
+  MessageSquare,
+  Wrench
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";import type {
   Approval,
@@ -17,7 +18,7 @@ import type { LucideIcon } from "lucide-react";import type {
   LeaveUsage,
   User
 } from "../types";
-export type Route = "dashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "notifications" | "organization" | "audit";
+export type Route = "dashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "equipment" | "notifications" | "organization" | "audit";
 export type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "deleted";
 export type ApprovalDelegationForm = { delegateEmpId: number | null; startDate: string; endDate: string; reason: string; active: boolean };
 export type ApprovalOperationSettingsForm = { decisionDueHours: number; reminderFixedDelayMs: number; deletedDocumentRetentionDays: number; permanentDeleteEnabled: boolean };
@@ -806,6 +807,7 @@ export const routeLabels: Record<Route, string> = {
   boards: "게시판",
   approvals: "전자결재",
   pdm: "도면관리",
+  equipment: "설비관리",
   notifications: "알림",
   organization: "조직도",
   audit: "감사 로그"
@@ -817,6 +819,7 @@ export const menu: { route: Route; label: string; icon: LucideIcon }[] = [
   { route: "boards", label: "게시판", icon: MessageSquare },
   { route: "approvals", label: "전자결재", icon: ClipboardCheck },
   { route: "pdm", label: "도면관리", icon: FolderKanban },
+  { route: "equipment", label: "설비관리", icon: Wrench },
   { route: "organization", label: "조직도", icon: Building2 },
   { route: "notifications", label: "알림", icon: Bell }
 ];

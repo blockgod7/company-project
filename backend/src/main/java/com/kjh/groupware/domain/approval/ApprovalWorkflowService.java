@@ -8,6 +8,7 @@ import com.kjh.groupware.domain.approval.dto.PurchaseRequestUpdateRequest;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.emp.EmpSignatureService;
+import com.kjh.groupware.domain.equipment.EquipmentManagementService;
 import com.kjh.groupware.domain.file.AttachFile;
 import com.kjh.groupware.domain.notification.NotificationService;
 import com.kjh.groupware.global.audit.AuditActionType;
@@ -42,6 +43,7 @@ public class ApprovalWorkflowService {
     private final ApprovalLinePolicyService linePolicyService;
     private final ApprovalEquipmentProposalService equipmentProposalService;
     private final ApprovalLeaveUsageService leaveUsageService;
+    private final EquipmentManagementService equipmentManagementService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -113,6 +115,7 @@ public class ApprovalWorkflowService {
             .filter(line -> !ApprovalLine.STATUS_SKIPPED.equals(line.getStatus()))
             .forEach(line -> line.skip("REJECTED"));
         document.reject();
+        equipmentManagementService.onApprovalResolved(document, false);
         notificationService.notifyEmp(document.getRequester().getEmpId(), "전자결재 반려", "상신한 문서가 반려되었습니다.", "APPROVAL", document.getApprovalId());
         notifyPreviousApprovers(document, lines, currentLine, "전자결재 반려", "상신한 문서가 반려되었습니다.");
         auditApproval(currentEmp, AuditActionType.REJECT, document, comment, true, ipAddress, userAgent);
@@ -345,6 +348,7 @@ public class ApprovalWorkflowService {
         leaveUsageService.assertNoCompletedLeaveOverlap(document);
         leaveUsageService.assertLeaveCancelTargetsApproved(document);
         document.approve();
+        equipmentManagementService.onApprovalResolved(document, true);
         pdfService.generateForFinalApproval(document);
         openPostApprovalLines(document, lines);
         notificationService.notifyEmp(document.getRequester().getEmpId(), "전자결재 완료", "상신한 문서가 최종 승인되었습니다.", "APPROVAL", document.getApprovalId());

@@ -16,7 +16,7 @@
 
 ## Work Guidance
 - `src/App.tsx`, `src/AppShell.tsx`, and `src/AppRouteContent.tsx` own the main shell and route selection.
-- Page modules under `src/pages/` own user-facing screens such as dashboard, login, approval, board/notice, drawing management, organization, audit, notifications, and global search.
+- Page modules under `src/pages/` own user-facing screens such as dashboard, login, approval, board/notice, drawing management, equipment management, organization, audit, notifications, and global search.
 - Keep backend endpoint changes coordinated with `src/api.ts` and `src/types.ts`.
 - Prefer existing components and styling conventions before adding new abstractions.
 

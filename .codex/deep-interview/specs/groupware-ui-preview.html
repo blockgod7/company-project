@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Groupware UI Preview</title>
+  <style>
+    :root {
+      --ink: #1b2533;
+      --muted: #637083;
+      --line: #d9e0ea;
+      --soft: #f4f7fb;
+      --panel: #ffffff;
+      --brand: #164d7a;
+      --brand-soft: #e7f0f8;
+      --action: #1f7a56;
+      --warn: #b7791f;
+      --danger: #b42318;
+      --violet: #6554c0;
+      --radius: 8px;
+      font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #edf2f7;
+      color: var(--ink);
+      font-size: 14px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: #0f2f4d;
+      color: #f7fbff;
+      padding: 14px 10px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+    }
+
+    .brand {
+      display: grid;
+      gap: 3px;
+      padding: 2px 6px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.16);
+    }
+
+    .brand strong { font-size: 15px; line-height: 1.25; }
+    .brand span { color: #bed3e6; font-size: 11px; }
+
+    .nav {
+      display: grid;
+      gap: 5px;
+      align-content: start;
+    }
+
+    .nav button {
+      border: 0;
+      border-radius: var(--radius);
+      padding: 8px 10px;
+      background: transparent;
+      color: #dce9f6;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .nav button.active {
+      background: #ffffff;
+      color: #103454;
+    }
+
+    .account {
+      border-top: 1px solid rgba(255,255,255,.16);
+      padding: 12px 6px 2px;
+      display: grid;
+      gap: 4px;
+      color: #dce9f6;
+      font-size: 11px;
+    }
+
+    main {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-width: 0;
+    }
+
+    .topbar {
+      display: none;
+    }
+
+    .topbar > div:first-child { display: none; }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 21px;
+      color: #17324d;
+    }
+
+    .topbar p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .topbar p:empty { display: none; }
+
+    .search {
+      min-width: 300px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      color: var(--muted);
+      background: #f9fbfd;
+    }
+
+    .content {
+      padding: 14px 22px 28px;
+      min-width: 0;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+
+    .tab-search {
+      margin-left: auto;
+      min-width: 320px;
+      max-width: 430px;
+      flex: 0 1 34%;
+    }
+
+    .tabs button {
+      border: 1px solid var(--line);
+      background: #ffffff;
+      border-radius: var(--radius);
+      padding: 9px 13px;
+      font-weight: 800;
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    .tabs button.active {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+      color: var(--brand);
+    }
+
+    .screen { display: none; }
+    .screen.active { display: grid; gap: 14px; }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr);
+      gap: 12px;
+    }
+
+    .panel, .card, .doc-paper {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 24px rgba(23, 50, 77, .06);
+    }
+
+    .panel {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .panel-head h2, .card h3 {
+      margin: 0;
+      font-size: 17px;
+      color: #17324d;
+    }
+
+    .panel-head span, .card p, .small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .card {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      min-height: 112px;
+    }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 10px;
+    }
+
+    .metric strong {
+      font-size: 32px;
+      line-height: 1;
+      color: #17324d;
+    }
+
+    .metric button, .btn {
+      border: 1px solid transparent;
+      background: var(--brand);
+      color: #ffffff;
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn.secondary {
+      background: #ffffff;
+      color: var(--brand);
+      border-color: var(--brand);
+    }
+
+    .btn.safe { background: var(--action); }
+    .btn.warn { background: var(--warn); }
+    .btn.danger { background: var(--danger); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 11px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #f7f9fc;
+      color: #435266;
+      font-size: 12px;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-weight: 800;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .pill.blue { background: #e7f0f8; color: #164d7a; }
+    .pill.green { background: #e3f4ea; color: #1f7a56; }
+    .pill.amber { background: #fff4dc; color: #8a5b10; }
+    .pill.red { background: #fde8e5; color: #9f241b; }
+    .pill.violet { background: #ede9fe; color: var(--violet); }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 26px minmax(0, 1fr);
+      gap: 9px;
+      align-items: start;
+    }
+
+    .dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #ffffff;
+      background: var(--action);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .dot.wait { background: var(--warn); }
+    .dot.idle { background: #94a3b8; }
+
+    .step strong { display: block; color: #17324d; }
+    .step span { color: var(--muted); font-size: 12px; }
+
+    .doc-paper {
+      padding: 16px;
+      min-height: 440px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .doc-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      border-bottom: 2px solid #1f2937;
+      padding-bottom: 10px;
+    }
+
+    .doc-title h2 {
+      margin: 0;
+      font-size: 22px;
+      color: #111827;
+    }
+
+    .stamp {
+      display: grid;
+      grid-template-columns: repeat(3, 72px);
+      border: 1px solid #1f2937;
+    }
+
+    .stamp div {
+      min-height: 52px;
+      border-right: 1px solid #1f2937;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .stamp div:last-child { border-right: 0; }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border: 1px solid var(--line);
+    }
+
+    .field-grid div {
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      min-height: 54px;
+      padding: 8px;
+    }
+
+    .field-grid div:nth-child(4n) { border-right: 0; }
+    .field-grid strong { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+
+    .pdm-layout {
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr);
+      gap: 12px;
+      min-height: 540px;
+    }
+
+    .tree {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: grid;
+      align-content: start;
+      gap: 5px;
+      max-height: 620px;
+      overflow: auto;
+    }
+
+    .tree-tools {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: grid;
+      gap: 7px;
+      padding-bottom: 8px;
+      margin-bottom: 4px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tree-search {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+      color: var(--muted);
+      background: #f9fbfd;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tree-summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .tree button {
+      border: 0;
+      background: transparent;
+      text-align: left;
+      padding: 8px 9px;
+      border-radius: 6px;
+      font-weight: 700;
+      color: #344256;
+    }
+
+    .tree button.active {
+      background: var(--brand-soft);
+      color: var(--brand);
+    }
+
+    .viewer {
+      min-height: 270px;
+      background:
+        linear-gradient(135deg, rgba(22,77,122,.08) 25%, transparent 25%) 0 0 / 24px 24px,
+        #fbfdff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .viewer strong {
+      font-size: 26px;
+      color: rgba(23, 50, 77, .38);
+      transform: rotate(-18deg);
+      letter-spacing: 1px;
+    }
+
+    .watermark {
+      position: absolute;
+      left: 12px;
+      bottom: 10px;
+      color: #526275;
+      background: rgba(255,255,255,.84);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 9px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 11px;
+    }
+
+    .toolbar .left, .toolbar .right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { grid-template-rows: auto auto auto; }
+      .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .topbar { align-items: stretch; flex-direction: column; }
+      .search { min-width: 0; width: 100%; }
+      .tab-search { margin-left: 0; max-width: none; flex-basis: 100%; }
+      .grid-3, .grid-2, .pdm-layout { grid-template-columns: 1fr; }
+      .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .field-grid div:nth-child(2n) { border-right: 0; }
+      .stamp { grid-template-columns: repeat(3, minmax(58px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <strong>SCHUNK Groupware</strong>
+        <span>업무 상태와 다음 행동 중심</span>
+      </div>
+      <nav class="nav">
+        <button class="active">홈</button>
+        <button>전자결재</button>
+        <button>도면관리</button>
+        <button>게시판</button>
+        <button>조직도</button>
+        <button>감사로그</button>
+      </nav>
+      <div class="account">
+        <strong>김민수 부장</strong>
+        <span>품질관리팀 · 관리자</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">업무 대시보드</h1>
+          <p id="pageSubtitle"></p>
+        </div>
+        <div class="search">문서번호, 도면번호, 제목, 작성자 검색</div>
+      </header>
+
+      <section class="content">
+        <div class="tabs">
+          <button class="tab active" data-screen="dashboard">홈</button>
+          <button class="tab" data-screen="approval">전자결재 상세</button>
+          <button class="tab" data-screen="pdm">PDM 이력관리</button>
+          <div class="search tab-search">문서번호, 도면번호, 제목, 작성자 검색</div>
+        </div>
+
+        <section id="dashboard" class="screen active">
+          <div class="grid-3">
+            <article class="card">
+              <h3>내 결재대기</h3>
+              <p>내가 지금 처리해야 하는 문서</p>
+              <div class="metric"><strong>7</strong><button>열기</button></div>
+            </article>
+            <article class="card">
+              <h3>기한초과</h3>
+              <p>업무가 멈춘 문서</p>
+              <div class="metric"><strong>2</strong><button class="btn warn">확인</button></div>
+            </article>
+            <article class="card">
+              <h3>도면 반출 요청</h3>
+              <p>승인 또는 사유 확인 필요</p>
+              <div class="metric"><strong>3</strong><button>검토</button></div>
+            </article>
+          </div>
+
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>내가 처리할 문서</h2>
+                  <span>상태, 담당자, 다음 행동을 목록에서 바로 확인</span>
+                </div>
+                <button class="btn secondary">전체보기</button>
+              </div>
+              <table>
+                <thead>
+                  <tr><th>문서</th><th>상태</th><th>현재 단계</th><th>다음 행동</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>구매 요청서 PR-2026-014</td><td><span class="pill amber">내 결재대기</span></td><td>품질관리팀 검토</td><td><button class="btn safe">승인</button></td></tr>
+                  <tr><td>교육 결과 보고 TR-2026-021</td><td><span class="pill blue">진행중</span></td><td>박서연 대기</td><td><button class="btn secondary">상세</button></td></tr>
+                  <tr><td>설비 기안 EQ-2026-006</td><td><span class="pill red">반려</span></td><td>기안자 재작성</td><td><button class="btn secondary">확인</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>멈춘 업무</h2>
+                  <span>누가, 어디서 멈췄는지 우선 표시</span>
+                </div>
+              </div>
+              <div class="timeline">
+                <div class="step"><div class="dot">✓</div><div><strong>기안 완료</strong><span>홍길동 · 2026-07-07 09:12</span></div></div>
+                <div class="step"><div class="dot">✓</div><div><strong>1차 검토 완료</strong><span>김민수 · 2026-07-07 10:02</span></div></div>
+                <div class="step"><div class="dot wait">!</div><div><strong>최종 승인 대기</strong><span>이서윤 · 기한 3시간 초과</span></div></div>
+                <div class="step"><div class="dot idle">4</div><div><strong>완료 전</strong><span>PDF 생성 및 보존 처리 전</span></div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="approval" class="screen">
+          <div class="toolbar">
+            <div class="left">
+              <span class="pill amber">내 결재대기</span>
+              <strong>구매 요청서 PR-2026-014</strong>
+              <span class="small">현재 단계: 품질관리팀 검토</span>
+            </div>
+            <div class="right">
+              <button class="btn safe">승인</button>
+              <button class="btn danger">반려</button>
+              <button class="btn secondary">PDF 보기</button>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <article class="doc-paper">
+              <div class="doc-title">
+                <div>
+                  <h2>구매 요청서</h2>
+                  <span class="small">문서번호 PR-2026-014 · 기안자 홍길동</span>
+                </div>
+                <div class="stamp">
+                  <div>작성<br>홍길동</div>
+                  <div>검토<br>김민수</div>
+                  <div>승인<br>대기</div>
+                </div>
+              </div>
+              <div class="field-grid">
+                <div><strong>부서</strong>생산관리팀</div>
+                <div><strong>요청일</strong>2026-07-07</div>
+                <div><strong>희망납기</strong>2026-07-18</div>
+                <div><strong>우선순위</strong>긴급</div>
+                <div><strong>품목</strong>카본 브러시 검사 치구</div>
+                <div><strong>수량</strong>2 EA</div>
+                <div><strong>예상금액</strong>1,850,000원</div>
+                <div><strong>구매사유</strong>정기검사 라인 증설</div>
+              </div>
+              <table>
+                <thead><tr><th>항목</th><th>내용</th><th>비고</th></tr></thead>
+                <tbody>
+                  <tr><td>검토 의견</td><td>기존 승인 예산 범위 내 구매 가능</td><td>첨부 견적서 확인</td></tr>
+                  <tr><td>결재 의견</td><td>승인 또는 반려 의견을 이 위치에서 입력</td><td>필수</td></tr>
+                </tbody>
+              </table>
+            </article>
+
+            <aside class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>진행 상태</h2>
+                  <span>현재 멈춘 위치와 다음 행동</span>
+                </div>
+              </div>
+              <div class="timeline">
+                <div class="step"><div class="dot">✓</div><div><strong>상신</strong><span>홍길동 · 09:12</span></div></div>
+                <div class="step"><div class="dot">✓</div><div><strong>검토</strong><span>김민수 · 의견 입력 완료</span></div></div>
+                <div class="step"><div class="dot wait">!</div><div><strong>내 승인 필요</strong><span>승인 또는 반려를 선택하세요</span></div></div>
+              </div>
+              <table>
+                <thead><tr><th>가능한 행동</th><th>상태</th></tr></thead>
+                <tbody>
+                  <tr><td>승인</td><td><span class="pill green">가능</span></td></tr>
+                  <tr><td>반려</td><td><span class="pill green">가능</span></td></tr>
+                  <tr><td>보존삭제</td><td><span class="pill red">권한 없음</span></td></tr>
+                </tbody>
+              </table>
+            </aside>
+          </div>
+        </section>
+
+        <section id="pdm" class="screen">
+          <div class="toolbar">
+            <div class="left">
+              <span class="pill blue">제품도면 / 고객사A / 프로젝트 X</span>
+              <strong>DRW-AX-1402</strong>
+              <span class="pill green">최신본 R4</span>
+            </div>
+            <div class="right">
+              <button class="btn secondary">뷰어로 열람</button>
+              <button class="btn warn">반출 요청</button>
+              <button class="btn secondary">이력 보기</button>
+            </div>
+          </div>
+
+          <div class="pdm-layout">
+            <aside class="tree">
+              <div class="tree-tools">
+                <div class="tree-search">폴더명, 고객사, 설비명 검색</div>
+                <div class="tree-summary"><span>전체 186개</span><span>열림 12개</span></div>
+              </div>
+              <button>▾ 제품도면 <span class="small">128</span></button>
+              <button class="active">　▾ 고객사A <span class="small">34</span></button>
+              <button style="padding-left: 28px;">프로젝트 X <span class="small">18</span></button>
+              <button style="padding-left: 28px;">프로젝트 Y <span class="small">16</span></button>
+              <button>　▸ 고객사B <span class="small">27</span></button>
+              <button>　▸ 고객사C <span class="small">22</span></button>
+              <button>　▸ 고객사D <span class="small">19</span></button>
+              <button>　▸ 고객사E <span class="small">26</span></button>
+              <button>▾ 설비도면 <span class="small">58</span></button>
+              <button style="padding-left: 18px;">공통도면 <span class="small">9</span></button>
+              <button style="padding-left: 18px;">가공라인 1호기 <span class="small">14</span></button>
+              <button style="padding-left: 18px;">가공라인 2호기 <span class="small">12</span></button>
+              <button style="padding-left: 18px;">검사라인 <span class="small">11</span></button>
+              <button style="padding-left: 18px;">포장라인 <span class="small">12</span></button>
+            </aside>
+
+            <section class="panel">
+              <div class="grid-2">
+                <div class="viewer">
+                  <strong>VIEW ONLY</strong>
+                  <div class="watermark">김민수 · 품질관리팀 · 2026-07-07 11:05 · DRW-AX-1402 R4</div>
+                </div>
+                <div class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>도면 상태</h2>
+                      <span>시스템 안에서 최신본 확인</span>
+                    </div>
+                  </div>
+                  <table>
+                    <tbody>
+                      <tr><th>도면번호</th><td>DRW-AX-1402</td></tr>
+                      <tr><th>현재 리비전</th><td><span class="pill green">R4 최신본</span></td></tr>
+                      <tr><th>상태</th><td>사용 가능</td></tr>
+                      <tr><th>최종 변경</th><td>2026-07-05 · 설계팀</td></tr>
+                      <tr><th>반출 정책</th><td>사유 입력 및 기록 필수</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <table>
+                <thead>
+                  <tr><th>리비전</th><th>상태</th><th>변경 내용</th><th>등록자</th><th>사용 안내</th><th>행동</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>R4</td><td><span class="pill green">최신본</span></td><td>공차 기준 변경</td><td>설계팀</td><td>사용 가능</td><td><button class="btn secondary">열람</button></td></tr>
+                  <tr><td>R3</td><td><span class="pill amber">구버전</span></td><td>치수 보정 전</td><td>설계팀</td><td>최신본 사용 권장</td><td><button class="btn warn">사유 필요</button></td></tr>
+                  <tr><td>R2</td><td><span class="pill red">폐기</span></td><td>오류 도면</td><td>설계팀</td><td>사용 불가</td><td><button class="btn secondary">이력만 보기</button></td></tr>
+                </tbody>
+              </table>
+
+              <table>
+                <thead>
+                  <tr><th>반출 이력</th><th>대상</th><th>사유</th><th>처리 상태</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>2026-07-06 14:12 · 박서연</td><td>R4 PDF 출력</td><td>외주 검사 협의</td><td><span class="pill violet">승인 완료</span></td></tr>
+                  <tr><td>2026-07-05 16:45 · 이준호</td><td>R3 다운로드</td><td>현장 비교 확인</td><td><span class="pill amber">검토 필요</span></td></tr>
+                </tbody>
+              </table>
+            </section>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll(".tab");
+    const screens = document.querySelectorAll(".screen");
+    const pageTitle = document.getElementById("pageTitle");
+    const pageSubtitle = document.getElementById("pageSubtitle");
+    const pageCopy = {
+      dashboard: {
+        title: "업무 대시보드",
+        subtitle: ""
+      },
+      approval: {
+        title: "전자결재 상세",
+        subtitle: ""
+      },
+      pdm: {
+        title: "PDM 이력관리",
+        subtitle: ""
+      }
+    };
+
+    function updatePageCopy(screenId) {
+      const copy = pageCopy[screenId] || pageCopy.dashboard;
+      pageTitle.textContent = copy.title;
+      pageSubtitle.textContent = copy.subtitle;
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((item) => item.classList.remove("active"));
+        screens.forEach((item) => item.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(tab.dataset.screen).classList.add("active");
+        updatePageCopy(tab.dataset.screen);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.file;
 
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.equipment.EquipmentManagementService;
 import com.kjh.groupware.domain.approval.ApprovalDocument;
 import com.kjh.groupware.domain.approval.ApprovalDocumentRepository;
 import com.kjh.groupware.domain.approval.ApprovalEquipmentProposalService;
@@ -47,6 +48,7 @@ public class FileService {
     private final ApprovalLineRepository approvalLineRepository;
     private final ApprovalPermissionService approvalPermissionService;
     private final ApprovalEquipmentProposalService equipmentProposalService;
+    private final EquipmentManagementService equipmentManagementService;
 
     @Value("${app.file.storage-path:uploads}")
     private String storagePath;
@@ -275,6 +277,13 @@ public class FileService {
             }
             return;
         }
+        if (isEquipmentReportTarget(targetType)) {
+            Emp currentEmp = currentEmpProvider.getCurrentEmp();
+            if (!equipmentManagementService.canWriteAttachment(targetId, currentEmp)) {
+                throw BusinessException.forbidden("EQUIPMENT_REPORT_FILE_WRITE_FORBIDDEN", "This equipment report attachment is not editable");
+            }
+            return;
+        }
         if (!isApprovalDocumentTarget(targetType)) {
             return;
         }
@@ -287,10 +296,16 @@ public class FileService {
     }
 
     private void assertTargetReadable(String targetType, Long targetId) {
-        if (targetType == null || targetId == null || (!isApprovalDocumentTarget(targetType) && !isApprovalPdfTarget(targetType) && !equipmentProposalService.isEquipmentAttachmentTarget(targetType))) {
+        if (targetType == null || targetId == null || (!isApprovalDocumentTarget(targetType) && !isApprovalPdfTarget(targetType) && !equipmentProposalService.isEquipmentAttachmentTarget(targetType) && !isEquipmentReportTarget(targetType))) {
             return;
         }
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        if (isEquipmentReportTarget(targetType)) {
+            if (!equipmentManagementService.canReadAttachment(targetId, currentEmp)) {
+                throw BusinessException.forbidden("EQUIPMENT_REPORT_FILE_READ_FORBIDDEN", "This equipment report attachment is not readable");
+            }
+            return;
+        }
         ApprovalDocument document = approvalDocumentRepository.findById(targetId)
             .orElseThrow(() -> BusinessException.notFound("APPROVAL_NOT_FOUND", "Approval document was not found"));
         List<ApprovalLine> lines = approvalLineRepository.findByDocumentOrderByLineOrderAsc(document);
@@ -307,5 +322,9 @@ public class FileService {
 
     private boolean isApprovalPdfTarget(String targetType) {
         return "APPROVAL_PDF".equals(targetType);
+    }
+
+    private boolean isEquipmentReportTarget(String targetType) {
+        return "EQUIPMENT_REPORT".equals(targetType);
     }
 }

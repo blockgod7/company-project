@@ -4,6 +4,7 @@ import { AuditLogPage } from "../pages/AuditLogPage";
 import { BoardPage } from "../pages/BoardPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { DrawingManagementPage } from "../pages/DrawingManagementPage";
+import { EquipmentManagementPage } from "../pages/EquipmentManagementPage";
 import { GlobalSearchPage } from "../pages/GlobalSearchPage";
 import { NoticePage } from "../pages/NoticePage";
 import { NotificationPage } from "../pages/NotificationPage";
@@ -64,6 +65,7 @@ export function AppRouteContent({
       {route === "boards" && <BoardPage user={user} target={globalSearch.target} />}
       {route === "approvals" && <ApprovalPage user={user} launch={approvalLaunch} target={globalSearch.target} />}
       {route === "pdm" && <DrawingManagementPage user={user} openApprovals={openApprovals} target={globalSearch.target} />}
+      {route === "equipment" && <EquipmentManagementPage user={user} isAdmin={isAdmin} />}
       {route === "notifications" && <NotificationPage go={navigate} target={globalSearch.target} />}
       {route === "organization" && <OrganizationPage target={globalSearch.target} />}
       {route === "audit" && (isAdmin ? <AuditLogPage target={globalSearch.target} /> : <AccessDenied />)}

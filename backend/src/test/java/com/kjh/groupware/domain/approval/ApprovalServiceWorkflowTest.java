@@ -21,6 +21,7 @@ import com.kjh.groupware.domain.approval.dto.PurchaseRequestUpdateRequest;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.emp.EmpSignatureService;
+import com.kjh.groupware.domain.equipment.EquipmentManagementService;
 import com.kjh.groupware.domain.notification.Notification;
 import com.kjh.groupware.domain.notification.NotificationService;
 import com.kjh.groupware.global.audit.AuditLogService;
@@ -61,6 +62,7 @@ class ApprovalServiceWorkflowTest {
     private final EmpSignatureService signatureService = mock(EmpSignatureService.class);
     private final ApprovalPdfService pdfService = mock(ApprovalPdfService.class);
     private final ApprovalEquipmentProposalService equipmentProposalService = mock(ApprovalEquipmentProposalService.class);
+    private final EquipmentManagementService equipmentManagementService = mock(EquipmentManagementService.class);
     private final ApprovalDelegationService delegationService = mock(ApprovalDelegationService.class);
     private final ApprovalReminderService reminderService = mock(ApprovalReminderService.class);
     private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService);
@@ -281,6 +283,7 @@ class ApprovalServiceWorkflowTest {
             linePolicyService,
             equipmentProposalService,
             leaveUsageService,
+            equipmentManagementService,
             new ObjectMapper()
         );
 
