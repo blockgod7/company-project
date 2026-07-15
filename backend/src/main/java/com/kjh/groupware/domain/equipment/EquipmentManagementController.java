@@ -1,6 +1,9 @@
 package com.kjh.groupware.domain.equipment;
 
 import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentRequest;
+import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentAuthorityRequest;
+import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentAuthorityResponse;
+import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentPermissionResponse;
 import com.kjh.groupware.domain.equipment.dto.EquipmentCompletionRequest;
 import com.kjh.groupware.domain.equipment.dto.EquipmentHistoryResponse;
 import com.kjh.groupware.domain.equipment.dto.EquipmentReportRequest;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +37,10 @@ public class EquipmentManagementController {
     @GetMapping("/processes") public ApiResponse<List<EquipmentProcessResponse>> processes() { return ApiResponse.ok(service.processes()); }
     @PostMapping("/processes") public ApiResponse<EquipmentProcessResponse> createProcess(@Valid @RequestBody EquipmentProcessRequest request) { return ApiResponse.ok(service.createProcess(request)); }
     @GetMapping("/reports") public ApiResponse<List<EquipmentReportResponse>> reports() { return ApiResponse.ok(service.reports()); }
+    @GetMapping("/assignment-permission") public ApiResponse<EquipmentAssignmentPermissionResponse> assignmentPermission() { return ApiResponse.ok(service.assignmentPermission()); }
+    @GetMapping("/assignment-authorities") public ApiResponse<List<EquipmentAssignmentAuthorityResponse>> assignmentAuthorities() { return ApiResponse.ok(service.assignmentAuthorities()); }
+    @PostMapping("/assignment-authorities") public ApiResponse<EquipmentAssignmentAuthorityResponse> grantAssignmentAuthority(@Valid @RequestBody EquipmentAssignmentAuthorityRequest request) { return ApiResponse.ok(service.grantAssignmentAuthority(request)); }
+    @DeleteMapping("/assignment-authorities/{authorityId}") public ApiResponse<Void> revokeAssignmentAuthority(@PathVariable Long authorityId) { service.revokeAssignmentAuthority(authorityId); return ApiResponse.ok(null); }
     @GetMapping("/{equipmentId}/history") public ApiResponse<List<EquipmentHistoryResponse>> history(@PathVariable Long equipmentId) { return ApiResponse.ok(service.history(equipmentId)); }
     @PostMapping("/reports") public ApiResponse<EquipmentReportResponse> report(@Valid @RequestBody EquipmentReportRequest request, HttpServletRequest http) { return ApiResponse.ok(service.createReport(request, http.getRemoteAddr(), http.getHeader("User-Agent"))); }
     @PostMapping("/reports/{reportId}/assign") public ApiResponse<EquipmentReportResponse> assign(@PathVariable Long reportId, @Valid @RequestBody EquipmentAssignmentRequest request) { return ApiResponse.ok(service.assign(reportId, request)); }

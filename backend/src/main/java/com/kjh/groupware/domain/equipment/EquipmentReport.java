@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -46,6 +47,8 @@ public class EquipmentReport extends BaseEntity {
     @Column(name = "work_result", columnDefinition = "text") private String workResult;
     @Column(name = "cause_analysis", columnDefinition = "text") private String causeAnalysis;
     @Column(name = "action_taken", columnDefinition = "text") private String actionTaken;
+    @Column(name = "completed_on") private LocalDate completedOn;
+    @Column(name = "work_duration_hours", precision = 6, scale = 2) private BigDecimal workDurationHours;
     @Column(name = "state", nullable = false, length = 40) private String state;
     @Column(name = "initial_approval_id") private Long initialApprovalId;
     @Column(name = "completion_approval_id") private Long completionApprovalId;
@@ -60,8 +63,9 @@ public class EquipmentReport extends BaseEntity {
         this.assignedBy = manager; this.assignee = assignee; this.plannedStartOn = start; this.plannedEndOn = end;
         this.assignmentInstruction = instruction; this.state = IN_PROGRESS;
     }
-    public void submitCompletion(String workResult, String causeAnalysis, String actionTaken, Long approvalId) {
+    public void submitCompletion(String workResult, String causeAnalysis, String actionTaken, LocalDate completedOn, BigDecimal workDurationHours, Long approvalId) {
         this.workResult = workResult; this.causeAnalysis = causeAnalysis; this.actionTaken = actionTaken;
+        this.completedOn = completedOn; this.workDurationHours = workDurationHours;
         this.completionApprovalId = approvalId; this.state = PENDING_COMPLETION_APPROVAL;
     }
     public void initialApproved() { this.state = ASSIGNMENT_PENDING; }

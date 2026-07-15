@@ -518,10 +518,15 @@ export type EquipmentReport = {
   workResult: string | null;
   causeAnalysis: string | null;
   actionTaken: string | null;
+  completedOn: string | null;
+  workDurationHours: number | null;
   initialApprovalId: number | null;
   completionApprovalId: number | null;
   createdAt: string;
 };
+
+export type EquipmentAssignmentPermission = { canAssign: boolean; canManageAssignmentAuthorities: boolean };
+export type EquipmentAssignmentAuthority = { authorityId: number; empId: number; empName: string; deptName: string | null; grantedByName: string; grantedAt: string };
 
 export type EquipmentHistoryEvent = {
   eventId: number;

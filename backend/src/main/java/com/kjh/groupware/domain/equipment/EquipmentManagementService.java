@@ -11,6 +11,9 @@ import com.kjh.groupware.domain.dept.DeptRepository;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentRequest;
+import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentAuthorityRequest;
+import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentAuthorityResponse;
+import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentPermissionResponse;
 import com.kjh.groupware.domain.equipment.dto.EquipmentCompletionRequest;
 import com.kjh.groupware.domain.equipment.dto.EquipmentHistoryResponse;
 import com.kjh.groupware.domain.equipment.dto.EquipmentReportRequest;
@@ -38,6 +41,7 @@ public class EquipmentManagementService {
     private final EquipmentProcessRepository equipmentProcessRepository;
     private final EquipmentReportRepository reportRepository;
     private final EquipmentHistoryEventRepository historyRepository;
+    private final EquipmentAssignmentAuthorityRepository assignmentAuthorityRepository;
     private final DeptRepository deptRepository;
     private final EmpRepository empRepository;
     private final CurrentEmpProvider currentEmpProvider;
@@ -95,26 +99,60 @@ public class EquipmentManagementService {
         return historyRepository.findByEquipmentEquipmentIdOrderByEventIdDesc(equipmentId).stream().map(EquipmentHistoryResponse::from).toList();
     }
 
+    @Transactional(readOnly = true)
+    public EquipmentAssignmentPermissionResponse assignmentPermission() {
+        Emp current = currentEmpProvider.getCurrentEmp();
+        return new EquipmentAssignmentPermissionResponse(canAssignWork(current), isProductionTechManager(current));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EquipmentAssignmentAuthorityResponse> assignmentAuthorities() {
+        requireProductionTechManager(currentEmpProvider.getCurrentEmp());
+        return assignmentAuthorityRepository.findAllByOrderByCreatedAtDesc().stream().map(EquipmentAssignmentAuthorityResponse::from).toList();
+    }
+
+    @Transactional
+    public EquipmentAssignmentAuthorityResponse grantAssignmentAuthority(EquipmentAssignmentAuthorityRequest request) {
+        Emp manager = currentEmpProvider.getCurrentEmp();
+        requireProductionTechManager(manager);
+        Emp assignee = activeEmp(request.empId());
+        if (assignmentAuthorityRepository.existsByEmpEmpId(assignee.getEmpId())) {
+            throw BusinessException.badRequest("EQUIPMENT_ASSIGNMENT_AUTHORITY_DUPLICATED", "Assignment authority is already granted");
+        }
+        return EquipmentAssignmentAuthorityResponse.from(assignmentAuthorityRepository.save(new EquipmentAssignmentAuthority(assignee, manager)));
+    }
+
+    @Transactional
+    public void revokeAssignmentAuthority(Long authorityId) {
+        requireProductionTechManager(currentEmpProvider.getCurrentEmp());
+        assignmentAuthorityRepository.delete(assignmentAuthorityRepository.findById(authorityId)
+            .orElseThrow(() -> BusinessException.notFound("EQUIPMENT_ASSIGNMENT_AUTHORITY_NOT_FOUND", "Assignment authority was not found")));
+    }
+
     @Transactional
     public EquipmentReportResponse createReport(EquipmentReportRequest request, String ipAddress, String userAgent) {
         Emp reporter = currentEmpProvider.getCurrentEmp();
         EquipmentReport report = reportRepository.save(new EquipmentReport(equipment(request.equipmentId()), reporter, request.title().trim(), request.symptom().trim(), request.requestContent().trim(), request.priority(), request.occurredOn() == null ? LocalDate.now() : request.occurredOn()));
-        Emp manager = reporter.getManager();
-        if (manager == null || !manager.isActiveUser()) {
-            throw BusinessException.badRequest("EQUIPMENT_REPORT_MANAGER_REQUIRED", "Reporter must have an active department manager");
+        List<Long> approverIds = request.approverEmpIds();
+        if (approverIds == null || approverIds.isEmpty()) {
+            Emp manager = reporter.getManager();
+            if (manager == null || !manager.isActiveUser()) {
+                throw BusinessException.badRequest("EQUIPMENT_REPORT_MANAGER_REQUIRED", "Reporter must have an active department manager");
+            }
+            approverIds = List.of(manager.getEmpId());
         }
         ApprovalResponse approval = approvalDraftService.create(new ApprovalRequest(
-            report.getTitle(), report.getRequestContent(), REPORT_TEMPLATE, json(Map.of("reportId", report.getReportId(), "equipmentNo", report.getEquipment().getEquipmentNo(), "equipmentName", report.getEquipment().getEquipmentName(), "symptom", report.getSymptom(), "occurredOn", report.getOccurredOn().toString())), report.getPriority(), List.of(), List.of(manager.getEmpId()), List.of(), List.of(), List.of(), false
+            report.getTitle(), report.getRequestContent(), REPORT_TEMPLATE, json(Map.of("reportId", report.getReportId(), "equipmentNo", report.getEquipment().getEquipmentNo(), "equipmentName", report.getEquipment().getEquipmentName(), "symptom", report.getSymptom(), "occurredOn", report.getOccurredOn().toString())), report.getPriority(), List.of(), approverIds, List.of(), List.of(), List.of(), false
         ), ipAddress, userAgent);
         report.linkInitialApproval(approval.approvalId());
-        event(report, reporter, "REPORT_SUBMITTED", "이상보고가 등록되어 부서장 결재를 요청했습니다.");
+        event(report, reporter, "REPORT_SUBMITTED", "이상보고가 등록되어 결재를 요청했습니다.");
         return EquipmentReportResponse.from(report);
     }
 
     @Transactional
     public EquipmentReportResponse assign(Long reportId, EquipmentAssignmentRequest request) {
         Emp manager = currentEmpProvider.getCurrentEmp();
-        requireProductionTechManager(manager);
+        requireAssignmentAuthority(manager);
         EquipmentReport report = report(reportId);
         if (!EquipmentReport.ASSIGNMENT_PENDING.equals(report.getState())) {
             throw BusinessException.badRequest("EQUIPMENT_ASSIGNMENT_NOT_READY", "Report is not ready for assignment");
@@ -136,14 +174,16 @@ public class EquipmentManagementService {
         if (report.getAssignee() == null || !report.getAssignee().getEmpId().equals(assignee.getEmpId())) {
             throw BusinessException.forbidden("EQUIPMENT_ASSIGNEE_REQUIRED", "Only the assigned maintenance employee can submit completion");
         }
-        Emp approver = report.getAssignedBy();
-        if (approver == null || !approver.isActiveUser()) {
-            throw BusinessException.badRequest("EQUIPMENT_COMPLETION_APPROVER_REQUIRED", "An active production engineering manager is required");
+        List<Long> approverIds = request.approverEmpIds();
+        if (approverIds == null || approverIds.isEmpty()) {
+            Emp approver = report.getAssignedBy();
+            if (approver == null || !approver.isActiveUser()) throw BusinessException.badRequest("EQUIPMENT_COMPLETION_APPROVER_REQUIRED", "An active production engineering manager is required");
+            approverIds = List.of(approver.getEmpId());
         }
         ApprovalResponse approval = approvalDraftService.create(new ApprovalRequest(
-            report.getTitle() + " 작업완료", request.workResult(), COMPLETION_TEMPLATE, json(Map.of("reportId", report.getReportId(), "equipmentNo", report.getEquipment().getEquipmentNo(), "equipmentName", report.getEquipment().getEquipmentName(), "workResult", request.workResult(), "causeAnalysis", blank(request.causeAnalysis()), "actionTaken", request.actionTaken())), "NORMAL", List.of(), List.of(approver.getEmpId()), List.of(), List.of(), List.of(), false
+            report.getTitle() + " 작업완료", request.workResult(), COMPLETION_TEMPLATE, json(Map.of("reportId", report.getReportId(), "equipmentNo", report.getEquipment().getEquipmentNo(), "equipmentName", report.getEquipment().getEquipmentName(), "workResult", request.workResult(), "causeAnalysis", blank(request.causeAnalysis()), "actionTaken", request.actionTaken())), "NORMAL", List.of(), approverIds, List.of(), List.of(), List.of(), false
         ), ipAddress, userAgent);
-        report.submitCompletion(request.workResult(), request.causeAnalysis(), request.actionTaken(), approval.approvalId());
+        report.submitCompletion(request.workResult(), request.causeAnalysis(), request.actionTaken(), request.completedOn(), request.workDurationHours(), approval.approvalId());
         event(report, assignee, "COMPLETION_SUBMITTED", "작업 결과를 등록하고 완료 결재를 요청했습니다.");
         return EquipmentReportResponse.from(report);
     }
@@ -188,7 +228,9 @@ public class EquipmentManagementService {
     }
     private Emp activeEmp(Long id) { return empRepository.findById(id).filter(Emp::isActiveUser).orElseThrow(() -> BusinessException.badRequest("EMP_NOT_ACTIVE", "Employee is not active")); }
     private void requireAdmin(Emp emp) { if (!"ADMIN".equals(emp.getRoleCode())) throw BusinessException.forbidden("EQUIPMENT_ADMIN_REQUIRED", "Equipment master management requires admin role"); }
-    private void requireProductionTechManager(Emp emp) { if (!isProductionTechManager(emp)) throw BusinessException.forbidden("EQUIPMENT_TECH_MANAGER_REQUIRED", "Only the production engineering manager can assign work"); }
+    private void requireProductionTechManager(Emp emp) { if (!isProductionTechManager(emp)) throw BusinessException.forbidden("EQUIPMENT_TECH_MANAGER_REQUIRED", "Only the production engineering manager can manage assignment authorities"); }
+    private void requireAssignmentAuthority(Emp emp) { if (!canAssignWork(emp)) throw BusinessException.forbidden("EQUIPMENT_ASSIGNMENT_FORBIDDEN", "Only assignment-authorized employees can assign work"); }
+    private boolean canAssignWork(Emp emp) { return isProductionTechManager(emp) || (emp != null && assignmentAuthorityRepository.existsByEmpEmpId(emp.getEmpId())); }
     private boolean isProductionTechManager(Emp emp) { return emp != null && ("ADMIN".equals(emp.getRoleCode()) || ("MANAGER".equals(emp.getRoleCode()) && emp.getDept() != null && "PROD_TECH".equals(emp.getDept().getDeptCode()))); }
     private void event(EquipmentReport report, Emp actor, String type, String message) { historyRepository.save(new EquipmentHistoryEvent(report.getEquipment(), report, actor, type, message)); }
     private String json(Map<String, ?> values) { try { return objectMapper.writeValueAsString(values); } catch (JsonProcessingException ex) { throw BusinessException.badRequest("EQUIPMENT_FORM_JSON_FAILED", "Could not create approval form data"); } }

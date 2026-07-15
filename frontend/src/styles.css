@@ -1193,6 +1193,7 @@ select { min-height: 42px; }
 .equipment-form textarea { min-height: 74px; resize: vertical; }
 .equipment-form .wide { grid-column: 1 / -1; }
 .equipment-form.compact { grid-template-columns: 1fr; }
+.equipment-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .equipment-alert { padding: 12px 14px; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 9px; }
 .equipment-alert.error { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
 .equipment-report-list { display: grid; gap: 7px; margin-top: 13px; }

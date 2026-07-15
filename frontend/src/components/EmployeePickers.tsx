@@ -125,7 +125,7 @@ export function EmployeeMultiPicker({ title, user, employees, selectedIds, disab
                   const employee = knownEmployees.find((item) => item.empId === id);
                   return <div className="selected-approver" key={id}><strong>{ordered ? `${index + 1}. ` : ""}{employee?.empName ?? id}</strong><span>{employee?.deptName ?? "-"}</span></div>;
                 }) : <Empty text="선택된 직원이 없습니다." />}
-                <button type="button" className="primary" onClick={() => setOpen(false)}>적용</button>
+                <button type="button" className="primary" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setOpen(false); }}>적용</button>
               </div>
             </div>
           </div>
@@ -256,7 +256,7 @@ function ApproverPicker({ employees, selectedIds, onChange }: { employees: Emplo
                     </div>
                   );
                 }) : <Empty text="선택된 결재자가 없습니다." />}
-                <button type="button" className="primary" onClick={() => setOpen(false)}>적용</button>
+                <button type="button" className="primary" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setOpen(false); }}>적용</button>
               </div>
             </div>
           </div>
@@ -434,4 +434,3 @@ export function ApprovalLineTableEditor({
     </div>
   );
 }
-

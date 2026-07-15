@@ -116,6 +116,7 @@ $legacyPatchFiles = @(
 $currentPatchFiles = @(
     "equipment_management_phase1_patch.sql",
     "equipment_master_pilot_patch.sql",
+    "equipment_report_workflow_patch.sql",
     "approval_delegation_auto_patch.sql",
     "board_single_patch.sql",
     "pdm_folder_order_patch.sql"
