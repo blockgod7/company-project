@@ -100,6 +100,7 @@ export type LeaveSelection = {
 
 export const PURCHASE_RECEIVER_LOGIN_ID = "lim.purchase";
 export const TRAINING_RECEIVER_LOGIN_ID = "hong.gildong";
+export const LEAVE_RECEIVER_LOGIN_ID = "e7016";
 export const PURCHASE_BU_CODES = ["BU1", "BU2", "BU3", "BU4", "BU5", "BU7", "BU9", "BU20", "EC", "BU60"] as const;
 
 export const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
@@ -441,6 +442,10 @@ export function purchaseReceiverId(employees: Employee[]) {
 
 export function trainingReceiverId(employees: Employee[]) {
   return employees.find((employee) => employee.loginId === TRAINING_RECEIVER_LOGIN_ID)?.empId ?? null;
+}
+
+export function leaveReceiverId(employees: Employee[]) {
+  return employees.find((employee) => employee.loginId === LEAVE_RECEIVER_LOGIN_ID)?.empId ?? null;
 }
 
 export function purchaseReceiptDate(lines: ApprovalLine[]) {

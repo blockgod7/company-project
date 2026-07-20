@@ -102,6 +102,7 @@ import {
   leaveCancelContent,
   leaveDateRangeText,
   leaveDayValue,
+  leaveReceiverId,
   leaveRequestContent,
   leaveSummary,
   leaveUsageFieldValues,
@@ -172,6 +173,7 @@ import type {
   AuditLog,
   Employee,
   EquipmentProposal,
+  EquipmentReport,
   LeaveUsage,
   PageResponse,
   User
@@ -190,6 +192,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const [selected, setSelected] = useState<Approval | null>(null);
   const [equipmentProposal, setEquipmentProposal] = useState<EquipmentProposal | null>(null);
   const [equipmentProposalLoading, setEquipmentProposalLoading] = useState(false);
+  const [equipmentCompletionReport, setEquipmentCompletionReport] = useState<EquipmentReport | null>(null);
   const [mode, setMode] = useState<ContentMode>("list");
   const [templates, setTemplates] = useState<ApprovalTemplateOption[]>(DEFAULT_APPROVAL_TEMPLATES);
   const [adminTemplates, setAdminTemplates] = useState<ApprovalTemplateOption[]>([]);
@@ -357,15 +360,22 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
 
   async function applyDefaultLine(templateCode: string) {
     const isEquipmentProposal = isEquipmentProposalTemplateCode(templateCode);
+    const isLeaveRequest = isLeaveTemplateCode(templateCode);
     const isPurchaseRequest = isPurchaseTemplateCode(templateCode);
     const isTrainingRequest = isTrainingRequestTemplateCode(templateCode);
     const isTrainingTemplate = isTrainingTemplateCode(templateCode);
     const peManagerId = productionEngineeringManagerId(employees);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
+    const leaveReceiverEmpId = leaveReceiverId(employees);
     try {
       const defaultLine = await api<ApprovalDefaultLineApi>(`/approval-default-lines/effective?templateCode=${encodeURIComponent(templateCode)}`);
       if (!defaultLine.steps.length) {
+        if (isLeaveRequest) {
+          setForm((current) => ({ ...current, receiverEmpIds: leaveReceiverEmpId ? [leaveReceiverEmpId] : [] }));
+          setDefaultLineMessage(leaveReceiverEmpId ? "휴가계 수신자는 인사총무 허인성 대리로 자동 지정됩니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+          return;
+        }
         if (isPurchaseRequest) {
           setForm((current) => ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
           setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
@@ -389,12 +399,14 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
           ...current,
           agreementEmpIds: defaultLineIds(defaultLine.steps, "AGREEMENT"),
           approverEmpIds: defaultLineIds(defaultLine.steps, "APPROVAL"),
-          receiverEmpIds: isPurchaseRequest ? (purchaseReceiverEmpId ? [purchaseReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER")) : isTrainingTemplate ? (trainingReceiverEmpId ? [trainingReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isEquipmentProposal ? (peManagerId ? [peManagerId] : []) : defaultLineIds(defaultLine.steps, "RECEIVER"),
+          receiverEmpIds: isLeaveRequest ? (leaveReceiverEmpId ? [leaveReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isPurchaseRequest ? (purchaseReceiverEmpId ? [purchaseReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER")) : isTrainingTemplate ? (trainingReceiverEmpId ? [trainingReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isEquipmentProposal ? (peManagerId ? [peManagerId] : []) : defaultLineIds(defaultLine.steps, "RECEIVER"),
           referenceEmpIds: defaultLineIds(defaultLine.steps, "REFERENCE"),
           readerEmpIds: defaultLineIds(defaultLine.steps, "READER")
         };
       });
-      setDefaultLineMessage(isPurchaseRequest
+      setDefaultLineMessage(isLeaveRequest
+        ? leaveReceiverEmpId ? "휴가계 수신자는 인사총무 허인성 대리로 자동 지정됩니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
+        : isPurchaseRequest
         ? purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
         : isTrainingTemplate
         ? trainingReceiverEmpId ? "교육 문서 수신자는 인사총무 홍길동으로 자동 지정됩니다." : "인사총무 홍길동 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
@@ -402,6 +414,11 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
         ? peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요."
         : defaultLine.source === "TEMPLATE" ? "양식별 기본 결재선을 적용했습니다." : "개인 기본 결재선을 적용했습니다.");
     } catch {
+      if (isLeaveRequest) {
+        setForm((current) => ({ ...current, receiverEmpIds: leaveReceiverEmpId ? [leaveReceiverEmpId] : [] }));
+        setDefaultLineMessage(leaveReceiverEmpId ? "휴가계 수신자는 인사총무 허인성 대리로 자동 지정됩니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+        return;
+      }
       if (isPurchaseRequest) {
         setForm((current) => ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
         setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
@@ -690,6 +707,8 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       } else {
         setEquipmentProposal(null);
       }
+      const completionReportId = equipmentCompletionReportId(detail);
+      setEquipmentCompletionReport(completionReportId ? await api<EquipmentReport>(`/equipment/reports/${completionReportId}`) : null);
       setSelected(detail);
       setMode("detail");
       setApprovalError("");
@@ -938,6 +957,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     const isTrainingReport = isTrainingReportTemplateCode(previewTemplate.code);
     const isTrainingTemplate = isTrainingTemplateCode(previewTemplate.code);
     const isEquipmentProposal = isEquipmentProposalTemplateCode(previewTemplate.code);
+    const leaveReceiverEmpId = leaveReceiverId(employees);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
     setForm({
@@ -954,7 +974,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
         : isLeaveRequest || isLeaveCancel
           ? leaveUsageFieldValues(leaveUsage)
           : {},
-      receiverEmpIds: isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
+      receiverEmpIds: isLeaveRequest && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
     });
     setDefaultLineMessage("");
     setTemplateModalOpen(false);
@@ -1028,9 +1048,10 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     const isTrainingTemplate = isTrainingTemplateCode(template.code);
     const isDelegationEligible = isLeaveRequest || isTrainingRequest || isTrainingReport;
     const peManagerId = productionEngineeringManagerId(employees);
+    const leaveReceiverEmpId = leaveReceiverId(employees);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
-    const receiverEmpIds = isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
+    const receiverEmpIds = isLeaveRequest && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     const baseFieldValues = isEquipmentProposalTemplateCode(template.code)
       ? { ...form.fieldValues, requestDeptName: requesterDeptName }
@@ -1326,6 +1347,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     const isTrainingReport = isTrainingReportTemplateCode(templateCode);
     const isTrainingTemplate = isTrainingTemplateCode(templateCode);
     const peManagerId = productionEngineeringManagerId(employees);
+    const leaveReceiverEmpId = leaveReceiverId(employees);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
@@ -1335,7 +1357,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       templateVersion: nextTemplate.version ?? null,
       title: isPurchaseRequest || isTrainingTemplate || isEquipmentProposal ? "" : shouldUseTemplateTitle ? nextTemplate.name : form.title,
       fieldValues: isEquipmentProposal ? { requestDeptName: requesterDeptName } : isPurchaseRequest ? purchaseDefaultFieldValues(user, employees) : isTrainingRequest ? trainingRequestDefaultFieldValues(user, employees) : isTrainingReport ? trainingReportDefaultFieldValues(user, employees) : isLeaveRequest || isLeaveCancel ? leaveUsageFieldValues(leaveUsage) : {},
-      receiverEmpIds: isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
+      receiverEmpIds: isLeaveRequest && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
     });
     setDefaultLineMessage("");
     void applyDefaultLine(templateCode);
@@ -1668,6 +1690,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
             templates={templates}
             equipmentProposal={equipmentProposal}
             equipmentProposalLoading={equipmentProposalLoading}
+            equipmentCompletionReport={equipmentCompletionReport}
             employees={employees}
             onSavePurchaseDeliveryDate={savePurchaseDeliveryDate}
             onSubmitPurchaseApprovalLine={submitPurchaseApprovalLine}
@@ -1782,4 +1805,14 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       )}
     </section>
   );
+}
+
+function equipmentCompletionReportId(approval: Approval): number | null {
+  if (approval.templateCode !== "EQUIPMENT_WORK_COMPLETION" || !approval.formDataJson) return null;
+  try {
+    const reportId = JSON.parse(approval.formDataJson).reportId;
+    return typeof reportId === "number" && Number.isInteger(reportId) ? reportId : null;
+  } catch {
+    return null;
+  }
 }

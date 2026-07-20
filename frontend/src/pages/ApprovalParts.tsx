@@ -172,6 +172,7 @@ import type {
   AuditLog,
   Employee,
   EquipmentProposal,
+  EquipmentReport,
   LeaveUsage,
   PageResponse,
   User
@@ -184,6 +185,7 @@ export function ApprovalDetailView({
   templates,
   equipmentProposal,
   equipmentProposalLoading = false,
+  equipmentCompletionReport,
   employees = [],
   onSavePurchaseDeliveryDate,
   onSubmitPurchaseApprovalLine,
@@ -196,6 +198,7 @@ export function ApprovalDetailView({
   templates: ApprovalTemplateOption[];
   equipmentProposal?: EquipmentProposal | null;
   equipmentProposalLoading?: boolean;
+  equipmentCompletionReport?: EquipmentReport | null;
   employees?: Employee[];
   onSavePurchaseDeliveryDate?: (deliveryDate: string) => void;
   onSubmitPurchaseApprovalLine?: (agreementEmpIds: number[], approverEmpIds: number[]) => void;
@@ -217,6 +220,9 @@ export function ApprovalDetailView({
   }
   if (isTrainingReportTemplateCode(approval.templateCode)) {
     return <TrainingReportDetailView user={user} employees={employees} approval={approval} onSubmitTrainingApprovalLine={onSubmitPurchaseApprovalLine} />;
+  }
+  if (approval.templateCode === "EQUIPMENT_WORK_COMPLETION") {
+    return <EquipmentWorkCompletionDetailView approval={approval} report={equipmentCompletionReport} />;
   }
   if (isEquipmentProposalTemplateCode(approval.templateCode) && equipmentProposal) {
     return (
@@ -278,6 +284,51 @@ export function ApprovalDetailView({
       </section>
     </article>
   );
+}
+
+function EquipmentWorkCompletionDetailView({ approval, report }: { approval: Approval; report?: EquipmentReport | null }) {
+  const fields = approvalFormFields(approval.formDataJson);
+  return (
+    <article className="approval-detail">
+      <section className="approval-detail-section">
+        <h3>작업 요청 내용</h3>
+        {report ? <dl className="approval-meta-grid">
+          <dt>설비</dt><dd>{report.equipmentName}</dd>
+          <dt>요청 제목</dt><dd>{report.title}</dd>
+          <dt>이상 증상</dt><dd>{report.symptom}</dd>
+          <dt>요청 내용</dt><dd>{report.requestContent}</dd>
+          <dt>요청자</dt><dd>{report.reporterName}</dd>
+          <dt>발생일</dt><dd>{report.occurredOn ?? "-"}</dd>
+        </dl> : <p className="muted-text">원본 작업 요청을 불러오지 못했습니다.</p>}
+      </section>
+      <section className="approval-detail-section">
+        <h3>작업 처리 내용</h3>
+        <dl className="approval-meta-grid">
+          <dt>작업 결과</dt><dd>{report?.workResult ?? fieldText(fields.workResult)}</dd>
+          <dt>원인 분석</dt><dd>{report?.causeAnalysis ?? fieldText(fields.causeAnalysis)}</dd>
+          <dt>조치 내용</dt><dd>{report?.actionTaken ?? fieldText(fields.actionTaken)}</dd>
+          <dt>완료 일자</dt><dd>{report?.completedOn ?? "-"}</dd>
+          <dt>소요 시간</dt><dd>{report?.workDurationHours != null ? `${report.workDurationHours}시간` : "-"}</dd>
+        </dl>
+      </section>
+      <ApprovalLineSection title="결재자" lines={approval.lines.filter((line) => line.lineType === "APPROVAL")} />
+      <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+    </article>
+  );
+}
+
+function approvalFormFields(formDataJson: string | null): Record<string, unknown> {
+  if (!formDataJson) return {};
+  try {
+    const parsed = JSON.parse(formDataJson);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function fieldText(value: unknown) {
+  return typeof value === "string" && value.trim() ? value : "-";
 }
 
 function PurchaseRequestDetailView({

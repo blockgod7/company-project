@@ -120,6 +120,7 @@ $currentPatchFiles = @(
     "approval_delegation_auto_patch.sql",
     "board_single_patch.sql",
     "pdm_folder_order_patch.sql"
+    ,"annual_leave_management_patch.sql"
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 
 if ($Recreate) {

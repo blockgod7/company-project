@@ -54,14 +54,33 @@ export function EquipmentManagementPage({ user, isAdmin }: { user: User; isAdmin
 
   useEffect(() => { void load(); }, []);
 
+  function clearSelectedReport() {
+    setSelected(null);
+    setHistory([]);
+  }
+
+  function changeTab(nextTab: typeof tab) {
+    clearSelectedReport();
+    setTab(nextTab);
+  }
+
+  function changeReportView(nextView: typeof reportView) {
+    clearSelectedReport();
+    setReportView(nextView);
+  }
+
   async function openReport(report: EquipmentReport) {
+    if (selected?.reportId === report.reportId) {
+      clearSelectedReport();
+      return;
+    }
     setSelected(report); setError(""); setMessage("");
     try { setHistory(await api<EquipmentHistoryEvent[]>(`/equipment/${report.equipmentId}/history`)); }
     catch { setHistory([]); }
   }
 
-  async function submitReport(event: React.FormEvent) {
-    event.preventDefault(); setError("");
+  async function submitReport() {
+    setError("");
     try {
       const created = await api<EquipmentReport>("/equipment/reports", { method: "POST", body: jsonBody({ ...reportForm, equipmentId: Number(reportForm.equipmentId) }) });
       setReportForm(emptyReport()); setMessage("이상보고를 등록하고 부서장 결재를 요청했습니다."); await load(); await openReport(created);
@@ -112,6 +131,8 @@ export function EquipmentManagementPage({ user, isAdmin }: { user: User; isAdmin
 
   const selectedCurrent = selected && reports.find((item) => item.reportId === selected.reportId) || selected;
   const filteredEquipment = equipment.filter((item) => (!masterStatus || item.status === masterStatus) && `${item.equipmentNo} ${item.equipmentName} ${item.assetNo}`.toLowerCase().includes(masterSearch.toLowerCase()));
+  const inProgressReports = reports.filter((report) => report.state !== "COMPLETED" && report.state !== "REJECTED");
+  const completedReports = reports.filter((report) => report.state === "COMPLETED");
   const reportEquipment = equipment.find((item) => item.equipmentId === Number(reportForm.equipmentId));
   function editEquipment(item: Equipment) { setMasterFormOpen(true); setEditingEquipmentId(item.equipmentId); setEquipmentForm({ equipmentNo: item.equipmentNo, equipmentName: item.equipmentName, location: item.processName ?? "", equipmentType: item.equipmentType, assetNo: item.assetNo, processId: String(item.processId ?? ""), ownerDeptId: String(item.ownerDeptId ?? ""), modelName: item.modelName ?? "", introducedYear: item.introducedYear ? String(item.introducedYear) : "", introducedPrice: item.introducedPrice ? String(item.introducedPrice) : "", manufacturer: item.manufacturer ?? "", status: item.status }); }
   function closeMasterForm() { setMasterFormOpen(false); setEditingEquipmentId(null); setEquipmentForm(emptyEquipment()); }
@@ -119,17 +140,17 @@ export function EquipmentManagementPage({ user, isAdmin }: { user: User; isAdmin
 
   return <div className={`equipment-page equipment-tab-${tab.toLowerCase()} ${masterFormOpen ? "master-form-open" : "master-form-closed"}`}>
     {(message || error) && <div className={error ? "equipment-alert error" : "equipment-alert"}>{error || message}</div>}
-    <div className="equipment-tab-toolbar"><div className="board-tabs"><button className={tab === "MASTER" ? "active" : ""} onClick={() => setTab("MASTER")}>설비관리대장</button><button className={tab === "REPORTS" ? "active" : ""} onClick={() => setTab("REPORTS")}>설비이상보고</button><button className={tab === "HISTORY" ? "active" : ""} onClick={() => setTab("HISTORY")}>설비이력</button></div>{isAdmin && tab === "MASTER" && <div className="toolbar-actions"><input value={processName} onChange={(e) => setProcessName(e.target.value)} placeholder="새 공정명" /><button type="button" onClick={() => void createProcess()}>+ 공정 등록</button><button className="primary-action" type="button" onClick={() => { if (masterFormOpen) closeMasterForm(); else setMasterFormOpen(true); }}>{masterFormOpen ? "작성창 닫기" : "+ 설비관리대장 등록"}</button></div>}</div>
+    <div className="equipment-tab-toolbar"><div className="board-tabs"><button className={tab === "MASTER" ? "active" : ""} onClick={() => changeTab("MASTER")}>설비관리대장</button><button className={tab === "REPORTS" ? "active" : ""} onClick={() => changeTab("REPORTS")}>설비이상보고</button><button className={tab === "HISTORY" ? "active" : ""} onClick={() => changeTab("HISTORY")}>설비이력</button></div>{isAdmin && tab === "MASTER" && <div className="toolbar-actions"><input value={processName} onChange={(e) => setProcessName(e.target.value)} placeholder="새 공정명" /><button type="button" onClick={() => void createProcess()}>+ 공정 등록</button><button className="primary-action" type="button" onClick={() => { if (masterFormOpen) closeMasterForm(); else setMasterFormOpen(true); }}>{masterFormOpen ? "작성창 닫기" : "+ 설비관리대장 등록"}</button></div>}</div>
     <div className="equipment-layout">
       <section className="equipment-main">
         {tab === "MASTER" && <div className="equipment-card"><div className="panel-head"><h2>설비관리대장</h2><span>{filteredEquipment.length}건</span></div><div className="equipment-form"><label className="wide">검색<input value={masterSearch} onChange={(e) => setMasterSearch(e.target.value)} placeholder="설비번호, 설비명, 자산번호" /></label><label>상태<select value={masterStatus} onChange={(e) => setMasterStatus(e.target.value)}><option value="">전체</option><option value="IN_USE">사용중</option><option value="RENTED">임대</option><option value="DISPOSED">폐기</option><option value="LONG_TERM_STORAGE">장기보관</option></select></label></div><div className="table-wrap"><table className="content-table"><thead><tr><th>설비번호</th><th>설비명</th><th>구분</th><th>사업부</th><th>공정</th><th>자산번호</th><th>상태</th><th>관리</th></tr></thead><tbody>{filteredEquipment.map((item) => <tr key={item.equipmentId}><td>{item.equipmentNo}</td><td>{item.equipmentName}</td><td>{item.equipmentType === "UTILITY" ? "유틸리티" : "일반"}</td><td>{item.equipmentType === "UTILITY" ? "공용" : item.ownerDeptName ?? "-"}</td><td>{item.processName ?? "-"}</td><td>{item.assetNo}</td><td>{statusLabel(item.status)}</td><td><div className="equipment-row-actions"><button type="button" className="ghost" onClick={() => setDetailEquipment(item)}>상세</button><button type="button" className="ghost" onClick={() => editEquipment(item)}>수정</button></div></td></tr>)}</tbody></table></div></div>}
-        {tab === "HISTORY" && <div className="equipment-card"><div className="panel-head"><h2>설비이력</h2><span>이상보고를 선택하면 상세 이력을 봅니다.</span></div><div className="equipment-report-list">{reports.map((report) => <button type="button" className="equipment-report" key={report.reportId} onClick={() => void openReport(report)}><strong>{report.equipmentName} · {report.title}</strong><span>{stateLabel(report.state)} · {report.createdAt.slice(0, 10)}</span></button>)}</div></div>}
+        {tab === "HISTORY" && <div className="equipment-card"><div className="panel-head"><h2>설비이력</h2><span>최종 완료된 이상보고의 이력을 확인합니다.</span></div><div className="equipment-report-list">{completedReports.map((report) => <button type="button" className="equipment-report" key={report.reportId} onClick={() => void openReport(report)}><strong>{report.equipmentName} · {report.title}</strong><span>{stateLabel(report.state)} · {report.createdAt.slice(0, 10)}</span></button>)}{!completedReports.length && <p className="empty-copy">완료된 설비이력이 없습니다.</p>}</div></div>}
         {tab === "REPORTS" && <>
-        <div className="board-tabs equipment-report-tabs"><button className={reportView === "CREATE" ? "active" : ""} onClick={() => setReportView("CREATE")}>신규 등록</button><button className={reportView === "WORK" ? "active" : ""} onClick={() => setReportView("WORK")}>작업 처리</button><button className={reportView === "STATUS" ? "active" : ""} onClick={() => setReportView("STATUS")}>진행 조회</button></div>
+        <div className="board-tabs equipment-report-tabs"><button className={reportView === "CREATE" ? "active" : ""} onClick={() => changeReportView("CREATE")}>신규 등록</button><button className={reportView === "WORK" ? "active" : ""} onClick={() => changeReportView("WORK")}>작업 처리</button><button className={reportView === "STATUS" ? "active" : ""} onClick={() => changeReportView("STATUS")}>진행 조회</button></div>
         {reportView === "CREATE" &&
         <div className="equipment-card">
           <div className="panel-head"><h2><ClipboardPlus size={19} /> 이상보고 등록</h2><span>모든 로그인 사용자</span></div>
-          <form className="equipment-form" onSubmit={submitReport}>
+          <form className="equipment-form" onSubmit={(event) => event.preventDefault()}>
             <label>설비<select required value={reportForm.equipmentId} onChange={(e) => setReportForm({ ...reportForm, equipmentId: e.target.value })}><option value="">설비를 선택하세요</option>{equipment.map((item) => <option key={item.equipmentId} value={item.equipmentId}>{item.equipmentName}</option>)}</select></label>
             <label>사업부<input value={reportEquipment ? (reportEquipment.equipmentType === "UTILITY" ? "공용" : reportEquipment.ownerDeptName ?? "-") : "설비를 선택하세요"} readOnly /></label>
             <label>발생일<input type="date" value={reportForm.occurredOn} onChange={(e) => setReportForm({ ...reportForm, occurredOn: e.target.value })} /></label>
@@ -138,17 +159,18 @@ export function EquipmentManagementPage({ user, isAdmin }: { user: User; isAdmin
             <label className="wide">이상 증상<textarea required value={reportForm.symptom} onChange={(e) => setReportForm({ ...reportForm, symptom: e.target.value })} /></label>
             <label className="wide">요청 내용<textarea required value={reportForm.requestContent} onChange={(e) => setReportForm({ ...reportForm, requestContent: e.target.value })} /></label>
             <div className="wide"><EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={reportForm.approverEmpIds} disabledIds={[user.empId]} ordered onChange={(approverEmpIds) => setReportForm({ ...reportForm, approverEmpIds })} /></div>
-            <button className="primary wide" type="submit"><Send size={16} /> 결재 요청</button>
+            <button className="primary wide" type="button" onClick={() => void submitReport()}><Send size={16} /> 결재 요청</button>
           </form>
         </div>
         }
         {reportView !== "CREATE" && <div className="equipment-card"><div className="panel-head"><h2><Wrench size={19} /> {reportView === "WORK" ? "작업 처리 대상" : "진행 중인 이상보고"}</h2><button type="button" onClick={() => void load()}>새로고침</button></div>
-          <div className="equipment-report-list">{reports.map((report) => <button type="button" className={selectedCurrent?.reportId === report.reportId ? "equipment-report active" : "equipment-report"} key={report.reportId} onClick={() => void openReport(report)}><span className={`equipment-state ${report.state.toLowerCase()}`}>{stateLabel(report.state)}</span><strong>{report.title}</strong><span>{report.equipmentName} · {report.reporterName} · {report.createdAt.slice(0, 10)}</span></button>)}{!reports.length && <p className="empty-copy">등록된 이상보고가 없습니다.</p>}</div>
+          <div className="equipment-report-list">{(reportView === "STATUS" ? inProgressReports : reports).map((report) => <button type="button" className={selectedCurrent?.reportId === report.reportId ? "equipment-report active" : "equipment-report"} key={report.reportId} onClick={() => void openReport(report)}><span className={`equipment-state ${report.state.toLowerCase()}`}>{stateLabel(report.state)}</span><strong>{report.title}</strong><span>{report.equipmentName} · {report.reporterName} · {report.createdAt.slice(0, 10)}</span></button>)}{!(reportView === "STATUS" ? inProgressReports : reports).length && <p className="empty-copy">{reportView === "STATUS" ? "진행 중인 이상보고가 없습니다." : "등록된 이상보고가 없습니다."}</p>}</div>
         </div>}
         </>}
       </section>
       <aside className="equipment-side">
         {tab !== "MASTER" && reportView === "WORK" && (selectedCurrent ? <ReportDetail report={selectedCurrent} user={user} canAssign={canAssign} employees={employees} assignment={assignment} setAssignment={setAssignment} completion={completion} setCompletion={setCompletion} history={history} onAssign={assignWork} onComplete={submitCompletion} onUpload={uploadAttachment} /> : <div className="equipment-card"><History size={28} /><h2>보고서를 선택하세요</h2><p>배분 또는 작업완료 처리할 보고서를 선택하세요.</p></div>)}
+        {(tab === "HISTORY" || (tab === "REPORTS" && reportView === "STATUS")) && (selectedCurrent ? <ReportReadDetail report={selectedCurrent} history={history} /> : <div className="equipment-card"><History size={28} /><h2>보고서를 선택하세요</h2><p>목록에서 이상보고를 선택하면 상세 내용을 확인할 수 있습니다.</p></div>)}
         {tab === "REPORTS" && reportView === "WORK" && assignmentPermission.canManageAssignmentAuthorities && <div className="equipment-card"><div className="panel-head"><h2>배분 권한 관리</h2><span>생산기술팀장</span></div><EmployeeMultiPicker title="권한 부여 대상" user={user} employees={employees} selectedIds={authorityCandidateIds} disabledIds={assignmentAuthorities.map((item) => item.empId)} onChange={(ids) => setAuthorityCandidateIds(ids.slice(-1))} /><button type="button" className="primary" onClick={() => void grantAssignmentAuthority()} disabled={!authorityCandidateIds.length}>권한 부여</button><div className="equipment-report-list">{assignmentAuthorities.map((item) => <div className="selected-approver" key={item.authorityId}><strong>{item.empName}</strong><span>{item.deptName ?? "-"} · 부여자 {item.grantedByName}</span><button type="button" className="ghost" onClick={() => void revokeAssignmentAuthority(item.authorityId)}>권한 회수</button></div>)}</div></div>}
         {isAdmin && tab === "MASTER" && <div className="equipment-card"><div className="panel-head"><h2><Plus size={18} /> {editingEquipmentId ? "설비대장 수정" : "설비대장 등록"}</h2><span>관리자</span></div><form className="equipment-form compact" onSubmit={submitEquipment}><label>설비번호<input required value={equipmentForm.equipmentNo} onChange={(e) => setEquipmentForm({ ...equipmentForm, equipmentNo: e.target.value })} /></label><label>설비명<input required value={equipmentForm.equipmentName} onChange={(e) => setEquipmentForm({ ...equipmentForm, equipmentName: e.target.value })} /></label><label>자산번호<input required value={equipmentForm.assetNo} onChange={(e) => setEquipmentForm({ ...equipmentForm, assetNo: e.target.value })} /></label><label>설비구분<select value={equipmentForm.equipmentType} onChange={(e) => setEquipmentForm({ ...equipmentForm, equipmentType: e.target.value })}><option value="GENERAL">일반설비</option><option value="UTILITY">유틸리티</option></select></label><label>공정<select required value={equipmentForm.processId} onChange={(e) => setEquipmentForm({ ...equipmentForm, processId: e.target.value })}><option value="">선택</option>{processes.map((item) => <option key={item.processId} value={item.processId}>{item.processName}</option>)}</select></label><label>사업부{equipmentForm.equipmentType === "UTILITY" ? <input value="공용" disabled /> : <select required value={equipmentForm.ownerDeptId} onChange={(e) => setEquipmentForm({ ...equipmentForm, ownerDeptId: e.target.value })}><option value="">선택</option>{flattenDepts(deptTree).map((item) => <option key={item.deptId} value={item.deptId}>{item.deptName}</option>)}</select>}</label><label>상태<select value={equipmentForm.status} onChange={(e) => setEquipmentForm({ ...equipmentForm, status: e.target.value })}><option value="IN_USE">사용중</option><option value="RENTED">임대</option><option value="DISPOSED">폐기</option><option value="LONG_TERM_STORAGE">장기보관</option></select></label><label>모델명<input value={equipmentForm.modelName} onChange={(e) => setEquipmentForm({ ...equipmentForm, modelName: e.target.value })} /></label><label>도입년도<input type="number" value={equipmentForm.introducedYear} onChange={(e) => setEquipmentForm({ ...equipmentForm, introducedYear: e.target.value })} /></label><label>도입가격<input type="number" value={equipmentForm.introducedPrice} onChange={(e) => setEquipmentForm({ ...equipmentForm, introducedPrice: e.target.value })} /></label><label>제조회사<input value={equipmentForm.manufacturer} onChange={(e) => setEquipmentForm({ ...equipmentForm, manufacturer: e.target.value })} /></label><div className="equipment-form-actions"><button type="button" className="ghost" onClick={closeMasterForm}>취소</button><button className="primary" type="submit">{editingEquipmentId ? "수정 저장" : "설비 등록"}</button></div></form></div>}
       </aside>
@@ -163,6 +185,15 @@ function ReportDetail({ report, user, canAssign, employees, assignment, setAssig
     {(report.state === "IN_PROGRESS" || report.state === "REWORK") && report.assigneeEmpId === user.empId && <form className="equipment-form compact" onSubmit={(e) => void onComplete(e)}><h3>작업완료 보고</h3><label>완료 일자<input required type="date" value={completion.completedOn} onChange={(e) => setCompletion({ ...completion, completedOn: e.target.value })} /></label><label>소요 시간(시간)<input required type="number" min="0.01" step="0.01" value={completion.workDurationHours} onChange={(e) => setCompletion({ ...completion, workDurationHours: e.target.value })} placeholder="예: 2.5" /></label><label>작업 결과<textarea required value={completion.workResult} onChange={(e) => setCompletion({ ...completion, workResult: e.target.value })} /></label><label>원인 분석<textarea value={completion.causeAnalysis} onChange={(e) => setCompletion({ ...completion, causeAnalysis: e.target.value })} /></label><label>조치 내용<textarea required value={completion.actionTaken} onChange={(e) => setCompletion({ ...completion, actionTaken: e.target.value })} /></label><button className="primary" type="submit"><CheckCircle2 size={16} /> 완료 결재 요청</button></form>}
     {(report.state === "IN_PROGRESS" || report.state === "REWORK") && report.assigneeEmpId === user.empId && <EmployeeMultiPicker title="완료 결재자" user={user} employees={employees} selectedIds={completion.approverEmpIds} disabledIds={[user.empId]} ordered onChange={(approverEmpIds) => setCompletion({ ...completion, approverEmpIds })} />}
     <div className="equipment-history"><h3>설비 이력</h3>{history.filter((item) => item.reportId === report.reportId).map((item) => <div key={item.eventId}><strong>{item.eventType}</strong><span>{item.message}</span><small>{item.createdAt.slice(0, 16).replace("T", " ")}</small></div>)}</div></div>;
+}
+
+function ReportReadDetail({ report, history }: { report: EquipmentReport; history: EquipmentHistoryEvent[] }) {
+  const reportHistory = history.filter((item) => item.reportId === report.reportId);
+  return <div className="equipment-card report-detail"><div className="panel-head"><h2>{report.title}</h2><span className={`equipment-state ${report.state.toLowerCase()}`}>{stateLabel(report.state)}</span></div>
+    <h3>작업 요청 내용</h3><dl><div><dt>설비</dt><dd>{report.equipmentName}</dd></div><div><dt>신고자</dt><dd>{report.reporterName}</dd></div><div><dt>발생일</dt><dd>{report.occurredOn ?? "-"}</dd></div><div><dt>증상</dt><dd>{report.symptom}</dd></div><div><dt>요청 내용</dt><dd>{report.requestContent}</dd></div></dl>
+    <h3>작업 처리 내용</h3><dl><div><dt>작업 결과</dt><dd>{report.workResult ?? "-"}</dd></div><div><dt>원인 분석</dt><dd>{report.causeAnalysis ?? "-"}</dd></div><div><dt>조치 내용</dt><dd>{report.actionTaken ?? "-"}</dd></div><div><dt>완료 일자</dt><dd>{report.completedOn ?? "-"}</dd></div><div><dt>소요 시간</dt><dd>{report.workDurationHours != null ? `${report.workDurationHours}시간` : "-"}</dd></div></dl>
+    <div className="equipment-history"><h3>처리 이력</h3>{reportHistory.length ? reportHistory.map((item) => <div key={item.eventId}><strong>{item.eventType}</strong><span>{item.message}</span><small>{item.createdAt.slice(0, 16).replace("T", " ")}</small></div>) : <p className="empty-copy">등록된 처리 이력이 없습니다.</p>}</div>
+  </div>;
 }
 
 function stateLabel(value: string) { return ({ PENDING_INITIAL_APPROVAL: "최초 결재 대기", ASSIGNMENT_PENDING: "배분 대기", IN_PROGRESS: "작업 진행", PENDING_COMPLETION_APPROVAL: "완료 결재 대기", REWORK: "재작업", COMPLETED: "완료", REJECTED: "반려" } as Record<string, string>)[value] ?? value; }

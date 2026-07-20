@@ -26,6 +26,7 @@ public class ApprovalLeaveUsageService {
     private final ApprovalDocumentRepository documentRepository;
     private final CurrentEmpProvider currentEmpProvider;
     private final ObjectMapper objectMapper;
+    private final AnnualLeaveService annualLeaveService;
 
     @Transactional(readOnly = true)
     public LeaveUsageResponse myUsage() {
@@ -119,7 +120,7 @@ public class ApprovalLeaveUsageService {
                 annualDays = annualDays.add(daysFor(selection.type()));
             }
         }
-        BigDecimal totalAnnualDays = assignedAnnualDays(requester);
+        BigDecimal totalAnnualDays = annualLeaveService.totalDays(requester, java.time.LocalDate.now().getYear());
         BigDecimal remainingAnnualDays = totalAnnualDays.subtract(annualDays);
         selections.sort(java.util.Comparator.comparing(LeaveUsageSelectionResponse::date));
         return new LeaveUsageResponse(formatDay(annualDays), formatDay(totalAnnualDays), formatDay(remainingAnnualDays), selections);
@@ -206,8 +207,4 @@ public class ApprovalLeaveUsageService {
         return value.setScale(1, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
     }
 
-    private BigDecimal assignedAnnualDays(Emp requester) {
-        long empId = requester == null || requester.getEmpId() == null ? 0 : requester.getEmpId();
-        return BigDecimal.valueOf(15 + Math.floorMod(empId, 8));
-    }
 }

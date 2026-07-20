@@ -94,6 +94,11 @@ public class EquipmentManagementService {
     }
 
     @Transactional(readOnly = true)
+    public EquipmentReportResponse reportDetail(Long reportId) {
+        return EquipmentReportResponse.from(report(reportId));
+    }
+
+    @Transactional(readOnly = true)
     public List<EquipmentHistoryResponse> history(Long equipmentId) {
         equipment(equipmentId);
         return historyRepository.findByEquipmentEquipmentIdOrderByEventIdDesc(equipmentId).stream().map(EquipmentHistoryResponse::from).toList();

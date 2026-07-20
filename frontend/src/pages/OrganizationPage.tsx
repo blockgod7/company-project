@@ -10,6 +10,39 @@ type OrganizationPageProps = {
   target: GlobalSearchTarget | null;
 };
 
+const MANAGEMENT_POSITION_ORDER: Record<string, number> = {
+  "대표이사": 0,
+  "총괄이사": 1,
+  "이사": 2,
+  "부장이사": 3,
+  "부장": 4,
+  "차장": 5,
+  "과장": 6,
+  "대리": 7,
+  "사원": 8
+};
+
+const PRODUCTION_POSITION_ORDER: Record<string, number> = {
+  "기장": 0,
+  "기원": 1,
+  "반장": 2,
+  "조장": 3,
+  "사원": 4
+};
+
+function sortEmployees(employees: Employee[]) {
+  return [...employees].sort((left, right) => {
+    const leftIsProduction = left.jobTitle === "PRODUCTION";
+    const rightIsProduction = right.jobTitle === "PRODUCTION";
+    if (leftIsProduction !== rightIsProduction) return leftIsProduction ? 1 : -1;
+
+    const orders = leftIsProduction ? PRODUCTION_POSITION_ORDER : MANAGEMENT_POSITION_ORDER;
+    const positionDifference = (orders[left.positionName ?? ""] ?? 99) - (orders[right.positionName ?? ""] ?? 99);
+    if (positionDifference !== 0) return positionDifference;
+    return left.empName.localeCompare(right.empName, "ko") || left.empNo.localeCompare(right.empNo);
+  });
+}
+
 export function OrganizationPage({ target }: OrganizationPageProps) {
   const [tree, setTree] = useState<DeptNode[]>([]);
   const [deptId, setDeptId] = useState<number | null>(null);
@@ -21,11 +54,11 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
   }, []);
 
   async function search(targetDept = deptId) {
-    const params = new URLSearchParams({ page: "0", size: "20", status: "ACTIVE" });
+    const params = new URLSearchParams({ page: "0", size: "100", status: "ACTIVE" });
     if (keyword) params.set("keyword", keyword);
     if (targetDept) params.set("deptId", String(targetDept));
     const page = await api<PageResponse<Employee>>(`/emps?${params.toString()}`);
-    setEmps(page.content);
+    setEmps(sortEmployees(page.content));
   }
 
   useEffect(() => {
@@ -36,9 +69,9 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
     if (target?.type === "EMPLOYEE") {
       setDeptId(target.parentId);
       setKeyword(target.keyword);
-      const params = new URLSearchParams({ page: "0", size: "20", status: "ACTIVE", keyword: target.keyword });
+      const params = new URLSearchParams({ page: "0", size: "100", status: "ACTIVE", keyword: target.keyword });
       if (target.parentId) params.set("deptId", String(target.parentId));
-      void api<PageResponse<Employee>>(`/emps?${params.toString()}`).then((page) => setEmps(page.content));
+      void api<PageResponse<Employee>>(`/emps?${params.toString()}`).then((page) => setEmps(sortEmployees(page.content)));
     }
   }, [target?.nonce]);
 

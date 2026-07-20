@@ -37,6 +37,7 @@ public class EquipmentManagementController {
     @GetMapping("/processes") public ApiResponse<List<EquipmentProcessResponse>> processes() { return ApiResponse.ok(service.processes()); }
     @PostMapping("/processes") public ApiResponse<EquipmentProcessResponse> createProcess(@Valid @RequestBody EquipmentProcessRequest request) { return ApiResponse.ok(service.createProcess(request)); }
     @GetMapping("/reports") public ApiResponse<List<EquipmentReportResponse>> reports() { return ApiResponse.ok(service.reports()); }
+    @GetMapping("/reports/{reportId}") public ApiResponse<EquipmentReportResponse> reportDetail(@PathVariable Long reportId) { return ApiResponse.ok(service.reportDetail(reportId)); }
     @GetMapping("/assignment-permission") public ApiResponse<EquipmentAssignmentPermissionResponse> assignmentPermission() { return ApiResponse.ok(service.assignmentPermission()); }
     @GetMapping("/assignment-authorities") public ApiResponse<List<EquipmentAssignmentAuthorityResponse>> assignmentAuthorities() { return ApiResponse.ok(service.assignmentAuthorities()); }
     @PostMapping("/assignment-authorities") public ApiResponse<EquipmentAssignmentAuthorityResponse> grantAssignmentAuthority(@Valid @RequestBody EquipmentAssignmentAuthorityRequest request) { return ApiResponse.ok(service.grantAssignmentAuthority(request)); }

@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.approval;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -65,6 +66,7 @@ class ApprovalServiceWorkflowTest {
     private final EquipmentManagementService equipmentManagementService = mock(EquipmentManagementService.class);
     private final ApprovalDelegationService delegationService = mock(ApprovalDelegationService.class);
     private final ApprovalReminderService reminderService = mock(ApprovalReminderService.class);
+    private final AnnualLeaveService annualLeaveService = mock(AnnualLeaveService.class);
     private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService);
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final AtomicReference<Emp> currentEmp = new AtomicReference<>();
@@ -242,6 +244,7 @@ class ApprovalServiceWorkflowTest {
         when(signatureService.activeSignatureFile(any())).thenReturn(null);
         when(reminderService.decisionDueAt()).thenReturn(LocalDateTime.of(2026, 6, 23, 9, 0));
         when(notificationService.notifyEmp(any(), anyString(), anyString(), anyString(), any())).thenReturn(mock(Notification.class));
+        when(annualLeaveService.totalDays(any(), anyInt())).thenReturn(java.math.BigDecimal.valueOf(16));
         ApprovalLinePolicyService linePolicyService = new ApprovalLinePolicyService(
             lineRepository,
             empRepository,
@@ -251,7 +254,8 @@ class ApprovalServiceWorkflowTest {
         leaveUsageService = new ApprovalLeaveUsageService(
             documentRepository,
             currentEmpProvider,
-            new ObjectMapper()
+            new ObjectMapper(),
+            annualLeaveService
         );
         draftService = new ApprovalDraftService(
             documentRepository,
