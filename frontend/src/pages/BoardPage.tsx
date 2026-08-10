@@ -104,6 +104,18 @@ export function BoardPage({ user, target }: { user: User; target: GlobalSearchTa
     await loadPost(selected.postId);
   }
 
+  async function updateComment(commentId: number, content: string) {
+    if (!selected || !content.trim()) return;
+    await api(`/boards/posts/comments/${commentId}`, { method: "PUT", body: jsonBody({ content }) });
+    await loadPost(selected.postId);
+  }
+
+  async function deleteComment(commentId: number) {
+    if (!selected) return;
+    await api(`/boards/posts/comments/${commentId}`, { method: "DELETE" });
+    await loadPost(selected.postId);
+  }
+
   return (
     <section className="panel board-screen">
       <Toolbar title="게시판" onNew={startCreate} onRefresh={() => loadPosts()} />
@@ -138,8 +150,14 @@ export function BoardPage({ user, target }: { user: User; target: GlobalSearchTa
             onEdit={startEdit}
             onDelete={remove}
           />
-          <AttachmentBox targetType="BOARD_POST" targetId={selected.postId} />
-          <CommentBox comments={selected.comments} onSubmit={comment} />
+          <AttachmentBox targetType="BOARD_POST" targetId={selected.postId} readOnly />
+          <CommentBox
+            comments={selected.comments}
+            currentUser={user}
+            onSubmit={comment}
+            onUpdate={updateComment}
+            onDelete={deleteComment}
+          />
         </DetailPage>
       )}
       {(mode === "create" || mode === "edit") && (
@@ -150,11 +168,12 @@ export function BoardPage({ user, target }: { user: User; target: GlobalSearchTa
             setForm={setForm}
             pendingFiles={pendingFiles}
             setPendingFiles={setPendingFiles}
+            canAttach={mode === "create" || selected?.writerEmpId === user.empId}
             onSave={save}
             onCancel={() => selected ? setMode("detail") : setMode("list")}
             onDelete={mode === "edit" && canEdit ? remove : undefined}
           />
-          {mode === "edit" && selected && <AttachmentBox targetType="BOARD_POST" targetId={selected.postId} />}
+          {mode === "edit" && selected && <AttachmentBox targetType="BOARD_POST" targetId={selected.postId} readOnly={selected.writerEmpId !== user.empId} />}
         </DetailPage>
       )}
     </section>

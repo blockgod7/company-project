@@ -156,13 +156,19 @@ public class BoardService {
     }
 
     @Transactional
+    public BoardCommentResponse updateComment(Long commentId, BoardCommentRequest request, String ipAddress, String userAgent) {
+        Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        BoardComment comment = getActiveComment(commentId);
+        assertWritable(currentEmp, comment.getWriter());
+        comment.update(request.content());
+        auditLogService.record(currentEmp.getEmpId(), AuditActionType.UPDATE, "board_comment", comment.getCommentId(), ipAddress, userAgent);
+        return BoardCommentResponse.from(comment);
+    }
+
+    @Transactional
     public void deleteComment(Long commentId, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        BoardComment comment = boardCommentRepository.findById(commentId)
-            .orElseThrow(() -> BusinessException.notFound("BOARD_COMMENT_NOT_FOUND", "Board comment was not found"));
-        if ("Y".equals(comment.getDeletedYn())) {
-            throw BusinessException.notFound("BOARD_COMMENT_NOT_FOUND", "Board comment was not found");
-        }
+        BoardComment comment = getActiveComment(commentId);
         assertWritable(currentEmp, comment.getWriter());
         comment.delete(currentEmp);
         auditLogService.record(currentEmp.getEmpId(), AuditActionType.DELETE, "board_comment", comment.getCommentId(), ipAddress, userAgent);
@@ -197,6 +203,15 @@ public class BoardService {
             throw BusinessException.notFound("BOARD_POST_NOT_FOUND", "Board post was not found");
         }
         return post;
+    }
+
+    private BoardComment getActiveComment(Long commentId) {
+        BoardComment comment = boardCommentRepository.findById(commentId)
+            .orElseThrow(() -> BusinessException.notFound("BOARD_COMMENT_NOT_FOUND", "Board comment was not found"));
+        if ("Y".equals(comment.getDeletedYn())) {
+            throw BusinessException.notFound("BOARD_COMMENT_NOT_FOUND", "Board comment was not found");
+        }
+        return comment;
     }
 
     private boolean isCurrentWriterOrAdmin(Emp writer) {

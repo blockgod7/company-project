@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.notice;
 
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.emp.EmployeePermissionService;
 import com.kjh.groupware.domain.notice.dto.NoticeCommentRequest;
 import com.kjh.groupware.domain.notice.dto.NoticeCommentResponse;
 import com.kjh.groupware.domain.notice.dto.NoticeRequest;
@@ -26,6 +27,7 @@ public class NoticeService {
     private final NoticeCommentRepository noticeCommentRepository;
     private final NoticeReadRepository noticeReadRepository;
     private final CurrentEmpProvider currentEmpProvider;
+    private final EmployeePermissionService employeePermissionService;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
 
@@ -58,6 +60,7 @@ public class NoticeService {
     @Transactional
     public NoticeResponse create(NoticeRequest request, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        employeePermissionService.requireNoticeWrite(currentEmp);
         Notice notice = Notice.builder()
             .title(request.title())
             .content(request.content())
@@ -72,6 +75,7 @@ public class NoticeService {
     @Transactional
     public NoticeResponse update(Long noticeId, NoticeRequest request, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        employeePermissionService.requireNoticeWrite(currentEmp);
         Notice notice = getActiveNotice(noticeId);
         assertWritable(currentEmp, notice.getWriter());
         notice.update(request.title(), request.content(), request.pinned());
@@ -82,6 +86,7 @@ public class NoticeService {
     @Transactional
     public void delete(Long noticeId, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
+        employeePermissionService.requireNoticeWrite(currentEmp);
         Notice notice = getActiveNotice(noticeId);
         assertWritable(currentEmp, notice.getWriter());
         notice.delete(currentEmp);

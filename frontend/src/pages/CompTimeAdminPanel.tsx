@@ -1,31 +1,8 @@
 import { CalendarClock, Plus, RefreshCw } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { api, jsonBody } from "../api";
-import type { Employee, User } from "../types";
+import type { CompTimeCredit, CompTimeSummary, Employee, User } from "../types";
 import { todayDate } from "../utils/approvalDomain";
-
-type CompTimeCredit = {
-  creditId: number;
-  empId: number;
-  empName: string;
-  workDate: string;
-  grantedDays: number;
-  reservedDays: number;
-  usedDays: number;
-  availableDays: number;
-  reason: string;
-  grantedByName: string;
-  expiresOn: string;
-  status: "ACTIVE" | "EXPIRED" | "EXHAUSTED";
-};
-
-type CompTimeSummary = {
-  empId: number;
-  empName: string;
-  availableDays: number;
-  reservedDays: number;
-  credits: CompTimeCredit[];
-};
 
 export function CompTimeAdminPanel({ user, employees, isManager }: { user: User; employees: Employee[]; isManager: boolean }) {
   const [targetEmpId, setTargetEmpId] = useState(user.empId);

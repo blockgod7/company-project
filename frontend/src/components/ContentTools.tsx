@@ -194,22 +194,90 @@ export function AttachmentBox({ targetType, targetId, readOnly = false, canDownl
   );
 }
 
-export function CommentBox({ comments, onSubmit }: { comments: { commentId: number; writerName: string; content: string; createdAt: string }[]; onSubmit: (content: string) => void }) {
+export function CommentBox({ comments, currentUser, onSubmit, onUpdate, onDelete }: {
+  comments: { commentId: number; writerEmpId: number; writerName: string; content: string; createdAt: string }[];
+  currentUser: { empId: number; roleCode: string };
+  onSubmit: (content: string) => Promise<void>;
+  onUpdate: (commentId: number, content: string) => Promise<void>;
+  onDelete: (commentId: number) => Promise<void>;
+}) {
   const [content, setContent] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    if (!content.trim() || busy) return;
+    setBusy(true);
+    try {
+      await onSubmit(content.trim());
+      setContent("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEdit(commentId: number) {
+    if (!editContent.trim() || busy) return;
+    setBusy(true);
+    try {
+      await onUpdate(commentId, editContent.trim());
+      setEditingId(null);
+      setEditContent("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(commentId: number) {
+    if (busy || !window.confirm("댓글을 삭제하시겠습니까?")) return;
+    setBusy(true);
+    try {
+      await onDelete(commentId);
+      if (editingId === commentId) {
+        setEditingId(null);
+        setEditContent("");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="comments">
       <h3>댓글</h3>
-      {comments.length ? comments.map((comment) => (
-        <div className="comment" key={comment.commentId}>
-          <strong>{comment.writerName}</strong>
-          <span>{formatDate(comment.createdAt)}</span>
-          <p>{comment.content}</p>
-        </div>
-      )) : <Empty text="등록된 댓글이 없습니다." />}
+      {comments.length ? comments.map((comment) => {
+        const canManage = currentUser.roleCode === "ADMIN" || currentUser.empId === comment.writerEmpId;
+        const editing = editingId === comment.commentId;
+        return (
+          <div className="comment" key={comment.commentId}>
+            <div className="comment-head">
+              <div>
+                <strong>{comment.writerName}</strong>
+                <span>{formatDate(comment.createdAt)}</span>
+              </div>
+              {canManage && !editing && <div className="comment-actions">
+                <button type="button" className="ghost" onClick={() => { setEditingId(comment.commentId); setEditContent(comment.content); }} disabled={busy}>
+                  <Edit3 size={14} /> 수정
+                </button>
+                <button type="button" className="danger ghost" onClick={() => void remove(comment.commentId)} disabled={busy}>
+                  <Trash2 size={14} /> 삭제
+                </button>
+              </div>}
+            </div>
+            {editing ? <div className="comment-edit-form">
+              <textarea value={editContent} onChange={(event) => setEditContent(event.target.value)} />
+              <div className="actions">
+                <button type="button" onClick={() => void saveEdit(comment.commentId)} disabled={busy || !editContent.trim()}><Save size={14} /> 저장</button>
+                <button type="button" className="ghost" onClick={() => { setEditingId(null); setEditContent(""); }} disabled={busy}><X size={14} /> 취소</button>
+              </div>
+            </div> : <p>{comment.content}</p>}
+          </div>
+        );
+      }) : <Empty text="등록된 댓글이 없습니다." />}
       <div className="comment-form">
         <input value={content} onChange={(event) => setContent(event.target.value)} placeholder="댓글 작성" />
-        <button onClick={() => { onSubmit(content); setContent(""); }}>등록</button>
+        <button type="button" onClick={() => void submit()} disabled={busy || !content.trim()}>등록</button>
       </div>
     </div>
   );

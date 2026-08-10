@@ -1040,8 +1040,35 @@
   padding: 11px 0;
   border-bottom: 1px solid var(--line);
 }
+.comment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.comment-actions {
+  display: flex;
+  gap: 6px;
+}
+.comment-actions button {
+  min-height: 30px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
 .comment span { margin-left: 8px; color: var(--muted); font-size: 12px; }
 .comment p { margin: 7px 0 0; }
+.comment-edit-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+}
+.comment-edit-form textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+.comment-edit-form .actions {
+  justify-content: flex-end;
+}
 .comment-form { margin-top: 12px; }
 .comment-form input { flex: 1; }
 
@@ -1332,8 +1359,115 @@
   padding: 14px 18px;
 }
 .approval-info-modal .compact-line-picker {
-  max-height: 260px;
-  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  max-height: none;
+  overflow: visible;
+  padding: 10px;
+}
+.approval-info-modal .compact-line-picker .panel-head {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 8px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  text-align: center;
+}
+.approval-info-modal .compact-line-picker .panel-head h3 {
+  font-size: 15px;
+}
+.approval-info-modal .compact-line-picker .panel-head button {
+  min-height: 28px;
+  padding: 3px 7px;
+  font-size: 12px;
+}
+.approval-person-card-list {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.approval-person-card {
+  position: relative;
+  flex: 0 1 248px;
+  min-width: 220px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  min-height: 72px;
+  padding: 9px 8px 9px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 11px;
+  background: #fff;
+}
+.approval-person-card.fixed {
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+.approval-person-order {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #fff;
+  background: #164e63;
+  font-size: 16px;
+  font-weight: 900;
+}
+.approval-person-info {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.approval-person-info em {
+  color: #64748b;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+.approval-person-info strong {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.approval-person-info small {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.approval-person-actions {
+  display: grid;
+  gap: 3px;
+}
+.approval-person-actions button {
+  width: 25px;
+  min-height: 23px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #475569;
+  background: #fff;
+}
+.approval-person-actions button:last-child {
+  color: var(--danger);
+}
+.approval-person-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 .approval-info-modal > .actions {
   display: flex;
@@ -1341,6 +1475,18 @@
   padding: 12px 18px;
   border-top: 1px solid var(--line);
   background: #fff;
+}
+@media (max-width: 760px) {
+  .approval-info-modal .compact-line-picker {
+    grid-template-columns: 1fr;
+  }
+  .approval-info-modal .compact-line-picker .panel-head {
+    grid-template-columns: 1fr auto;
+    justify-items: start;
+  }
+  .approval-person-card {
+    flex-basis: 100%;
+  }
 }
 .modal-head {
   display: flex;
@@ -1467,6 +1613,42 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .approval-tabs {
   overflow-x: auto;
   justify-content: flex-start;
+}
+.approval-category-tabs {
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #dbe4ef;
+}
+.approval-category-tabs > button {
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: 900;
+}
+.approval-work-tabs {
+  gap: 7px;
+  margin: 0 0 18px 14px;
+  padding: 8px 10px 8px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.approval-work-tabs > button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+}
+.approval-work-tabs > button.active {
+  border-color: var(--navy);
+  background: var(--blue-soft);
+  color: var(--navy);
+  box-shadow: inset 0 0 0 1px var(--navy);
 }
 .approval-tab-actions {
   display: flex;
@@ -2176,6 +2358,39 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .leave-metrics strong small { margin-left: 4px; font-size: 13px; }
 .leave-metrics em { align-self: end; color: #64748b; font-size: 11px; font-style: normal; }
 .leave-overbooked { margin: 0; padding: 12px 14px; border: 1px solid #fecaca; border-radius: 10px; color: #b91c1c; background: #fef2f2; font-size: 13px; font-weight: 800; }
+.leave-comp-time-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 16px;
+  border: 1px solid #5eead4;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #f0fdfa, #fff);
+}
+.leave-comp-time-summary > div {
+  display: grid;
+  gap: 3px;
+}
+.leave-comp-time-summary > div:last-child {
+  justify-items: end;
+}
+.leave-comp-time-summary strong,
+.leave-comp-time-summary b {
+  color: #0f766e;
+}
+.leave-comp-time-summary span {
+  color: #64748b;
+  font-size: 12px;
+}
+.leave-comp-time-summary.insufficient {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+.leave-comp-time-summary.insufficient strong,
+.leave-comp-time-summary.insufficient b {
+  color: #b91c1c;
+}
 .leave-section-title, .leave-section-title > div { display: flex; align-items: center; gap: 10px; }
 .leave-section-title { justify-content: space-between; margin-bottom: 14px; }
 .leave-section-title h3 { margin: 0 0 3px; font-size: 16px; }
@@ -2218,7 +2433,7 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .leave-detail-reason { display: grid; gap: 6px; margin-top: 14px; padding: 13px; border-radius: 10px; background: #f8fafc; }
 .leave-detail-reason span { color: #64748b; font-size: 11px; font-weight: 800; }
 .leave-detail-reason p { margin: 0; color: #1e293b; white-space: pre-wrap; }
-@media (max-width: 760px) { .leave-web-head { align-items: stretch; flex-direction: column; }.leave-web-title { width: 100%; }.leave-applicant-row, .leave-metrics { grid-template-columns: 1fr; }.leave-applicant-row div { border-right: 0; border-bottom: 1px solid #e2e8f0; }.leave-details-grid { grid-template-columns: 1fr; }.leave-details-grid label.wide, .leave-details-grid .wide { grid-column: auto; }.leave-route-row { grid-template-columns: 1fr; }.leave-route-label { min-height: 34px; }.leave-route-help { display: none; } }
+@media (max-width: 760px) { .leave-web-head { align-items: stretch; flex-direction: column; }.leave-web-title { width: 100%; }.leave-applicant-row, .leave-metrics { grid-template-columns: 1fr; }.leave-applicant-row div { border-right: 0; border-bottom: 1px solid #e2e8f0; }.leave-comp-time-summary { align-items: flex-start; flex-direction: column; }.leave-comp-time-summary > div:last-child { justify-items: start; }.leave-details-grid { grid-template-columns: 1fr; }.leave-details-grid label.wide, .leave-details-grid .wide { grid-column: auto; }.leave-route-row { grid-template-columns: 1fr; }.leave-route-label { min-height: 34px; }.leave-route-help { display: none; } }
 @media (max-width: 760px) { .leave-detail-status { justify-items: start; }.leave-detail-date-list > div { grid-template-columns: 1fr auto; }.leave-detail-date-list > div strong { grid-column: 1 / -1; } }
 .annual-leave-admin .panel-head input { width: 92px; min-height: 37px; padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 8px; }
 .annual-leave-admin td small { display: block; margin-top: 4px; color: #64748b; font-size: 11px; }
@@ -2478,6 +2693,18 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   font-weight: 900;
   line-height: 1.2;
 }
+.leave-calendar-comp-time {
+  display: block;
+  width: 100%;
+  border: 1px solid #5eead4;
+  border-radius: 6px;
+  background: #f0fdfa;
+  color: #0f766e;
+  padding: 4px 5px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+}
 .leave-calendar-day.selected {
   background: #ecfdf5;
   box-shadow: inset 0 0 0 2px #16a34a;
@@ -2499,6 +2726,11 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 .leave-calendar-day.unavailable span,
 .leave-calendar-day.unavailable .leave-calendar-holiday {
   color: #cbd5e1;
+}
+.leave-calendar-day.unavailable .leave-calendar-comp-time {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+  color: #0f766e;
 }
 .leave-calendar-day.locked span {
   color: #475569;
@@ -2793,7 +3025,11 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
 }
 .approval-search-panel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns:
+    minmax(260px, 2fr)
+    repeat(3, minmax(120px, 1fr))
+    repeat(2, minmax(140px, 0.95fr))
+    max-content;
   gap: 10px;
   align-items: end;
   border: 1px solid var(--line);
@@ -2802,8 +3038,10 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   padding: 12px;
   margin-bottom: 12px;
 }
-.approval-search-panel label:first-child {
-  grid-column: span 2;
+.approval-completed-search {
+  margin: 0 0 18px 14px;
+  border-left: 3px solid #cbd5e1;
+  background: #f8fafc;
 }
 .approval-search-panel label {
   display: grid;
@@ -2837,6 +3075,30 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   background: var(--green);
   color: white;
   border-color: var(--green);
+}
+@media (max-width: 1280px) {
+  .approval-search-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .approval-search-panel label:first-child,
+  .approval-search-actions {
+    grid-column: 1 / -1;
+  }
+  .approval-search-actions {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 640px) {
+  .approval-search-panel {
+    grid-template-columns: 1fr;
+  }
+  .approval-search-panel label:first-child,
+  .approval-search-actions {
+    grid-column: auto;
+  }
+  .approval-completed-search {
+    margin-left: 0;
+  }
 }
 .approval-delegation-option {
   display: grid;

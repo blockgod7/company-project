@@ -15,6 +15,7 @@ public class EmployeePermissionService {
 
     public static final String LEAVE_ADMIN = "LEAVE_ADMIN";
     public static final String EMPLOYEE_ADMIN = "EMPLOYEE_ADMIN";
+    public static final String NOTICE_WRITE = "NOTICE_WRITE";
     private static final Set<String> SUPPORTED = Set.of(LEAVE_ADMIN, EMPLOYEE_ADMIN);
     private static final Set<String> DEFAULT_HR_LOGIN_IDS = Set.of("e0015", "e7016");
     private static final String ACCOUNT_MANAGER_LOGIN_ID = "e0015";
@@ -38,6 +39,34 @@ public class EmployeePermissionService {
         return hasPermission(emp, LEAVE_ADMIN) && isHrDepartment(emp);
     }
 
+    @Transactional(readOnly = true)
+    public boolean canWriteNotice(Emp emp) {
+        if (emp == null) {
+            return false;
+        }
+        if ("ADMIN".equals(emp.getRoleCode())) {
+            return true;
+        }
+        com.kjh.groupware.domain.dept.Dept dept = emp.getDept();
+        if (dept != null && "대표이사".equals(dept.getDeptName())) {
+            return true;
+        }
+        while (dept != null) {
+            if ("HR_ADMIN".equals(dept.getDeptCode())
+                || "인사총무".equals(dept.getDeptName())) {
+                return true;
+            }
+            dept = dept.getParentDept();
+        }
+        return false;
+    }
+
+    public void requireNoticeWrite(Emp emp) {
+        if (!canWriteNotice(emp)) {
+            throw BusinessException.forbidden("NOTICE_WRITE_REQUIRED", "공지사항은 시스템 관리자, 인사총무, 대표이사만 작성할 수 있습니다.");
+        }
+    }
+
     private boolean isHrDepartment(Emp emp) {
         com.kjh.groupware.domain.dept.Dept dept = emp == null ? null : emp.getDept();
         while (dept != null) {
@@ -57,6 +86,7 @@ public class EmployeePermissionService {
         } else {
             result.addAll(List.of("NOTICE_READ", "BOARD_READ", "BOARD_WRITE", "ORGANIZATION_READ", "NOTIFICATION_READ"));
         }
+        if (canWriteNotice(emp)) result.add(NOTICE_WRITE);
         if (hasPermission(emp, LEAVE_ADMIN)) result.add(LEAVE_ADMIN);
         if (hasPermission(emp, EMPLOYEE_ADMIN)) result.add(EMPLOYEE_ADMIN);
         if (canManageAccounts(emp)) result.add("ACCOUNT_ADMIN");

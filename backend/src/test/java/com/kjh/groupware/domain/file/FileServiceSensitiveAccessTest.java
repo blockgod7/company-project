@@ -12,8 +12,10 @@ import com.kjh.groupware.domain.approval.ApprovalDocumentRepository;
 import com.kjh.groupware.domain.approval.ApprovalEquipmentProposalService;
 import com.kjh.groupware.domain.approval.ApprovalLineRepository;
 import com.kjh.groupware.domain.approval.ApprovalPermissionService;
+import com.kjh.groupware.domain.board.BoardPostRepository;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.equipment.EquipmentManagementService;
+import com.kjh.groupware.domain.notice.NoticeRepository;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
@@ -60,7 +62,9 @@ class FileServiceSensitiveAccessTest {
             lineRepository,
             permissionService,
             mock(ApprovalEquipmentProposalService.class),
-            mock(EquipmentManagementService.class)
+            mock(EquipmentManagementService.class),
+            mock(BoardPostRepository.class),
+            mock(NoticeRepository.class)
         );
 
         assertThatThrownBy(() -> service.authorizeDownload(20L, "127.0.0.1", "test"))

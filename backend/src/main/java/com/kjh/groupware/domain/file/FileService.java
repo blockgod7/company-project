@@ -2,6 +2,8 @@ package com.kjh.groupware.domain.file;
 
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.equipment.EquipmentManagementService;
+import com.kjh.groupware.domain.board.BoardPost;
+import com.kjh.groupware.domain.board.BoardPostRepository;
 import com.kjh.groupware.domain.approval.ApprovalDocument;
 import com.kjh.groupware.domain.approval.ApprovalDocumentRepository;
 import com.kjh.groupware.domain.approval.ApprovalEquipmentProposalService;
@@ -9,6 +11,8 @@ import com.kjh.groupware.domain.approval.ApprovalLine;
 import com.kjh.groupware.domain.approval.ApprovalLineRepository;
 import com.kjh.groupware.domain.approval.ApprovalPermissionService;
 import com.kjh.groupware.domain.file.dto.AttachFileResponse;
+import com.kjh.groupware.domain.notice.Notice;
+import com.kjh.groupware.domain.notice.NoticeRepository;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
@@ -49,6 +53,8 @@ public class FileService {
     private final ApprovalPermissionService approvalPermissionService;
     private final ApprovalEquipmentProposalService equipmentProposalService;
     private final EquipmentManagementService equipmentManagementService;
+    private final BoardPostRepository boardPostRepository;
+    private final NoticeRepository noticeRepository;
 
     @Value("${app.file.storage-path:uploads}")
     private String storagePath;
@@ -284,6 +290,26 @@ public class FileService {
         if (isApprovalPdfTarget(targetType)) {
             throw BusinessException.forbidden("APPROVAL_PDF_WRITE_FORBIDDEN", "PDF 파일은 직접 수정할 수 없습니다.");
         }
+        if (isBoardPostTarget(targetType)) {
+            Emp currentEmp = currentEmpProvider.getCurrentEmp();
+            BoardPost post = boardPostRepository.findById(targetId)
+                .orElseThrow(() -> BusinessException.notFound("BOARD_POST_NOT_FOUND", "Board post was not found"));
+            if ("Y".equals(post.getDeletedYn())) {
+                throw BusinessException.notFound("BOARD_POST_NOT_FOUND", "Board post was not found");
+            }
+            assertContentWriter(currentEmp, post.getWriter(), "BOARD_POST_FILE_WRITE_FORBIDDEN");
+            return;
+        }
+        if (isNoticeTarget(targetType)) {
+            Emp currentEmp = currentEmpProvider.getCurrentEmp();
+            Notice notice = noticeRepository.findById(targetId)
+                .orElseThrow(() -> BusinessException.notFound("NOTICE_NOT_FOUND", "Notice was not found"));
+            if ("Y".equals(notice.getDeletedYn())) {
+                throw BusinessException.notFound("NOTICE_NOT_FOUND", "Notice was not found");
+            }
+            assertContentWriter(currentEmp, notice.getWriter(), "NOTICE_FILE_WRITE_FORBIDDEN");
+            return;
+        }
         if (equipmentProposalService.isEquipmentAttachmentTarget(targetType)) {
             Emp currentEmp = currentEmpProvider.getCurrentEmp();
             if (!equipmentProposalService.canWriteAttachment(targetType, targetId, currentEmp)) {
@@ -340,5 +366,19 @@ public class FileService {
 
     private boolean isEquipmentReportTarget(String targetType) {
         return "EQUIPMENT_REPORT".equals(targetType);
+    }
+
+    private boolean isBoardPostTarget(String targetType) {
+        return "BOARD_POST".equals(targetType);
+    }
+
+    private boolean isNoticeTarget(String targetType) {
+        return "NOTICE".equals(targetType);
+    }
+
+    private void assertContentWriter(Emp currentEmp, Emp writer, String errorCode) {
+        if (!currentEmp.getEmpId().equals(writer.getEmpId())) {
+            throw BusinessException.forbidden(errorCode, "Only the writer can change attachments");
+        }
     }
 }

@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import { ArrowLeft, Eye, Flag, Paperclip, Plus, RefreshCw } from "lucide-react";
 
-export function Toolbar({ title, onNew, onRefresh, beforeRefresh }: { title: string; onNew: () => void; onRefresh?: () => void; beforeRefresh?: ReactNode }) {
+export function Toolbar({ title, onNew, onRefresh, beforeRefresh }: { title: string; onNew?: () => void; onRefresh?: () => void; beforeRefresh?: ReactNode }) {
   return (
     <div className="toolbar">
       <h3>{title}</h3>
       <div className="toolbar-actions">
         {beforeRefresh}
         {onRefresh && <button className="ghost" onClick={onRefresh}><RefreshCw size={16} /> 새로고침</button>}
-        <button onClick={onNew}><Plus size={16} /> 작성</button>
+        {onNew && <button onClick={onNew}><Plus size={16} /> 작성</button>}
       </div>
     </div>
   );

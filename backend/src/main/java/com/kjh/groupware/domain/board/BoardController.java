@@ -89,6 +89,15 @@ public class BoardController {
         return ApiResponse.ok(boardService.createComment(postId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
+    @PutMapping("/posts/comments/{commentId}")
+    public ApiResponse<BoardCommentResponse> updateComment(
+        @PathVariable Long commentId,
+        @Valid @RequestBody BoardCommentRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(boardService.updateComment(commentId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
+    }
+
     @DeleteMapping("/posts/comments/{commentId}")
     public ApiResponse<Void> deleteComment(@PathVariable Long commentId, HttpServletRequest httpRequest) {
         boardService.deleteComment(commentId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent"));

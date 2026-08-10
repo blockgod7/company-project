@@ -10,8 +10,10 @@ import com.kjh.groupware.domain.approval.ApprovalDocumentRepository;
 import com.kjh.groupware.domain.approval.ApprovalEquipmentProposalService;
 import com.kjh.groupware.domain.approval.ApprovalLineRepository;
 import com.kjh.groupware.domain.approval.ApprovalPermissionService;
+import com.kjh.groupware.domain.board.BoardPostRepository;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.equipment.EquipmentManagementService;
+import com.kjh.groupware.domain.notice.NoticeRepository;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
@@ -31,7 +33,8 @@ class FileServiceSensitiveLeaveTest {
         ApprovalPermissionService permissions = mock(ApprovalPermissionService.class);
         FileService service = new FileService(
             files, current, audit, documents, lines, permissions,
-            mock(ApprovalEquipmentProposalService.class), mock(EquipmentManagementService.class)
+            mock(ApprovalEquipmentProposalService.class), mock(EquipmentManagementService.class),
+            mock(BoardPostRepository.class), mock(NoticeRepository.class)
         );
         Emp viewer = mock(Emp.class);
         ApprovalDocument document = mock(ApprovalDocument.class);

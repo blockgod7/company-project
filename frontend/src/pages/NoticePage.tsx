@@ -20,7 +20,8 @@ export function NoticePage({ user, target }: { user: User; target: GlobalSearchT
   const [form, setForm] = useState<NoticeForm>({ title: "", content: "", pinned: false });
   const [attachments, setAttachments] = useState<AttachmentPresence>({});
   const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
-  const canEdit = selected ? user.roleCode === "ADMIN" || selected.writerEmpId === user.empId : false;
+  const canWrite = user.permissions.includes("NOTICE_WRITE");
+  const canEdit = selected ? canWrite && (user.roleCode === "ADMIN" || selected.writerEmpId === user.empId) : false;
 
   async function load() {
     const page = await api<PageResponse<Notice>>("/notices?size=20");
@@ -83,7 +84,7 @@ export function NoticePage({ user, target }: { user: User; target: GlobalSearchT
 
   return (
     <section className="panel board-screen">
-      <Toolbar title="공지사항" onNew={startCreate} onRefresh={load} />
+      <Toolbar title="공지사항" onNew={canWrite ? startCreate : undefined} onRefresh={load} />
       {mode === "list" && (
         <>
           <ListSummary count={items.length} text="등록된 공지" />
@@ -114,7 +115,7 @@ export function NoticePage({ user, target }: { user: User; target: GlobalSearchT
             onEdit={startEdit}
             onDelete={remove}
           />
-          <AttachmentBox targetType="NOTICE" targetId={selected.noticeId} />
+          <AttachmentBox targetType="NOTICE" targetId={selected.noticeId} readOnly />
         </DetailPage>
       )}
       {(mode === "create" || mode === "edit") && (
@@ -125,11 +126,12 @@ export function NoticePage({ user, target }: { user: User; target: GlobalSearchT
             setForm={setForm}
             pendingFiles={pendingFiles}
             setPendingFiles={setPendingFiles}
+            canAttach={mode === "create" || selected?.writerEmpId === user.empId}
             onSave={save}
             onCancel={() => selected ? setMode("detail") : setMode("list")}
             onDelete={mode === "edit" && canEdit ? remove : undefined}
           />
-          {mode === "edit" && selected && <AttachmentBox targetType="NOTICE" targetId={selected.noticeId} />}
+          {mode === "edit" && selected && <AttachmentBox targetType="NOTICE" targetId={selected.noticeId} readOnly={selected.writerEmpId !== user.empId} />}
         </DetailPage>
       )}
     </section>

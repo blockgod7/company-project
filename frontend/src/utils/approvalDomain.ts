@@ -743,7 +743,7 @@ export function leaveRequestContent(values: Record<string, string>) {
   return [
     `신청기간: ${leaveDateRangeText(values)}`,
     `신청구분: ${values.leaveType ?? "-"}`,
-    `연차 사용일수: ${formatDayValue(values.days)}일`,
+    `연차 사용일수: ${formatDayValue(values.annualLeaveDays ?? values.days)}일`,
     `신청 후 잔여 연차일수: ${formatDayValue(values.remainingAnnualDays)}일`
   ].filter(Boolean).join("\n");
 }
@@ -752,7 +752,7 @@ export function leaveCancelContent(values: Record<string, string>) {
   return [
     `취소기간: ${leaveDateRangeText(values)}`,
     `취소구분: ${values.leaveType ?? "-"}`,
-    `취소 연차일수: ${formatDayValue(values.days)}일`
+    `취소 연차일수: ${formatDayValue(values.annualLeaveDays ?? values.days)}일`
   ].filter(Boolean).join("\n");
 }
 

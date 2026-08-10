@@ -311,6 +311,31 @@ export type LeaveUsage = {
   exclusions: LeaveExclusion[];
 };
 
+export type CompTimeCredit = {
+  creditId: number;
+  empId: number;
+  empName: string;
+  workDate: string;
+  grantedDays: number;
+  reservedDays: number;
+  usedDays: number;
+  availableDays: number;
+  reason: string;
+  grantedByEmpId: number;
+  grantedByName: string;
+  expiresOn: string;
+  status: "ACTIVE" | "EXPIRED" | "EXHAUSTED";
+  createdAt: string;
+};
+
+export type CompTimeSummary = {
+  empId: number;
+  empName: string;
+  availableDays: number;
+  reservedDays: number;
+  credits: CompTimeCredit[];
+};
+
 export type ApprovalHoliday = {
   holidayId: number;
   holidayDate: string;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2, Plus, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, Plus, Search, Trash2, X } from "lucide-react";
 import { api } from "../api";
 import { DeptTree } from "./DeptTree";
 import { Empty } from "./Empty";
@@ -8,13 +8,15 @@ import type { DeptNode, Employee, PageResponse, User } from "../types";
 function clampApprovalSlotCount(count: number) {
   return Math.min(6, Math.max(2, count));
 }
-export function EmployeeMultiPicker({ title, user, employees, selectedIds, disabledIds, ordered = false, onChange }: {
+export function EmployeeMultiPicker({ title, user, employees, selectedIds, disabledIds, ordered = false, cardLayout = false, prependUser = false, onChange }: {
   title: string;
   user: User;
   employees: Employee[];
   selectedIds: number[];
   disabledIds: number[];
   ordered?: boolean;
+  cardLayout?: boolean;
+  prependUser?: boolean;
   onChange: (ids: number[]) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -81,13 +83,53 @@ export function EmployeeMultiPicker({ title, user, employees, selectedIds, disab
     onChange(next);
   }
 
+  function cardRole(index: number, count: number) {
+    if (title === "결재자") return index === count - 1 ? "승인" : "검토";
+    return title.endsWith("자") ? title.slice(0, -1) : title;
+  }
+
+  const requester = knownEmployees.find((employee) => employee.empId === user.empId);
+
   return (
     <div className="line-picker-card compact-line-picker">
       <div className="panel-head">
         <h3>{title}</h3>
         <button type="button" onClick={openPicker}><Building2 size={16} /> 선택</button>
       </div>
-      {selectedIds.length ? selectedIds.map((id, index) => {
+      {cardLayout ? (
+        <div className="approval-person-card-list">
+          {prependUser && (
+            <div className="approval-person-card fixed" aria-label={`작성자 ${user.empName}`}>
+              <span className="approval-person-order">1</span>
+              <div className="approval-person-info">
+                <em>작성</em>
+                <strong>{user.empName}</strong>
+                <small>{user.deptName ?? "부서 미지정"} · {requester?.positionName ?? requester?.jobTitle ?? "직급 미지정"}</small>
+              </div>
+            </div>
+          )}
+          {selectedIds.map((id, index) => {
+            const employee = knownEmployees.find((item) => item.empId === Number(id));
+            const order = index + (prependUser ? 2 : 1);
+            return (
+              <div className="approval-person-card" key={id}>
+                <span className="approval-person-order">{order}</span>
+                <div className="approval-person-info">
+                  <em>{cardRole(index, selectedIds.length)}</em>
+                  <strong>{employee?.empName ?? id}</strong>
+                  <small>{employee?.deptName ?? "부서 미지정"} · {employee?.positionName ?? employee?.jobTitle ?? "직급 미지정"}</small>
+                </div>
+                <div className="approval-person-actions">
+                  {ordered && <button type="button" onClick={() => move(id, -1)} disabled={index === 0} title="앞으로 이동" aria-label={`${employee?.empName ?? id} 앞으로 이동`}><ArrowLeft size={14} /></button>}
+                  {ordered && <button type="button" onClick={() => move(id, 1)} disabled={index === selectedIds.length - 1} title="뒤로 이동" aria-label={`${employee?.empName ?? id} 뒤로 이동`}><ArrowRight size={14} /></button>}
+                  <button type="button" onClick={() => remove(id)} title="삭제" aria-label={`${employee?.empName ?? id} 삭제`}><Trash2 size={14} /></button>
+                </div>
+              </div>
+            );
+          })}
+          {!selectedIds.length && <p className="approval-person-empty">{title}를 선택하세요.</p>}
+        </div>
+      ) : selectedIds.length ? selectedIds.map((id, index) => {
         const employee = knownEmployees.find((item) => item.empId === Number(id));
         return (
           <div className="selected-approver" key={id}>

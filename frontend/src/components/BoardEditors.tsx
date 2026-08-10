@@ -4,12 +4,13 @@ import type { DraftAttachment } from "../utils/attachments";
 export type NoticeForm = { title: string; content: string; pinned: boolean };
 export type BoardForm = { title: string; content: string; draft: boolean };
 
-export function NoticeEditor({ title, form, setForm, pendingFiles, setPendingFiles, onSave, onCancel, onDelete }: {
+export function NoticeEditor({ title, form, setForm, pendingFiles, setPendingFiles, canAttach = true, onSave, onCancel, onDelete }: {
   title: string;
   form: NoticeForm;
   setForm: (value: NoticeForm) => void;
   pendingFiles: DraftAttachment[];
   setPendingFiles: (value: DraftAttachment[]) => void;
+  canAttach?: boolean;
   onSave: () => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -20,7 +21,7 @@ export function NoticeEditor({ title, form, setForm, pendingFiles, setPendingFil
       <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="제목" />
       <EditorTools content={form.content} onChange={(content) => setForm({ ...form, content })} />
       <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="내용" />
-      <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
+      {canAttach && <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />}
       <div className="editor-options">
         <label className="check">
           <input type="checkbox" checked={form.pinned} onChange={(event) => setForm({ ...form, pinned: event.target.checked })} />
@@ -31,12 +32,13 @@ export function NoticeEditor({ title, form, setForm, pendingFiles, setPendingFil
   );
 }
 
-export function BoardEditor({ title, form, setForm, pendingFiles, setPendingFiles, onSave, onCancel, onDelete }: {
+export function BoardEditor({ title, form, setForm, pendingFiles, setPendingFiles, canAttach = true, onSave, onCancel, onDelete }: {
   title: string;
   form: BoardForm;
   setForm: (value: BoardForm) => void;
   pendingFiles: DraftAttachment[];
   setPendingFiles: (value: DraftAttachment[]) => void;
+  canAttach?: boolean;
   onSave: () => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -47,7 +49,7 @@ export function BoardEditor({ title, form, setForm, pendingFiles, setPendingFile
       <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="제목" />
       <EditorTools content={form.content} onChange={(content) => setForm({ ...form, content })} />
       <textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="내용" />
-      <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
+      {canAttach && <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />}
       <div className="editor-options">
         <label className="check">
           <input type="checkbox" checked={form.draft} onChange={(event) => setForm({ ...form, draft: event.target.checked })} />

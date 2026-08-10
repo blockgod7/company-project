@@ -171,6 +171,7 @@ import type {
   ApprovalSummary,
   ApprovalTemplateApi,
   AuditLog,
+  CompTimeSummary,
   Employee,
   EquipmentProposal,
   LeaveExclusion,
@@ -403,14 +404,21 @@ function TrainingReportTextArea({ label, value, compact = false, onChange }: { l
   );
 }
 
-export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, holidays, leaveTypeOptions = LEAVE_TYPE_OPTIONS, onChange }: { mode: "request" | "cancel"; user: User; employees: Employee[]; form: ApprovalForm; leaveUsage: LeaveUsage | null; holidays: ApprovalHoliday[]; leaveTypeOptions?: string[]; onChange: (form: ApprovalForm) => void }) {
+function leaveAbsenceDayValue(type: string) {
+  return ["오전반차", "오후반차", "공가(오전)", "공가(오후)"].includes(type) ? 0.5 : 1;
+}
+
+export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, compTimeSummary, holidays, leaveTypeOptions = LEAVE_TYPE_OPTIONS, onChange }: { mode: "request" | "cancel"; user: User; employees: Employee[]; form: ApprovalForm; leaveUsage: LeaveUsage | null; compTimeSummary: CompTimeSummary | null; holidays: ApprovalHoliday[]; leaveTypeOptions?: string[]; onChange: (form: ApprovalForm) => void }) {
   const values = form.fieldValues;
   const selections = parseLeaveSelections(values);
   const cancelMode = mode === "cancel";
   const deptName = currentUserDeptName(user, employees, user.deptName ?? "");
   const requester = employees.find((employee) => employee.empId === user.empId);
   const availableLeaveTypeOptions = user.genderCode === "FEMALE" ? leaveTypeOptions : leaveTypeOptions.filter((type) => !["여성휴가", "출산전후휴가", "유산·사산휴가"].includes(type));
-  const annualDays = formatDayValue(values.days);
+  const selectedCompTimeDays = selections.filter((selection) => selection.type === "대체휴무").length;
+  const availableCompTimeDays = Number(compTimeSummary?.availableDays ?? 0);
+  const requestedDays = formatDayValue(values.days);
+  const annualDays = formatDayValue(values.annualLeaveDays ?? values.days);
   const usedBefore = formatDayValue(leaveUsage?.usedAnnualDays ?? values.usedAnnualDays ?? "0");
   const totalDays = formatDayValue(leaveUsage?.totalAnnualDays ?? values.totalAnnualDays ?? DEFAULT_TOTAL_ANNUAL_DAYS);
   const remainingDays = cancelMode
@@ -429,16 +437,17 @@ export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, ho
 
   function applySelections(nextSelections: LeaveSelection[]) {
     const sorted = [...nextSelections].sort((a, b) => a.date.localeCompare(b.date));
-    const days = sorted.reduce((sum, selection) => sum + selection.days, 0);
+    const requestedDays = sorted.reduce((sum, selection) => sum + leaveAbsenceDayValue(selection.type), 0);
+    const annualLeaveDays = sorted.reduce((sum, selection) => sum + selection.days, 0);
     const nextValues = {
       ...values,
       startDate: sorted[0]?.date ?? "",
       endDate: sorted[sorted.length - 1]?.date ?? "",
-      days: formatDayValue(days),
-      annualLeaveDays: formatDayValue(days),
+      days: formatDayValue(requestedDays),
+      annualLeaveDays: formatDayValue(annualLeaveDays),
       usedAnnualDays: usedBefore,
       totalAnnualDays: totalDays,
-      remainingAnnualDays: cancelMode ? formatDayValue(Number(totalDays) - Number(usedBefore) + days) : remainingAnnualDaysText(totalDays, usedBefore, days),
+      remainingAnnualDays: cancelMode ? formatDayValue(Number(totalDays) - Number(usedBefore) + annualLeaveDays) : remainingAnnualDaysText(totalDays, usedBefore, annualLeaveDays),
       leaveType: leaveSummary(sorted),
       leaveSelectionsJson: JSON.stringify(sorted)
     };
@@ -449,10 +458,11 @@ export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, ho
     <div className="leave-request-editor">
       <section className="leave-web-card leave-web-head"><div><span className="eyebrow">전자결재 · 휴가</span><h2>{cancelMode ? "휴가 취소 신청" : "휴가 신청"}</h2><p>{cancelMode ? "승인된 휴가 중 취소할 날짜를 선택하세요." : "날짜마다 휴가 종류를 선택하면 사용량이 자동 계산됩니다."}</p></div><label className="leave-web-title">문서 제목<input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder={cancelMode ? "휴가 취소계" : "휴가계"} /></label></section>
       <section className="leave-applicant-row"><div><span>신청자</span><strong>{user.empName} · {requester?.positionName ?? requester?.jobTitle ?? "직급 미지정"}</strong></div><div><span>부서</span><strong>{deptName || "부서 미지정"}</strong></div><div><span>신청일</span><strong>{todayDate()}</strong></div></section>
-      <section className="leave-metrics" aria-label="휴가 현황"><div><span>총 휴가 일수</span><strong>{totalDays}<small>일</small></strong></div><div><span>신청 전 휴가 사용 일수</span><strong>{usedBefore}<small>일</small></strong><em>최종 결재 완료 기준</em></div><div className="accent"><span>{cancelMode ? "이번 취소 휴가 일수" : "이번 신청 휴가 일수"}</span><strong>{annualDays}<small>일</small></strong><em>{cancelMode ? `취소 후 잔여 ${remainingDays}일` : `신청 후 잔여 ${remainingDays}일`}</em></div></section>
+      <section className="leave-metrics" aria-label="휴가 현황"><div><span>총 휴가 일수</span><strong>{totalDays}<small>일</small></strong></div><div><span>신청 전 휴가 사용 일수</span><strong>{usedBefore}<small>일</small></strong><em>최종 결재 완료 기준</em></div><div className="accent"><span>{cancelMode ? "이번 취소 휴가 일수" : "이번 신청 휴가 일수"}</span><strong>{requestedDays}<small>일</small></strong><em>{cancelMode ? `취소 후 연차 잔여 ${remainingDays}일` : `신청 후 연차 잔여 ${remainingDays}일`}</em></div></section>
       {overbooked && <p className="leave-overbooked">결재 중인 휴가 {leaveUsage?.reservedAnnualDays}일을 포함하면 총 휴가 일수를 초과합니다. 진행 중 문서를 회수하거나 휴가관리자에게 확인해 주세요.</p>}
-      <section className="leave-web-card"><div className="leave-section-title"><div><CalendarDays size={20} /><div><h3>{cancelMode ? "취소 날짜" : "신청 날짜"}</h3><p>날짜를 선택한 뒤 해당 날짜 안에서 휴가 종류를 지정하세요.</p></div></div><strong>{leaveDateRangeText(values)}</strong></div><LeaveCalendarInline mode={mode} selections={selections} lockedSelections={(cancelMode ? leaveUsage?.selections : leaveUsage?.occupiedSelections) ?? []} holidays={holidays} leaveTypeOptions={availableLeaveTypeOptions} onChange={applySelections} /></section>
-      <LeaveConditionalDetails selections={selections} values={values} onChange={(next) => updateValues({ ...values, ...next })} />
+      {!cancelMode && <div className={`leave-comp-time-summary${selectedCompTimeDays > availableCompTimeDays ? " insufficient" : ""}`}><div><strong>대체휴무</strong><span>대체근무 적립분을 휴가 종류에서 바로 선택할 수 있습니다.</span></div><div><b>사용 가능 {formatDayValue(availableCompTimeDays)}일</b><span>결재 중 예약 {formatDayValue(compTimeSummary?.reservedDays ?? 0)}일 · 이번 선택 {selectedCompTimeDays}일</span></div></div>}
+      <section className="leave-web-card"><div className="leave-section-title"><div><CalendarDays size={20} /><div><h3>{cancelMode ? "취소 날짜" : "신청 날짜"}</h3><p>날짜를 선택한 뒤 해당 날짜 안에서 휴가 종류를 지정하세요.</p></div></div><strong>{leaveDateRangeText(values)}</strong></div><LeaveCalendarInline mode={mode} selections={selections} lockedSelections={(cancelMode ? leaveUsage?.selections : leaveUsage?.occupiedSelections) ?? []} holidays={holidays} leaveTypeOptions={availableLeaveTypeOptions} compTimeSummary={compTimeSummary} onChange={applySelections} /></section>
+      <LeaveConditionalDetails selections={selections} values={values} compTimeSummary={compTimeSummary} onChange={(next) => updateValues({ ...values, ...next })} />
       <section className="leave-web-card leave-routing"><LeaveRouteRow title="결재" people={[{ employee: requester, role: "작성" }, ...employeesByIds(employees, form.approverEmpIds).map((employee, index, list) => ({ employee, role: index === list.length - 1 ? "승인" : "검토" }))]} /><LeaveRouteRow title="수신" people={employeesByIds(employees, form.receiverEmpIds).map((employee) => ({ employee, role: "수신" }))} /></section>
       <p className="muted-text">{cancelMode ? "최종 결재 완료된 휴가 날짜만 선택할 수 있고, 취소계 승인 후 연차가 복구됩니다." : "연차와 하계휴가는 1일, 오전·오후반차는 0.5일로 계산하며 주말과 등록 휴일은 선택할 수 없습니다."}</p>
       {!!leaveUsage?.exclusions?.length && (
@@ -469,7 +479,7 @@ function LeaveRouteRow({ title, people }: { title: string; people: { employee?: 
   return <div className="leave-route-row"><strong className="leave-route-label">{title}</strong><div className="leave-person-list">{people.length ? people.map(({ employee, role }, index) => <div className="leave-person-card" key={`${role}-${employee?.empId ?? index}`}><span>{index + 1}</span><div><em>{role}</em><strong>{employee?.empName ?? "미지정"}</strong><small>{employee?.deptName ?? "부서 미지정"} · {employee?.positionName ?? employee?.jobTitle ?? "직급 미지정"}</small></div></div>) : <p className="muted-text">지정된 사람이 없습니다.</p>}</div><span className="leave-route-help">상단 ‘결재 정보’에서 수정</span></div>;
 }
 
-function LeaveConditionalDetails({ selections, values, onChange }: { selections: LeaveSelection[]; values: Record<string, string>; onChange: (values: Record<string, string>) => void }) {
+function LeaveConditionalDetails({ selections, values, compTimeSummary, onChange }: { selections: LeaveSelection[]; values: Record<string, string>; compTimeSummary: CompTimeSummary | null; onChange: (values: Record<string, string>) => void }) {
   const types = new Set(selections.map((selection) => selection.type));
   const needsReason = ["무급휴가", "특별유급휴가", "공가", "공가(오전)", "공가(오후)"].some((type) => types.has(type));
   const [bereavementOptions, setBereavementOptions] = useState<BereavementOption[]>([]);
@@ -494,17 +504,21 @@ function LeaveConditionalDetails({ selections, values, onChange }: { selections:
     {types.has("경조") && <><label>경조 유형<select required value={values.familyEventType ?? ""} onChange={(event) => onChange({ familyEventType: event.target.value, familyRelation: "" })}><option value="">선택</option>{eventOptions.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label><label>대상 관계<select required disabled={!values.familyEventType} value={values.familyRelation ?? ""} onChange={(event) => onChange({ familyRelation: event.target.value })}><option value="">선택</option>{relationOptions.map((item) => <option key={`${item.eventType}-${item.familyRelation}`} value={item.familyRelation}>{item.familyRelationLabel} · {item.allowedDays}일 · {item.payType === "PAID" ? "유급" : "무급"}{item.evidenceRequired ? " · 증빙필수" : ""}</option>)}</select></label>{bereavementError && <p className="wide error">{bereavementError}</p>}</>}
     {types.has("산재요양") && <><label>예상 휴업 시작일<input type="date" value={values.accidentExpectedStartDate ?? ""} onChange={(event) => onChange({ accidentExpectedStartDate: event.target.value })} /></label><label>예상 휴업 종료일<input type="date" value={values.accidentExpectedEndDate ?? ""} onChange={(event) => onChange({ accidentExpectedEndDate: event.target.value })} /></label><label className="wide">산재 접수정보<input value={values.accidentReceiptInfo ?? ""} onChange={(event) => onChange({ accidentReceiptInfo: event.target.value })} /></label></>}
     {(types.has("배우자 출산휴가") || types.has("출산전후휴가")) && <><label>출산 예정일<input type="date" value={values.expectedBirthDate ?? ""} onChange={(event) => onChange({ expectedBirthDate: event.target.value })} /></label><label>실제 출산일 <small>출산 후 확정 가능</small><input type="date" value={values.actualBirthDate ?? ""} onChange={(event) => onChange({ actualBirthDate: event.target.value })} /></label>{types.has("배우자 출산휴가") && <div className="wide leave-comp-time-note"><strong>법정 한도 자동 확인</strong><span>유급 20일 · 기존 사용/결재 중 포함 · 3회 분할(총 4번) · 법정 사용기간을 상신 시 다시 검사합니다.</span></div>}</>}
-    {types.has("대체휴무") && <div className="wide leave-comp-time-note"><strong>대체휴무 잔액 확인 필요</strong><span>실제 비근무일 근무 후 부여된 잔액 중 만료일이 가까운 건부터 사용합니다.</span></div>}
+    {types.has("대체휴무") && <div className="wide leave-comp-time-note"><strong>대체휴무 사용 가능 {formatDayValue(compTimeSummary?.availableDays ?? 0)}일</strong><span>주말·공휴일 대체근무 적립분 중 만료일이 가까운 건부터 자동 사용합니다.</span></div>}
   </div></section>;
 }
 
-function LeaveCalendarInline({ mode, selections, lockedSelections, holidays, leaveTypeOptions, onChange }: { mode: "request" | "cancel"; selections: LeaveSelection[]; lockedSelections: LeaveUsage["selections"]; holidays: ApprovalHoliday[]; leaveTypeOptions: string[]; onChange: (selections: LeaveSelection[]) => void }) {
+function LeaveCalendarInline({ mode, selections, lockedSelections, holidays, leaveTypeOptions, compTimeSummary, onChange }: { mode: "request" | "cancel"; selections: LeaveSelection[]; lockedSelections: LeaveUsage["selections"]; holidays: ApprovalHoliday[]; leaveTypeOptions: string[]; compTimeSummary: CompTimeSummary | null; onChange: (selections: LeaveSelection[]) => void }) {
   const initialDate = selections[0]?.date ? new Date(`${selections[0].date}T00:00:00`) : new Date();
   const [visibleMonth, setVisibleMonth] = useState(new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
   const selectedMap = new Map(selections.map((selection) => [selection.date, selection]));
   const lockedMap = new Map(lockedSelections.map((selection) => [selection.date, selection]));
   const cancelMode = mode === "cancel";
   const holidayMap = new Map(holidays.filter((holiday) => holiday.active).map((holiday) => [holiday.holidayDate, holiday.holidayName]));
+  const compTimeWorkMap = new Map<string, number>();
+  compTimeSummary?.credits.forEach((credit) => compTimeWorkMap.set(credit.workDate, (compTimeWorkMap.get(credit.workDate) ?? 0) + Number(credit.grantedDays)));
+  const availableCompTimeDays = Number(compTimeSummary?.availableDays ?? 0);
+  const selectedCompTimeDays = selections.filter((selection) => selection.type === "대체휴무").length;
   const monthCells = calendarCells(visibleMonth, holidayMap);
 
   function moveMonth(delta: number) { setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + delta, 1)); }
@@ -529,15 +543,23 @@ function LeaveCalendarInline({ mode, selections, lockedSelections, holidays, lea
     const type = locked?.type === "오전반차" || locked?.type === "공가(오전)" ? "오후반차" : locked?.type === "오후반차" || locked?.type === "공가(오후)" ? "오전반차" : "연차";
     onChange([...selections, { date, type, days: leaveDayValue(type) }].sort((a, b) => a.date.localeCompare(b.date)));
   }
-  function changeType(date: string, type: string) { onChange(selections.map((selection) => selection.date === date ? { ...selection, type, days: leaveDayValue(type) } : selection)); }
+  function compTimeUnavailable(currentType: string) {
+    const otherSelectedDays = selectedCompTimeDays - (currentType === "대체휴무" ? 1 : 0);
+    return !cancelMode && availableCompTimeDays - otherSelectedDays < 1;
+  }
+  function changeType(date: string, type: string) {
+    const current = selectedMap.get(date);
+    if (type === "대체휴무" && compTimeUnavailable(current?.type ?? "")) return;
+    onChange(selections.map((selection) => selection.date === date ? { ...selection, type, days: leaveDayValue(type) } : selection));
+  }
 
   return <div className="leave-calendar-inline">
     <div className="leave-calendar-toolbar"><button type="button" className="ghost" onClick={() => moveMonth(-1)}>이전</button><strong>{visibleMonth.getFullYear()}년 {visibleMonth.getMonth() + 1}월</strong><button type="button" className="ghost" onClick={() => moveMonth(1)}>다음</button></div>
     <div className="leave-calendar-grid">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <div key={day} className="leave-calendar-week">{day}</div>)}{monthCells.map((cell) => {
-      const selected = selectedMap.get(cell.date); const locked = lockedMap.get(cell.date); const options = allowedTypes(locked);
+      const selected = selectedMap.get(cell.date); const locked = lockedMap.get(cell.date); const options = allowedTypes(locked); const compTimeWorkedDays = compTimeWorkMap.get(cell.date);
       const unavailable = cancelMode ? !locked : (cell.weekend || Boolean(cell.holidayName) || Boolean(locked && !options.length));
       return <button type="button" key={cell.date} className={`leave-calendar-day${cell.inMonth ? "" : " outside"}${cell.weekend ? " weekend" : ""}${cell.holidayName ? " holiday" : ""}${selected ? " selected" : ""}${locked ? " locked" : ""}${unavailable ? " unavailable" : ""}`} onClick={() => toggleDate(cell.date)} disabled={unavailable} title={unavailable ? cell.holidayName || (locked ? `${locked.type} 사용 중` : "선택할 수 없는 날짜") : ""}>
-        <span>{cell.day}</span>{cell.holidayName && <em className="leave-calendar-holiday">{cell.holidayName}</em>}{locked && <small className="leave-calendar-locked-type">기존 {locked.type}</small>}{selected && !cancelMode && <select className="leave-calendar-type-select" value={selected.type} onClick={(event) => event.stopPropagation()} onChange={(event) => changeType(cell.date, event.target.value)}>{(options.length ? options : leaveTypeOptions).map((option) => <option key={option} value={option}>{option}</option>)}</select>}{selected && cancelMode && <strong className="leave-calendar-locked-type">취소 {selected.type}</strong>}
+        <span>{cell.day}</span>{cell.holidayName && <em className="leave-calendar-holiday">{cell.holidayName}</em>}{compTimeWorkedDays != null && <small className="leave-calendar-comp-time">대체근무 {formatDayValue(compTimeWorkedDays)}일 적립</small>}{locked && <small className="leave-calendar-locked-type">기존 {locked.type}</small>}{selected && !cancelMode && <select className="leave-calendar-type-select" value={selected.type} onClick={(event) => event.stopPropagation()} onChange={(event) => changeType(cell.date, event.target.value)}>{(options.length ? options : leaveTypeOptions).map((option) => <option key={option} value={option} disabled={option === "대체휴무" && compTimeUnavailable(selected.type)}>{option === "대체휴무" ? `대체휴무 (잔여 ${formatDayValue(availableCompTimeDays)}일)` : option}</option>)}</select>}{selected && cancelMode && <strong className="leave-calendar-locked-type">취소 {selected.type}</strong>}
       </button>;
     })}</div>
     <div className="leave-selection-list"><div className="leave-selection-summary">선택 {selections.length}일 · 일반 연차 차감 {formatDayValue(selections.reduce((sum, item) => sum + item.days, 0))}일</div>{selections.length ? <p className="leave-selection-inline-summary">{selections.map((selection) => `${selection.date} ${selection.type}`).join(", ")}</p> : <p className="muted-text">달력에서 날짜를 선택하세요.</p>}</div>
@@ -740,7 +762,7 @@ export function LeaveRequestDetailView({ approval, exclusions = [] }: { approval
             <div key={`${selection.date}-${selection.type}`}>
               <strong>{selection.date}</strong>
               <span>{selection.type}</span>
-              <small>{formatDayValue(selection.days)}일</small>
+              <small>{formatDayValue(leaveAbsenceDayValue(selection.type))}일</small>
             </div>
           )) : <div><strong>{values.startDate || "-"}</strong><span>{values.leaveType || "-"}</span><small>{requestDays}일</small></div>}
         </div>

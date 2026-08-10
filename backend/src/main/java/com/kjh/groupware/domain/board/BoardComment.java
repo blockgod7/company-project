@@ -57,6 +57,10 @@ public class BoardComment extends BaseEntity {
         this.deletedYn = "N";
     }
 
+    public void update(String content) {
+        this.content = content;
+    }
+
     public void delete(Emp deletedBy) {
         this.deletedYn = "Y";
         this.deletedAt = LocalDateTime.now();

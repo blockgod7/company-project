@@ -172,6 +172,7 @@ import type {
   ApprovalSummary,
   ApprovalTemplateApi,
   AuditLog,
+  CompTimeSummary,
   Employee,
   EquipmentProposal,
   EquipmentReport,
@@ -209,6 +210,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const [previewTemplate, setPreviewTemplate] = useState<ApprovalTemplateOption>(DEFAULT_APPROVAL_TEMPLATES[0]);
   const [form, setForm] = useState<ApprovalForm>(() => defaultApprovalForm());
   const [leaveUsage, setLeaveUsage] = useState<LeaveUsage | null>(null);
+  const [compTimeSummary, setCompTimeSummary] = useState<CompTimeSummary | null>(null);
   const [holidays, setHolidays] = useState<ApprovalHoliday[]>([]);
   const [leaveTypeOptions, setLeaveTypeOptions] = useState<string[]>(LEAVE_TYPE_OPTIONS);
   const [leaveExclusions, setLeaveExclusions] = useState<LeaveExclusion[]>([]);
@@ -310,6 +312,17 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       return usage;
     } catch {
       setLeaveUsage(null);
+      return null;
+    }
+  }
+
+  async function loadCompTimeSummary() {
+    try {
+      const summary = await api<CompTimeSummary>("/comp-time/me");
+      setCompTimeSummary(summary);
+      return summary;
+    } catch {
+      setCompTimeSummary(null);
       return null;
     }
   }
@@ -912,6 +925,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     void loadSavedApprovalLines();
     void loadHolidays();
     void loadLeavePolicies();
+    void loadCompTimeSummary();
   }, []);
 
   useEffect(() => {
@@ -1041,6 +1055,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     setMode("create");
     void applyDefaultLine(previewTemplate.code);
     if (isLeaveRequest || isLeaveCancel) {
+      void loadCompTimeSummary();
       void loadLeaveUsage().then((usage) => {
         setForm((current) => isLeaveTemplateCode(current.templateCode) || isLeaveCancelTemplateCode(current.templateCode)
           ? { ...current, fieldValues: { ...current.fieldValues, ...leaveUsageFieldValues(usage) } }
@@ -1070,6 +1085,10 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     setPendingFiles([]);
     setApprovalError("");
     setMode("edit");
+    if (isLeaveTemplateCode(selected.templateCode) || isLeaveCancelTemplateCode(selected.templateCode)) {
+      void loadLeaveUsage();
+      void loadCompTimeSummary();
+    }
   }
 
   function validateDraftLine(receiverEmpIds = form.receiverEmpIds) {
@@ -1141,6 +1160,15 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       if (isLeaveRequest && receiverEmpIds.length !== 1) {
         setApprovalError("휴가계 수신자를 1명 지정해 주세요.");
         return;
+      }
+      if (isLeaveRequest) {
+        const requestedCompTimeDays = parseLeaveSelections(fieldValues)
+          .filter((selection) => selection.type === "대체휴무")
+          .length;
+        if (requestedCompTimeDays > Number(compTimeSummary?.availableDays ?? 0)) {
+          setApprovalError(`대체휴무 잔여가 부족합니다. 사용 가능 ${formatDayValue(compTimeSummary?.availableDays ?? 0)}일`);
+          return;
+        }
       }
       if ((isEquipmentProposalTemplateCode(template.code) || isPurchaseRequest || isTrainingTemplate) && !form.title.trim()) {
         setApprovalError("문서 제목 필수값을 입력해 주세요.");
@@ -1228,6 +1256,9 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       setSelected(saved);
       setMode("detail");
       setBox("requested");
+      if (isLeaveRequest || isLeaveCancel) {
+        await loadCompTimeSummary();
+      }
       await load("requested");
     } catch (err) {
       setApprovalError(err instanceof Error ? err.message : "결재 문서 저장 중 오류가 발생했습니다.");
@@ -1278,6 +1309,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       }
       if (type === "approve" && (isLeaveTemplateCode(updated.templateCode) || isLeaveCancelTemplateCode(updated.templateCode)) && updated.status === "APPROVED") {
         await loadLeaveUsage();
+        await loadCompTimeSummary();
       }
       await refreshEquipmentProposal(updated);
       setApprovalError("");
@@ -1483,23 +1515,75 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
         <button type="button" className={approvalCategory === "active" ? "active" : ""} onClick={() => void changeApprovalCategory("active")}>전자결재</button>
         <button type="button" className={approvalCategory === "completed" ? "active" : ""} onClick={() => void changeApprovalCategory("completed")}>결재 완료문서</button>
       </div>
-      <div className="board-tabs approval-tabs">
-        {approvalCategory === "active" && primaryApprovalViews.map((view) => (
+      {approvalCategory === "active" && <div className="board-tabs approval-tabs approval-work-tabs">
+        {primaryApprovalViews.map((view) => (
           <button key={view.id} className={activePrimaryApprovalViewId === view.id ? "active" : ""} onClick={() => void openApprovalWorkView(view)}>{view.label}</button>
         ))}
-        {approvalCategory === "active" && (
-          <div className="approval-tab-actions">
-            <button type="button" className={mode === "delegation" ? "active" : ""} onClick={() => void openDelegationSettings()}>대리설정</button>
-            <button type="button" className={mode === "compTime" ? "active" : ""} onClick={() => setMode("compTime")}>대체휴무</button>
-            {isApprovalAdmin && <button type="button" className={mode === "templates" ? "active" : ""} onClick={() => void openTemplateAdmin()}>양식관리</button>}
-            {isApprovalAdmin && <button type="button" className={mode === "operationSettings" ? "active" : ""} onClick={() => void openOperationSettings()}>운영설정</button>}
-            {isHolidayManager && <button type="button" className={mode === "holidays" ? "active" : ""} onClick={openHolidayManagement}>휴일관리</button>}
-            {isHolidayManager && <button type="button" className={mode === "annualLeaves" ? "active" : ""} onClick={() => setMode("annualLeaves")}>연차관리</button>}
-            {isHolidayManager && <button type="button" className={mode === "leavePolicies" ? "active" : ""} onClick={() => setMode("leavePolicies")}>휴가정책</button>}
-            {isApprovalAdmin && <button type="button" className={mode === "deleted" ? "active" : ""} onClick={() => void openDeletedApprovals()}>보존삭제함</button>}
-          </div>
-        )}
-      </div>
+        <div className="approval-tab-actions">
+          <button type="button" className={mode === "delegation" ? "active" : ""} onClick={() => void openDelegationSettings()}>대리설정</button>
+          {isHolidayManager && <button type="button" className={mode === "compTime" ? "active" : ""} onClick={() => setMode("compTime")}>대체휴무 관리</button>}
+          {isApprovalAdmin && <button type="button" className={mode === "templates" ? "active" : ""} onClick={() => void openTemplateAdmin()}>양식관리</button>}
+          {isApprovalAdmin && <button type="button" className={mode === "operationSettings" ? "active" : ""} onClick={() => void openOperationSettings()}>운영설정</button>}
+          {isHolidayManager && <button type="button" className={mode === "holidays" ? "active" : ""} onClick={openHolidayManagement}>휴일관리</button>}
+          {isHolidayManager && <button type="button" className={mode === "annualLeaves" ? "active" : ""} onClick={() => setMode("annualLeaves")}>연차관리</button>}
+          {isHolidayManager && <button type="button" className={mode === "leavePolicies" ? "active" : ""} onClick={() => setMode("leavePolicies")}>휴가정책</button>}
+          {isApprovalAdmin && <button type="button" className={mode === "deleted" ? "active" : ""} onClick={() => void openDeletedApprovals()}>보존삭제함</button>}
+        </div>
+      </div>}
+      {approvalCategory === "completed" && mode === "list" && <form className="approval-search-panel approval-completed-search" onSubmit={applyApprovalSearch}>
+        <label>
+          <span>검색어</span>
+          <input
+            value={approvalSearch.keyword}
+            onChange={(event) => setApprovalSearch({ ...approvalSearch, keyword: event.target.value })}
+            placeholder="문서번호, 제목, 기안자 검색"
+          />
+        </label>
+        <label>
+          <span>상태</span>
+          <select value={approvalSearch.status} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, status: event.target.value })}>
+            <option value="">전체</option>
+            <option value="IN_PROGRESS">진행</option>
+            <option value="APPROVED">승인완료</option>
+            <option value="REJECTED">반려</option>
+            <option value="DRAFT">임시저장</option>
+            <option value="WITHDRAWN">회수</option>
+            <option value="CANCELED">취소</option>
+          </select>
+        </label>
+        <label>
+          <span>양식</span>
+          <select value={approvalSearch.templateCode} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, templateCode: event.target.value })}>
+            <option value="">전체</option>
+            {selectableTemplates.map((template) => (
+              <option key={`${template.code}-${template.version ?? "latest"}`} value={template.code}>{template.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>내 역할</span>
+          <select value={approvalSearch.role} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, role: event.target.value })}>
+            <option value="">전체</option>
+            <option value="REQUESTER">기안자</option>
+            <option value="APPROVER">결재/합의</option>
+            <option value="RECEIVER">수신</option>
+            <option value="SHARED">참조/열람</option>
+            <option value="DELEGATED">대리 처리</option>
+          </select>
+        </label>
+        <label>
+          <span>시작일</span>
+          <input type="date" value={approvalSearch.dateFrom} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, dateFrom: event.target.value })} />
+        </label>
+        <label>
+          <span>종료일</span>
+          <input type="date" value={approvalSearch.dateTo} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, dateTo: event.target.value })} />
+        </label>
+        <div className="approval-search-actions">
+          <button type="submit"><Search size={16} /> 검색</button>
+          <button type="button" className="ghost" onClick={() => void resetApprovalSearch()}><RefreshCw size={16} /> 초기화</button>
+        </div>
+      </form>}
       {mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "holidays" && mode !== "annualLeaves" && mode !== "leavePolicies" && mode !== "compTime" && mode !== "deleted" && <Toolbar title={approvalCategory === "completed" ? "결재 완료문서" : "전자결재"} onNew={startCreate} onRefresh={() => load(box, dashboardFilter?.dashboardFilter ?? null)} />}
       {approvalError && <p className="error">{approvalError}</p>}
       {mode === "detail" && selected && (
@@ -1676,7 +1760,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       {mode === "holidays" && isHolidayManager && <ApprovalHolidayPanel onChanged={loadHolidays} />}
       {mode === "annualLeaves" && isHolidayManager && <AnnualLeaveAdminPanel />}
       {mode === "leavePolicies" && isHolidayManager && <LeavePolicyAdminPanel employees={employees} />}
-      {mode === "compTime" && <CompTimeAdminPanel user={user} employees={employees} isManager={isHolidayManager} />}
+      {mode === "compTime" && isHolidayManager && <CompTimeAdminPanel user={user} employees={employees} isManager />}
       {mode === "deleted" && isApprovalAdmin && (
         <div className="approval-template-editor">
           <div className="panel-head">
@@ -1704,60 +1788,6 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       )}
       {mode === "list" && (
         <>
-          {approvalCategory === "completed" && <form className="approval-search-panel" onSubmit={applyApprovalSearch}>
-            <label>
-              <span>검색어</span>
-              <input
-                value={approvalSearch.keyword}
-                onChange={(event) => setApprovalSearch({ ...approvalSearch, keyword: event.target.value })}
-                placeholder="문서번호, 제목, 기안자 검색"
-              />
-            </label>
-            <label>
-              <span>상태</span>
-              <select value={approvalSearch.status} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, status: event.target.value })}>
-                <option value="">전체</option>
-                <option value="IN_PROGRESS">진행</option>
-                <option value="APPROVED">승인완료</option>
-                <option value="REJECTED">반려</option>
-                <option value="DRAFT">임시저장</option>
-                <option value="WITHDRAWN">회수</option>
-                <option value="CANCELED">취소</option>
-              </select>
-            </label>
-            <label>
-              <span>양식</span>
-              <select value={approvalSearch.templateCode} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, templateCode: event.target.value })}>
-                <option value="">전체</option>
-                {selectableTemplates.map((template) => (
-                  <option key={`${template.code}-${template.version ?? "latest"}`} value={template.code}>{template.name}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>내 역할</span>
-              <select value={approvalSearch.role} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, role: event.target.value })}>
-                <option value="">전체</option>
-                <option value="REQUESTER">기안자</option>
-                <option value="APPROVER">결재/합의</option>
-                <option value="RECEIVER">수신</option>
-                <option value="SHARED">참조/열람</option>
-                <option value="DELEGATED">대리 처리</option>
-              </select>
-            </label>
-            <label>
-              <span>시작일</span>
-              <input type="date" value={approvalSearch.dateFrom} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, dateFrom: event.target.value })} />
-            </label>
-            <label>
-              <span>종료일</span>
-              <input type="date" value={approvalSearch.dateTo} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, dateTo: event.target.value })} />
-            </label>
-            <div className="approval-search-actions">
-              <button type="submit"><Search size={16} /> 검색</button>
-              <button type="button" className="ghost" onClick={() => void resetApprovalSearch()}><RefreshCw size={16} /> 초기화</button>
-            </div>
-          </form>}
           {dashboardFilter && !isPrimaryDashboardFilter && (
             <div className="approval-filter-banner">
               <span>{dashboardFilter.label} 기준으로 표시 중</span>
@@ -1807,10 +1837,37 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
               </div>
             </div>
             {defaultLineMessage && <p className="template-note"><span>{defaultLineMessage}</span></p>}
-            {approvalInfoOpen && <div className="modal-backdrop" role="presentation"><div className="org-picker-modal approval-info-modal" role="dialog" aria-modal="true" aria-label="결재 정보"><div className="modal-head"><h3>결재 정보</h3><button type="button" className="icon-button" onClick={() => setApprovalInfoOpen(false)}><X size={18} /></button></div><div className="approval-line-library"><label>저장된 결재라인<select value={selectedSavedLineId} onChange={(event) => setSelectedSavedLineId(event.target.value)}>{savedApprovalLines.length ? savedApprovalLines.map((line) => <option key={line.defaultLineId ?? line.lineName} value={line.defaultLineId ?? ""}>{line.lineName}</option>) : <option value="">저장된 결재라인 없음</option>}</select></label><button type="button" className="ghost" onClick={applySavedApprovalLine} disabled={!savedApprovalLines.length}>불러오기</button><button type="button" className="ghost" onClick={() => void saveNamedApprovalLine()}><Save size={16} /> 현재 결재라인 저장</button></div><div className="line-picker-grid"><EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} /><EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={form.approverEmpIds} disabledIds={[user.empId, ...form.agreementEmpIds, ...form.receiverEmpIds]} ordered onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} /><EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={[...form.agreementEmpIds, ...form.approverEmpIds]} onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} /><EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={[]} onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} /></div><div className="actions"><button type="button" onClick={() => setApprovalInfoOpen(false)}>적용</button></div></div></div>}
+            {approvalInfoOpen && (
+              <div className="modal-backdrop" role="presentation">
+                <div className="org-picker-modal approval-info-modal" role="dialog" aria-modal="true" aria-label="결재 정보">
+                  <div className="modal-head">
+                    <h3>결재 정보</h3>
+                    <button type="button" className="icon-button" onClick={() => setApprovalInfoOpen(false)}><X size={18} /></button>
+                  </div>
+                  <div className="approval-line-library">
+                    <label>저장된 결재라인
+                      <select value={selectedSavedLineId} onChange={(event) => setSelectedSavedLineId(event.target.value)}>
+                        {savedApprovalLines.length
+                          ? savedApprovalLines.map((line) => <option key={line.defaultLineId ?? line.lineName} value={line.defaultLineId ?? ""}>{line.lineName}</option>)
+                          : <option value="">저장된 결재라인 없음</option>}
+                      </select>
+                    </label>
+                    <button type="button" className="ghost" onClick={applySavedApprovalLine} disabled={!savedApprovalLines.length}>불러오기</button>
+                    <button type="button" className="ghost" onClick={() => void saveNamedApprovalLine()}><Save size={16} /> 현재 결재라인 저장</button>
+                  </div>
+                  <div className="line-picker-grid">
+                    <EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} cardLayout onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} />
+                    <EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={form.approverEmpIds} disabledIds={[user.empId, ...form.agreementEmpIds, ...form.receiverEmpIds]} ordered cardLayout prependUser onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} />
+                    <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={[...form.agreementEmpIds, ...form.approverEmpIds]} cardLayout onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} />
+                    <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={[]} cardLayout onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} />
+                  </div>
+                  <div className="actions"><button type="button" onClick={() => setApprovalInfoOpen(false)}>적용</button></div>
+                </div>
+              </div>
+            )}
             {isClassicDraftForm && <ClassicDraftEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={setForm} />}
-            {leavePreviewOpen && (isLeaveRequestForm || isLeaveCancelForm) && <div className="modal-backdrop"><div className="leave-form-preview-modal"><div className="modal-head"><div><h3>휴가 신청 미리보기</h3><p className="muted-text">현재 입력값 기준이며 상신 전까지 문서는 변경되지 않습니다.</p></div><button className="icon-button" onClick={() => setLeavePreviewOpen(false)}><X size={18} /></button></div><div className="leave-preview-readonly"><LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={() => undefined} /></div></div></div>}
+            {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={setForm} />}
+            {leavePreviewOpen && (isLeaveRequestForm || isLeaveCancelForm) && <div className="modal-backdrop"><div className="leave-form-preview-modal"><div className="modal-head"><div><h3>휴가 신청 미리보기</h3><p className="muted-text">현재 입력값 기준이며 상신 전까지 문서는 변경되지 않습니다.</p></div><button className="icon-button" onClick={() => setLeavePreviewOpen(false)}><X size={18} /></button></div><div className="leave-preview-readonly"><LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={() => undefined} /></div></div></div>}
             {isPurchaseRequestForm && <PurchaseRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isTrainingRequestForm && <TrainingRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isTrainingReportForm && <TrainingReportEditor user={user} employees={employees} form={form} onChange={setForm} />}
