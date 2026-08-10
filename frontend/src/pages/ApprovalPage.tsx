@@ -159,6 +159,7 @@ import type {
   PurchaseRequestItem
 } from "../utils/approvalDomain";
 import { formatDate } from "../utils/date";
+import { canViewPreviewFeatures } from "../utils/featureVisibility";
 import type { GlobalSearchTarget } from "../utils/search";
 import type {
   Approval,
@@ -232,18 +233,24 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const [approvalSearch, setApprovalSearch] = useState<ApprovalSearchForm>(DEFAULT_APPROVAL_SEARCH);
   const isApprovalAdmin = user.roleCode === "ADMIN" || user.roleCode === "APPROVAL_ADMIN";
   const isHolidayManager = user.permissions.includes("LEAVE_ADMIN");
+  const canViewPreview = canViewPreviewFeatures(user);
+  const visibleTemplates = canViewPreview
+    ? templates
+    : templates.filter((template) => isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code));
 
   async function load(
     targetBox: ApprovalBox,
     targetFilter: ApprovalDashboardFilter | null | undefined = dashboardFilter?.dashboardFilter,
-    search: ApprovalSearchForm = approvalSearch
+    search: ApprovalSearchForm | null = approvalCategory === "completed" ? approvalSearch : null
   ) {
     const params = new URLSearchParams({ box: targetBox, size: "30" });
     if (targetFilter) params.set("dashboardFilter", targetFilter);
-    Object.entries(search).forEach(([key, value]) => {
-      const trimmed = value.trim();
-      if (trimmed) params.set(key, trimmed);
-    });
+    if (search) {
+      Object.entries(search).forEach(([key, value]) => {
+        const trimmed = value.trim();
+        if (trimmed) params.set(key, trimmed);
+      });
+    }
     const page = await api<PageResponse<ApprovalSummary>>(`/approvals?${params.toString()}`);
     setItems(page.content);
   }
@@ -918,7 +925,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     setSelected(null);
     setMode("list");
     setItems([]);
-    await load(nextBox, null);
+    await load(nextBox, null, null);
   }
 
   async function openApprovalWorkView(view: { box: ApprovalBox; label: string; dashboardFilter?: ApprovalDashboardFilter }) {
@@ -930,7 +937,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     setSelected(null);
     setMode("list");
     setItems([]);
-    await load(view.box, view.dashboardFilter ?? null);
+    await load(view.box, view.dashboardFilter ?? null, null);
   }
 
   async function applyApprovalSearch(event?: FormEvent<HTMLFormElement>) {
@@ -964,7 +971,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     const nextFilter = { box: "pending" as ApprovalBox, dashboardFilter: "actionRequired" as ApprovalDashboardFilter, label: "결재할 문서" };
     setDashboardFilter(nextFilter);
     setBox("pending");
-    await load("pending", "actionRequired", approvalSearch);
+    await load("pending", "actionRequired", null);
   }
 
   async function resetApprovalSearch() {
@@ -987,7 +994,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   }
 
   function startCreate() {
-    const selectableTemplates = selectableApprovalTemplates(templates);
+    const selectableTemplates = selectableApprovalTemplates(visibleTemplates);
     if (!selectableTemplates.length) {
       setApprovalError("사용 가능한 결재 양식이 없습니다. 관리자에게 양식 활성화를 요청해 주세요.");
       return;
@@ -1439,7 +1446,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   }
 
   const selectedTemplate = approvalTemplateByCode(templates, form.templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
-  const selectableTemplates = selectableApprovalTemplates(templates);
+  const selectableTemplates = selectableApprovalTemplates(visibleTemplates);
   const isClassicDraftForm = isDraftTemplateCode(selectedTemplate.code);
   const isLeaveRequestForm = isLeaveTemplateCode(selectedTemplate.code);
   const isLeaveCancelForm = isLeaveCancelTemplateCode(selectedTemplate.code);
@@ -1472,7 +1479,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
 
   return (
     <section className="panel board-screen approval-screen">
-      <div className="approval-category-tabs">
+      <div className="board-tabs approval-tabs approval-category-tabs">
         <button type="button" className={approvalCategory === "active" ? "active" : ""} onClick={() => void changeApprovalCategory("active")}>전자결재</button>
         <button type="button" className={approvalCategory === "completed" ? "active" : ""} onClick={() => void changeApprovalCategory("completed")}>결재 완료문서</button>
       </div>
@@ -1697,7 +1704,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       )}
       {mode === "list" && (
         <>
-          <form className="approval-search-panel" onSubmit={applyApprovalSearch}>
+          {approvalCategory === "completed" && <form className="approval-search-panel" onSubmit={applyApprovalSearch}>
             <label>
               <span>검색어</span>
               <input
@@ -1722,24 +1729,22 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
               <span>양식</span>
               <select value={approvalSearch.templateCode} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, templateCode: event.target.value })}>
                 <option value="">전체</option>
-                {templates.map((template) => (
+                {selectableTemplates.map((template) => (
                   <option key={`${template.code}-${template.version ?? "latest"}`} value={template.code}>{template.name}</option>
                 ))}
               </select>
             </label>
-            {approvalCategory === "completed" && (
-              <label>
-                <span>내 역할</span>
-                <select value={approvalSearch.role} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, role: event.target.value })}>
-                  <option value="">전체</option>
-                  <option value="REQUESTER">기안자</option>
-                  <option value="APPROVER">결재/합의</option>
-                  <option value="RECEIVER">수신</option>
-                  <option value="SHARED">참조/열람</option>
-                  <option value="DELEGATED">대리 처리</option>
-                </select>
-              </label>
-            )}
+            <label>
+              <span>내 역할</span>
+              <select value={approvalSearch.role} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, role: event.target.value })}>
+                <option value="">전체</option>
+                <option value="REQUESTER">기안자</option>
+                <option value="APPROVER">결재/합의</option>
+                <option value="RECEIVER">수신</option>
+                <option value="SHARED">참조/열람</option>
+                <option value="DELEGATED">대리 처리</option>
+              </select>
+            </label>
             <label>
               <span>시작일</span>
               <input type="date" value={approvalSearch.dateFrom} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, dateFrom: event.target.value })} />
@@ -1752,7 +1757,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
               <button type="submit"><Search size={16} /> 검색</button>
               <button type="button" className="ghost" onClick={() => void resetApprovalSearch()}><RefreshCw size={16} /> 초기화</button>
             </div>
-          </form>
+          </form>}
           {dashboardFilter && !isPrimaryDashboardFilter && (
             <div className="approval-filter-banner">
               <span>{dashboardFilter.label} 기준으로 표시 중</span>
@@ -1845,7 +1850,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       )}
       {templateModalOpen && (
         <TemplateSelectModalV2
-          templates={templates}
+          templates={visibleTemplates}
           selected={previewTemplate}
           fallbackActive={templateFallbackActive}
           previewDeptName={currentUserDeptName(user, employees) || "-"}

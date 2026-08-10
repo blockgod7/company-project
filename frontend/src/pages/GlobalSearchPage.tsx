@@ -53,7 +53,7 @@ export function GlobalSearchPage({
         <span>전역 검색</span>
         <form className="search-page-form" onSubmit={onSubmit}>
           <Search size={22} />
-          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="김민수, 도면번호, 문서제목 검색" />
+          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="직원명, 문서제목 검색" />
           {keyword && (
             <button className="search-clear" type="button" onClick={onClear} title="검색어 지우기">
               <X size={20} />

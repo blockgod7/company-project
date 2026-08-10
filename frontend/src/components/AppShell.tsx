@@ -8,6 +8,7 @@ type AppShellProps = {
   user: User;
   route: Route;
   isAdmin: boolean;
+  canViewPreview: boolean;
   searchKeyword: string;
   searchLoading: boolean;
   onSearchKeywordChange: (keyword: string) => void;
@@ -21,6 +22,7 @@ export function AppShell({
   user,
   route,
   isAdmin,
+  canViewPreview,
   searchKeyword,
   searchLoading,
   onSearchKeywordChange,
@@ -45,7 +47,7 @@ export function AppShell({
           <span>{user.deptName ?? "소속 미정"} · {user.roleCode}</span>
         </div>
         <nav className="side-nav">
-          {menu.map((item) => {
+          {menu.filter((item) => canViewPreview || (item.route !== "pdm" && item.route !== "equipment")).map((item) => {
             const Icon = item.icon;
             return (
               <button key={item.route} className={route === item.route ? "side active" : "side"} onClick={() => onNavigate(item.route)}>

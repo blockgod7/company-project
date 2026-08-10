@@ -889,25 +889,7 @@ select { min-height: 42px; }
   border-color: var(--navy);
 }
 .approval-category-tabs {
-  display: inline-flex;
-  gap: 6px;
-  padding: 4px;
-  margin-bottom: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8fafc;
-}
-.approval-category-tabs button {
-  min-height: 36px;
-  padding: 0 16px;
-  border-color: transparent;
-  background: transparent;
-}
-.approval-category-tabs button.active {
-  background: #fff;
-  color: var(--navy);
-  border-color: var(--line);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  margin-bottom: 12px;
 }
 .board-screen {
   min-height: 640px;

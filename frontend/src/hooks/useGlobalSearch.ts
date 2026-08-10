@@ -7,9 +7,10 @@ import type { GlobalSearchTarget } from "../utils/search";
 type UseGlobalSearchOptions = {
   clearApprovalLaunch: () => void;
   setRoute: (route: Route) => void;
+  canViewPreview: boolean;
 };
 
-export function useGlobalSearch({ clearApprovalLaunch, setRoute }: UseGlobalSearchOptions) {
+export function useGlobalSearch({ clearApprovalLaunch, setRoute, canViewPreview }: UseGlobalSearchOptions) {
   const [target, setTarget] = useState<GlobalSearchTarget | null>(null);
   const [keyword, setKeyword] = useState("");
   const [result, setResult] = useState<GlobalSearchResponse | null>(null);
@@ -50,7 +51,10 @@ export function useGlobalSearch({ clearApprovalLaunch, setRoute }: UseGlobalSear
     setLoading(true);
     try {
       const searchResult = await api<GlobalSearchResponse>(`/global-search?keyword=${encodeURIComponent(trimmedKeyword)}&limit=20`);
-      setResult(searchResult);
+      setResult(canViewPreview ? searchResult : {
+        ...searchResult,
+        groups: searchResult.groups.filter((group) => group.code !== "pdm")
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "?꾩뿭 寃??以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.");
     } finally {

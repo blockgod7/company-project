@@ -33,13 +33,14 @@ type AppRouteContentProps = {
   route: Route;
   user: User;
   isAdmin: boolean;
+  canViewPreview: boolean;
   approvalLaunch: ApprovalLaunch | null;
   globalSearch: GlobalSearchState;
   navigate: (route: Route) => void;
   openApprovals: (target?: ApprovalLaunch) => void;
 };
 
-export function AppRouteContent({ route, user, isAdmin, approvalLaunch, globalSearch, navigate, openApprovals }: AppRouteContentProps) {
+export function AppRouteContent({ route, user, isAdmin, canViewPreview, approvalLaunch, globalSearch, navigate, openApprovals }: AppRouteContentProps) {
   return (
     <main className="content">
       <Suspense fallback={<div className="route-loading" role="status">화면을 불러오는 중입니다…</div>}>
@@ -48,8 +49,8 @@ export function AppRouteContent({ route, user, isAdmin, approvalLaunch, globalSe
         {route === "notices" && <NoticePage user={user} target={globalSearch.target} />}
         {route === "boards" && <BoardPage user={user} target={globalSearch.target} />}
         {route === "approvals" && <ApprovalPage user={user} launch={approvalLaunch} target={globalSearch.target} />}
-        {route === "pdm" && <DrawingManagementPage user={user} openApprovals={openApprovals} target={globalSearch.target} />}
-        {route === "equipment" && <EquipmentManagementPage user={user} isAdmin={isAdmin} />}
+        {route === "pdm" && (canViewPreview ? <DrawingManagementPage user={user} openApprovals={openApprovals} target={globalSearch.target} /> : <AccessDenied />)}
+        {route === "equipment" && (canViewPreview ? <EquipmentManagementPage user={user} isAdmin={isAdmin} /> : <AccessDenied />)}
         {route === "notifications" && <NotificationPage go={navigate} target={globalSearch.target} />}
         {route === "organization" && <OrganizationPage target={globalSearch.target} />}
         {route === "employees" && (user.permissions.includes("EMPLOYEE_ADMIN") ? <EmployeeManagementPage user={user} /> : <AccessDenied />)}

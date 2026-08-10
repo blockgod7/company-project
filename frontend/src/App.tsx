@@ -7,6 +7,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { PasswordChangePage } from "./pages/PasswordChangePage";
 import type { User } from "./types";
 import type { ApprovalLaunch, Route } from "./utils/approvalDomain";
+import { canViewPreviewFeatures, isPreviewOnlyRoute } from "./utils/featureVisibility";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -14,9 +15,11 @@ function App() {
   const [approvalLaunch, setApprovalLaunch] = useState<ApprovalLaunch | null>(null);
   const [message, setMessage] = useState("");
   const isAdmin = user?.roleCode === "ADMIN";
+  const canViewPreview = canViewPreviewFeatures(user);
   const globalSearch = useGlobalSearch({
     clearApprovalLaunch: () => setApprovalLaunch(null),
-    setRoute
+    setRoute,
+    canViewPreview
   });
 
   async function loadMe() {
@@ -50,6 +53,10 @@ function App() {
   }
 
   function navigate(nextRoute: Route) {
+    if (isPreviewOnlyRoute(nextRoute) && !canViewPreview) {
+      setRoute("dashboard");
+      return;
+    }
     if (nextRoute !== "approvals") {
       setApprovalLaunch(null);
     }
@@ -85,6 +92,7 @@ function App() {
       user={user}
       route={route}
       isAdmin={isAdmin}
+      canViewPreview={canViewPreview}
       searchKeyword={globalSearch.keyword}
       searchLoading={globalSearch.loading}
       onSearchKeywordChange={globalSearch.setKeyword}
@@ -96,6 +104,7 @@ function App() {
         route={route}
         user={user}
         isAdmin={isAdmin}
+        canViewPreview={canViewPreview}
         approvalLaunch={approvalLaunch}
         globalSearch={globalSearch}
         navigate={navigate}
