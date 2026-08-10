@@ -17,7 +17,7 @@
 
 ## Work Guidance
 - `auth` owns login, login options, current-user lookup, token refresh, and logout API behavior.
-- `approval` owns electronic approval documents, lines, templates, delegations, operation settings, retention/audit flows, PDFs, and related workflow APIs.
+- `approval` owns electronic approval documents, lines, templates, delegations, operation settings, leave balances, managed holidays, post-approval leave exclusions, retention/audit flows, PDFs, and related workflow APIs.
 - `board` and `notice` own board and notice APIs.
 - `file` owns upload/download metadata and file access behavior.
 - `pdm` owns drawing-management folders, documents, revisions, and related actions.

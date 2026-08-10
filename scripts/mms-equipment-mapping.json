@@ -1,0 +1,40 @@
+{
+  "sourceSystem": "MMS",
+  "defaultProcessName": "미지정",
+  "defaultDeptCode": "LEGACY",
+  "defaultDeptName": "과거 자료",
+  "legacyEmpNo": "LEGACY_IMPORT",
+  "legacyLoginId": "legacy.import.disabled",
+  "legacyEmpName": "과거 기록",
+  "utilityEquipmentTypeCodes": [
+    "M090"
+  ],
+  "equipmentStatus": {
+    "R": "IN_USE",
+    "M": "UNDER_MAINTENANCE",
+    "X": "DISPOSED"
+  },
+  "workOrderState": {
+    "AA": "DRAFT",
+    "AS": "PENDING_INITIAL_APPROVAL",
+    "AX": "CANCELLED",
+    "BA": "ASSIGNMENT_PENDING",
+    "BS": "ASSIGNMENT_PENDING",
+    "BX": "CANCELLED",
+    "CA": "IN_PROGRESS",
+    "CS": "PENDING_COMPLETION_APPROVAL",
+    "CX": "CANCELLED",
+    "YZ": "COMPLETED"
+  },
+  "cancelStage": {
+    "AX": "REQUEST",
+    "BX": "ASSIGNMENT",
+    "CX": "WORK"
+  },
+  "priority": {
+    "E": "URGENT",
+    "U": "IMPORTANT",
+    "S": "URGENT",
+    "G": "NORMAL"
+  }
+}

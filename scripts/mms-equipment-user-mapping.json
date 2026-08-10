@@ -1,0 +1,15 @@
+{
+  "mappingBasis": "MMS T4USERS USER_NAME matched to one unique active Groupware employee name",
+  "mappings": [
+    { "sourceUserId": "SL022", "sourceUserName": "양효석", "currentEmpNo": "C6013", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL023", "sourceUserName": "강석민", "currentEmpNo": "E9041", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL001", "sourceUserName": "Mobility(배상명)", "currentEmpNo": "D8011", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL003", "sourceUserName": "김정대", "currentEmpNo": "E0021", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL004", "sourceUserName": "박재범", "currentEmpNo": "E3017", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL005", "sourceUserName": "장한수", "currentEmpNo": "D7023", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL007", "sourceUserName": "민권기", "currentEmpNo": "E7011", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL008", "sourceUserName": "김종현", "currentEmpNo": "E7012", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL020", "sourceUserName": "김영규", "currentEmpNo": "E3007", "matchMethod": "UNIQUE_NAME" },
+    { "sourceUserId": "SL021", "sourceUserName": "안지용", "currentEmpNo": "E9075", "matchMethod": "UNIQUE_NAME" }
+  ]
+}

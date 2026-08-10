@@ -2,8 +2,12 @@ param(
     [string]$DbName = $env:DB_NAME,
     [string]$DbUser = $env:DB_USERNAME,
     [string]$DbPassword = $env:DB_PASSWORD,
+    [string]$DbHost = $env:DB_HOST,
+    [int]$DbPort = $(if ($env:DB_PORT) { [int]$env:DB_PORT } else { 5432 }),
     [string]$PsqlPath = $env:PSQL_PATH,
     [string]$BackendUrl = "http://localhost:8080/api/v1/health",
+    [switch]$ApplyLeavePatch,
+    [switch]$SkipSeedCheck,
     [switch]$SkipBackendHealth
 )
 
@@ -11,7 +15,8 @@ $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($DbName)) { $DbName = "groupware" }
 if ([string]::IsNullOrWhiteSpace($DbUser)) { $DbUser = "groupware" }
-if ([string]::IsNullOrWhiteSpace($DbPassword)) { $DbPassword = "groupware" }
+if ([string]::IsNullOrWhiteSpace($DbHost)) { $DbHost = "localhost" }
+if ($DbPort -lt 1 -or $DbPort -gt 65535) { throw "DbPort must be between 1 and 65535." }
 
 function Resolve-Psql {
     param([string]$RequestedPath)
@@ -42,12 +47,26 @@ function Invoke-Scalar {
     param([string]$Sql)
     $oldPassword = $env:PGPASSWORD
     try {
-        $env:PGPASSWORD = $DbPassword
-        $result = & $script:Psql -v ON_ERROR_STOP=1 -h localhost -U $DbUser -d $DbName -t -A -c $Sql
+        if (-not [string]::IsNullOrWhiteSpace($DbPassword)) { $env:PGPASSWORD = $DbPassword }
+        $result = & $script:Psql -v ON_ERROR_STOP=1 -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -A -c $Sql
         if ($LASTEXITCODE -ne 0) {
             throw "psql query failed with exit code $LASTEXITCODE"
         }
         return (($result | Out-String).Trim())
+    } finally {
+        $env:PGPASSWORD = $oldPassword
+    }
+}
+
+function Invoke-SqlFile {
+    param([string]$Path)
+    $oldPassword = $env:PGPASSWORD
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($DbPassword)) { $env:PGPASSWORD = $DbPassword }
+        & $script:Psql -q -v ON_ERROR_STOP=1 -h $DbHost -p $DbPort -U $DbUser -d $DbName -f $Path
+        if ($LASTEXITCODE -ne 0) {
+            throw "psql script failed with exit code $LASTEXITCODE"
+        }
     } finally {
         $env:PGPASSWORD = $oldPassword
     }
@@ -78,12 +97,41 @@ if ($service) {
 
 Assert-Equals "database connectivity" (Invoke-Scalar "SELECT 'ok';") "ok"
 
+if ($ApplyLeavePatch) {
+    $leavePatch = Join-Path $PSScriptRoot "backend\src\main\resources\db\schema\leave_management_expansion_patch.sql"
+    if (-not (Test-Path -LiteralPath $leavePatch)) {
+        throw "Leave management patch was not found: $leavePatch"
+    }
+    Invoke-SqlFile -Path $leavePatch
+    Write-Host "[OK] leave management expansion patch applied"
+}
+
 $requiredTables = @(
     "emp",
     "auth_refresh_token",
     "approval_document",
     "approval_delegation",
+    "approval_holiday",
+    "approval_leave_exclusion",
+    "approval_leave_lifecycle_cancellation",
+    "annual_leave_ledger",
+    "emp_annual_leave",
+    "emp_permission",
+    "emp_employment_history",
+    "emp_leave_period",
+    "leave_policy",
+    "comp_time_credit",
+    "comp_time_allocation",
+    "leave_policy_override",
+    "approval_leave_admin_case",
+    "bereavement_policy",
+    "scheduled_job_run",
     "board",
+    "equipment",
+    "equipment_report",
+    "equipment_migration_run",
+    "equipment_migration_issue",
+    "equipment_migration_user_map",
     "pdm_folder",
     "pdm_drawing"
 )
@@ -97,6 +145,36 @@ $requiredColumns = @(
     @{ Table = "approval_delegation"; Column = "end_at" },
     @{ Table = "approval_delegation"; Column = "delegation_type" },
     @{ Table = "approval_delegation"; Column = "source_approval_id" },
+    @{ Table = "emp"; Column = "gender_code" },
+    @{ Table = "emp"; Column = "employment_type" },
+    @{ Table = "emp"; Column = "account_status" },
+    @{ Table = "emp_annual_leave"; Column = "auto_calculated_days" },
+    @{ Table = "emp_annual_leave"; Column = "final_days" },
+    @{ Table = "approval_holiday"; Column = "source_type" },
+    @{ Table = "approval_holiday"; Column = "repeat_type" },
+    @{ Table = "approval_holiday"; Column = "apply_year" },
+    @{ Table = "approval_holiday"; Column = "repeat_month" },
+    @{ Table = "approval_holiday"; Column = "repeat_day" },
+    @{ Table = "approval_holiday"; Column = "policy_version" },
+    @{ Table = "approval_holiday"; Column = "basis_source" },
+    @{ Table = "approval_leave_lifecycle_cancellation"; Column = "updated_at" },
+    @{ Table = "approval_leave_lifecycle_cancellation"; Column = "updated_by" },
+    @{ Table = "comp_time_credit"; Column = "expiration_notified_at" },
+    @{ Table = "comp_time_allocation"; Column = "restored_by_approval_id" },
+    @{ Table = "leave_policy_override"; Column = "override_max_segments" },
+    @{ Table = "approval_leave_admin_case"; Column = "workers_comp_status" },
+    @{ Table = "bereavement_policy"; Column = "evidence_required_yn" },
+    @{ Table = "scheduled_job_run"; Column = "last_succeeded_at" },
+    @{ Table = "notification"; Column = "event_key" },
+    @{ Table = "equipment"; Column = "source_system" },
+    @{ Table = "equipment"; Column = "migration_run_id" },
+    @{ Table = "equipment_report"; Column = "cancel_stage" },
+    @{ Table = "equipment_report"; Column = "cancelled_by_emp_id" },
+    @{ Table = "equipment_report"; Column = "source_system" },
+    @{ Table = "equipment_report"; Column = "source_status" },
+    @{ Table = "equipment_report"; Column = "migration_run_id" },
+    @{ Table = "equipment_migration_issue"; Column = "resolved_yn" },
+    @{ Table = "equipment_migration_issue"; Column = "resolved_at" },
     @{ Table = "pdm_folder"; Column = "sort_order" }
 )
 
@@ -105,11 +183,24 @@ foreach ($item in $requiredColumns) {
     Assert-Equals "column $($item.Table).$($item.Column) exists" (Invoke-Scalar $sql) "ok"
 }
 
-$seedCount = Invoke-Scalar "SELECT count(*)::text FROM emp WHERE login_id IN ('admin', 'kim.manager', 'lee.sales', 'hong.gildong');"
-if ([int]$seedCount -lt 4) {
-    throw "seed login check failed. Expected at least 4 known accounts, got $seedCount."
+$orphanImportedReports = Invoke-Scalar "SELECT count(*)::text FROM equipment_report report LEFT JOIN equipment target ON target.equipment_id = report.equipment_id WHERE report.source_system IS NOT NULL AND target.equipment_id IS NULL;"
+Assert-Equals "imported equipment report references" $orphanImportedReports "0"
+
+$officialHolidayCount = Invoke-Scalar "SELECT count(*)::text FROM approval_holiday WHERE source_type = 'LEGAL' AND apply_year IN (2026, 2027) AND active_yn = 'Y';"
+if ([int]$officialHolidayCount -lt 46) {
+    throw "official holiday check failed. Expected at least 46 active 2026-2027 legal holidays, got $officialHolidayCount."
 }
-Write-Host "[OK] seed login accounts present: $seedCount"
+Write-Host "[OK] official 2026-2027 holidays present: $officialHolidayCount"
+
+if ($SkipSeedCheck) {
+    Write-Host "[SKIP] local demo seed login check"
+} else {
+    $seedCount = Invoke-Scalar "SELECT count(*)::text FROM emp WHERE login_id IN ('admin', 'kim.manager', 'lee.sales', 'hong.gildong');"
+    if ([int]$seedCount -lt 4) {
+        throw "seed login check failed. Expected at least 4 known accounts, got $seedCount. Use -SkipSeedCheck for an existing operational database."
+    }
+    Write-Host "[OK] seed login accounts present: $seedCount"
+}
 
 $generalBoard = Invoke-Scalar "SELECT count(*)::text FROM board WHERE board_code = 'GENERAL' AND use_yn = 'Y';"
 if ([int]$generalBoard -lt 1) {

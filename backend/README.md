@@ -132,6 +132,10 @@ Runtime settings are environment-variable driven:
 - `APPROVAL_DECISION_DUE_HOURS`, default `72`
 - `APPROVAL_REMINDER_FIXED_DELAY_MS`, default `300000`
 - `APPROVAL_REMINDER_SCHEDULER_TICK_MS`, default `60000`
+- `HOLIDAY_OPEN_API_ENABLED`, set to `true` to query official holidays beyond the built-in years
+- `HOLIDAY_OPEN_API_SERVICE_KEY`, decoded service key issued for the Korea Astronomy and Space Science Institute special-day OpenAPI
+- `HOLIDAY_OPEN_API_BASE_URL`, optional endpoint override for the public-data holiday API
+- `HOLIDAY_OPEN_API_MONITOR_CRON`, next-year availability check schedule (default: monthly from July through December)
 
 The PostgreSQL schema baseline is stored at:
 

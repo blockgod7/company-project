@@ -2,7 +2,7 @@
 
 ## Purpose
 - `frontend/` contains the Groupware React application.
-- The confirmed stack is React 19, React DOM 19, TypeScript, Vite 7, and `lucide-react`.
+- The confirmed stack is React 19, React DOM 19, TypeScript, Vite 8, and `lucide-react`.
 
 ## Ownership
 - This file owns guidance for `frontend/package.json`, Vite/TypeScript config, and `frontend/src/**`.
