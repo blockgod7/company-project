@@ -1,0 +1,3 @@
+package com.kjh.groupware.domain.approval.dto;
+import com.kjh.groupware.domain.approval.BereavementPolicy; import java.math.BigDecimal; import java.time.LocalDate;
+public record BereavementPolicyResponse(Long policyId,String eventType,String familyRelation,BigDecimal allowedDays,String payType,boolean evidenceRequired,LocalDate effectiveFrom,LocalDate effectiveTo,boolean active,String changeReason){public static BereavementPolicyResponse from(BereavementPolicy p){return new BereavementPolicyResponse(p.getBereavementPolicyId(),p.getEventType(),p.getFamilyRelation(),p.getAllowedDays(),p.getPayType(),p.isEvidenceRequired(),p.getEffectiveFrom(),p.getEffectiveTo(),p.isActive(),p.getChangeReason());}}

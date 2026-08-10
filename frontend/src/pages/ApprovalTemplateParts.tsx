@@ -63,7 +63,6 @@ import {
   currentUserDeptName,
   DEFAULT_APPROVAL_SEARCH,
   DEFAULT_APPROVAL_TEMPLATES,
-  DEFAULT_TOTAL_ANNUAL_DAYS,
   defaultApprovalForm,
   defaultDelegationForm,
   defaultLineIds,
@@ -96,7 +95,6 @@ import {
   isTrainingReportTemplateCode,
   isTrainingRequestTemplateCode,
   isTrainingTemplateCode,
-  KOREAN_PUBLIC_HOLIDAYS,
   lastReceiverLineOrder,
   LEAVE_TYPE_OPTIONS,
   leaveCancelContent,
@@ -376,26 +374,44 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
   if (isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code)) {
     const cancelMode = isLeaveCancelTemplateCode(template.code);
     return (
-      <div className="template-paper template-leave-preview">
-        <h2>{cancelMode ? "휴가 취소계" : "휴가계 (연차, 반차, 교육 등)"}</h2>
-        <div className="template-leave-stamps">
-          <TemplateMiniStamp label="결재" writer={previewRequesterName} />
-          <TemplateMiniStamp label="수신" writer="" />
+      <div className="template-leave-web-preview">
+        <div className="template-leave-web-head">
+          <span>{cancelMode ? "승인된 휴가를 날짜별로 취소합니다" : "달력에서 날짜별 휴가 종류를 선택합니다"}</span>
+          <h2>{cancelMode ? "휴가 취소계" : "휴가계"}</h2>
+          <p>{cancelMode ? "취소할 날짜만 선택하면 해당 일수만 복원됩니다." : "주말과 휴일은 선택할 수 없으며 한 문서에는 같은 연도만 신청할 수 있습니다."}</p>
         </div>
-        <div className="template-leave-meta">
-          <span>신청자 : {previewRequesterName}</span>
-          <span>TEL :</span>
-          <span>기 타 :</span>
-          <span>부 서 : {previewDeptName}</span>
-          <span>직 급 :</span>
-          <span>신청일 : {todayDate()}</span>
+        <div className="template-leave-web-applicant">
+          <div><span>신청자</span><strong>{previewRequesterName}</strong></div>
+          <div><span>부서</span><strong>{previewDeptName || "-"}</strong></div>
+          <div><span>신청일</span><strong>{todayDate()}</strong></div>
         </div>
-        <div className="template-leave-table">
-          <strong>제 목</strong><span>{cancelMode ? "휴가 취소계" : "휴가계"} - {previewRequesterName}</span>
-          <strong>{cancelMode ? "취소기간" : "신청기간"}</strong><span>YYYY-MM-DD ~ YYYY-MM-DD [ 0 일 ]</span>
-          <strong>{cancelMode ? "취소구분" : "신청구분"}</strong><span>{cancelMode ? "최종 결재 완료된 휴가 날짜 선택" : "달력에서 날짜와 구분 선택"}</span>
-          <strong>신청 전 연차사용 일수 / 총 연차일수</strong><span>0 / {DEFAULT_TOTAL_ANNUAL_DAYS} 일</span>
-          <strong>신청 후 잔여 연차일수</strong><span>{DEFAULT_TOTAL_ANNUAL_DAYS} 일</span>
+        {!cancelMode && (
+          <div className="template-leave-web-metrics">
+            <div><span>총 휴가 일수</span><strong>30<small>일</small></strong></div>
+            <div><span>신청 전 사용 일수</span><strong>3.5<small>일</small></strong></div>
+            <div className="accent"><span>이번 신청 휴가 일수</span><strong>0<small>일</small></strong></div>
+          </div>
+        )}
+        <div className="template-leave-web-calendar">
+          <div className="template-leave-web-calendar-head"><button type="button">‹</button><strong>2026년 8월</strong><button type="button">›</button></div>
+          <div className="template-leave-web-week"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+          <div className="template-leave-web-days">
+            {Array.from({ length: 35 }, (_, index) => {
+              const day = index - 5;
+              const currentMonth = day >= 1 && day <= 31;
+              const disabled = !currentMonth || index % 7 === 0 || index % 7 === 6 || day === 15 || day === 17;
+              return <span key={index} className={disabled ? "disabled" : ""}>{currentMonth ? day : ""}</span>;
+            })}
+          </div>
+          <small>{cancelMode ? "결재 완료된 휴가 날짜만 선택할 수 있습니다." : "날짜를 선택하면 연차·반차·병가 등 휴가 종류를 지정할 수 있습니다."}</small>
+        </div>
+        <div className="template-leave-web-route">
+          <strong>결재</strong>
+          <div><span>작성</span><b>{previewRequesterName}</b><small>{previewDeptName || "신청 부서"}</small></div>
+          <div><span>검토</span><b>부서 결재자</b><small>차장</small></div>
+          <div><span>승인</span><b>최종 결재자</b><small>부장</small></div>
+          <strong>수신</strong>
+          <div><span>수신</span><b>허인성</b><small>인사총무 · 대리</small></div>
         </div>
       </div>
     );

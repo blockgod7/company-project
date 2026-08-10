@@ -16,6 +16,8 @@ import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentAuthorityRespon
 import com.kjh.groupware.domain.equipment.dto.EquipmentAssignmentPermissionResponse;
 import com.kjh.groupware.domain.equipment.dto.EquipmentCompletionRequest;
 import com.kjh.groupware.domain.equipment.dto.EquipmentHistoryResponse;
+import com.kjh.groupware.domain.equipment.dto.EquipmentMigrationIssueSummaryResponse;
+import com.kjh.groupware.domain.equipment.dto.EquipmentMigrationRunResponse;
 import com.kjh.groupware.domain.equipment.dto.EquipmentReportRequest;
 import com.kjh.groupware.domain.equipment.dto.EquipmentReportResponse;
 import com.kjh.groupware.domain.equipment.dto.EquipmentRequest;
@@ -24,11 +26,13 @@ import com.kjh.groupware.domain.equipment.dto.EquipmentProcessRequest;
 import com.kjh.groupware.domain.equipment.dto.EquipmentProcessResponse;
 import com.kjh.groupware.domain.notification.NotificationService;
 import com.kjh.groupware.global.exception.BusinessException;
+import com.kjh.groupware.global.response.PageResponse;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +46,8 @@ public class EquipmentManagementService {
     private final EquipmentReportRepository reportRepository;
     private final EquipmentHistoryEventRepository historyRepository;
     private final EquipmentAssignmentAuthorityRepository assignmentAuthorityRepository;
+    private final EquipmentMigrationRunRepository migrationRunRepository;
+    private final EquipmentMigrationIssueRepository migrationIssueRepository;
     private final DeptRepository deptRepository;
     private final EmpRepository empRepository;
     private final CurrentEmpProvider currentEmpProvider;
@@ -94,6 +100,18 @@ public class EquipmentManagementService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<EquipmentReportResponse> reportPage(boolean terminal, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 500);
+        List<String> terminalStates = List.of(EquipmentReport.COMPLETED, EquipmentReport.CANCELLED, EquipmentReport.REJECTED);
+        var pageable = PageRequest.of(safePage, safeSize);
+        var reports = terminal
+            ? reportRepository.findByStateInOrderByReportIdDesc(terminalStates, pageable)
+            : reportRepository.findByStateNotInOrderByReportIdDesc(terminalStates, pageable);
+        return PageResponse.from(reports.map(EquipmentReportResponse::from));
+    }
+
+    @Transactional(readOnly = true)
     public EquipmentReportResponse reportDetail(Long reportId) {
         return EquipmentReportResponse.from(report(reportId));
     }
@@ -102,6 +120,21 @@ public class EquipmentManagementService {
     public List<EquipmentHistoryResponse> history(Long equipmentId) {
         equipment(equipmentId);
         return historyRepository.findByEquipmentEquipmentIdOrderByEventIdDesc(equipmentId).stream().map(EquipmentHistoryResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EquipmentMigrationRunResponse> migrationRuns() {
+        requireAdmin(currentEmpProvider.getCurrentEmp());
+        return migrationRunRepository.findAllByOrderByStartedAtDesc().stream().map(EquipmentMigrationRunResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EquipmentMigrationIssueSummaryResponse> migrationIssueSummary(Long runId) {
+        requireAdmin(currentEmpProvider.getCurrentEmp());
+        if (!migrationRunRepository.existsById(runId)) {
+            throw BusinessException.notFound("EQUIPMENT_MIGRATION_RUN_NOT_FOUND", "Equipment migration run was not found");
+        }
+        return migrationIssueRepository.summarizeByRunId(runId).stream().map(EquipmentMigrationIssueSummaryResponse::from).toList();
     }
 
     @Transactional(readOnly = true)
@@ -159,12 +192,17 @@ public class EquipmentManagementService {
         Emp manager = currentEmpProvider.getCurrentEmp();
         requireAssignmentAuthority(manager);
         EquipmentReport report = report(reportId);
-        if (!EquipmentReport.ASSIGNMENT_PENDING.equals(report.getState())) {
+        boolean importedWorkNeedsAssignee = report.getMigrationRunId() != null
+            && EquipmentReport.IN_PROGRESS.equals(report.getState())
+            && report.getAssignee() == null;
+        if (!EquipmentReport.ASSIGNMENT_PENDING.equals(report.getState()) && !importedWorkNeedsAssignee) {
             throw BusinessException.badRequest("EQUIPMENT_ASSIGNMENT_NOT_READY", "Report is not ready for assignment");
         }
         Emp assignee = activeEmp(request.assigneeEmpId());
         report.assign(manager, assignee, request.plannedStartOn(), request.plannedEndOn(), request.instruction());
-        event(report, manager, "WORK_ASSIGNED", "생산기술팀장이 보전 담당자에게 작업을 배분했습니다.");
+        event(report, manager, "WORK_ASSIGNED", importedWorkNeedsAssignee
+            ? "이전 진행 업무에 현재 담당자를 연결했습니다."
+            : "생산기술팀장이 보전 담당자에게 작업을 배분했습니다.");
         notificationService.notifyEmp(assignee.getEmpId(), "설비 이상 작업 배분", "새 설비 이상 작업이 배분되었습니다.", "EQUIPMENT_REPORT", report.getReportId());
         return EquipmentReportResponse.from(report);
     }
@@ -173,7 +211,12 @@ public class EquipmentManagementService {
     public EquipmentReportResponse submitCompletion(Long reportId, EquipmentCompletionRequest request, String ipAddress, String userAgent) {
         Emp assignee = currentEmpProvider.getCurrentEmp();
         EquipmentReport report = report(reportId);
-        if (!EquipmentReport.IN_PROGRESS.equals(report.getState()) && !EquipmentReport.REWORK.equals(report.getState())) {
+        boolean importedCompletionNeedsApproval = report.getMigrationRunId() != null
+            && EquipmentReport.PENDING_COMPLETION_APPROVAL.equals(report.getState())
+            && report.getCompletionApprovalId() == null;
+        if (!EquipmentReport.IN_PROGRESS.equals(report.getState())
+            && !EquipmentReport.REWORK.equals(report.getState())
+            && !importedCompletionNeedsApproval) {
             throw BusinessException.badRequest("EQUIPMENT_COMPLETION_NOT_READY", "Report is not ready for completion");
         }
         if (report.getAssignee() == null || !report.getAssignee().getEmpId().equals(assignee.getEmpId())) {
@@ -207,7 +250,7 @@ public class EquipmentManagementService {
 
     @Transactional(readOnly = true)
     public boolean canWriteAttachment(Long reportId, Emp currentEmp) {
-        return reportRepository.findById(reportId).map(report -> !EquipmentReport.COMPLETED.equals(report.getState())
+        return reportRepository.findById(reportId).map(report -> !isTerminal(report)
             && (report.getReporter().getEmpId().equals(currentEmp.getEmpId()) || (report.getAssignee() != null && report.getAssignee().getEmpId().equals(currentEmp.getEmpId())))).orElse(false);
     }
 
@@ -237,6 +280,7 @@ public class EquipmentManagementService {
     private void requireAssignmentAuthority(Emp emp) { if (!canAssignWork(emp)) throw BusinessException.forbidden("EQUIPMENT_ASSIGNMENT_FORBIDDEN", "Only assignment-authorized employees can assign work"); }
     private boolean canAssignWork(Emp emp) { return isProductionTechManager(emp) || (emp != null && assignmentAuthorityRepository.existsByEmpEmpId(emp.getEmpId())); }
     private boolean isProductionTechManager(Emp emp) { return emp != null && ("ADMIN".equals(emp.getRoleCode()) || ("MANAGER".equals(emp.getRoleCode()) && emp.getDept() != null && "PROD_TECH".equals(emp.getDept().getDeptCode()))); }
+    private boolean isTerminal(EquipmentReport report) { return EquipmentReport.COMPLETED.equals(report.getState()) || EquipmentReport.CANCELLED.equals(report.getState()) || EquipmentReport.REJECTED.equals(report.getState()); }
     private void event(EquipmentReport report, Emp actor, String type, String message) { historyRepository.save(new EquipmentHistoryEvent(report.getEquipment(), report, actor, type, message)); }
     private String json(Map<String, ?> values) { try { return objectMapper.writeValueAsString(values); } catch (JsonProcessingException ex) { throw BusinessException.badRequest("EQUIPMENT_FORM_JSON_FAILED", "Could not create approval form data"); } }
     private String blank(String value) { return value == null ? "" : value; }

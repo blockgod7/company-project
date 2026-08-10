@@ -18,6 +18,85 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
 
     Page<ApprovalDocument> findByDeletedYn(String deletedYn, Pageable pageable);
 
+    Page<ApprovalDocument> findByDeletedYnAndTemplateCodeInOrderByApprovalIdDesc(
+        String deletedYn,
+        Collection<String> templateCodes,
+        Pageable pageable
+    );
+
+    @Query("""
+        select d from ApprovalDocument d
+        where d.deletedYn = :deletedYn
+          and d.templateCode in :templateCodes
+          and (:includeSensitive = true or (
+            coalesce(d.formDataJson, '') not like '%배우자 출산휴가%'
+            and coalesce(d.formDataJson, '') not like '%출산전후휴가%'
+            and coalesce(d.formDataJson, '') not like '%유산·사산휴가%'
+            and coalesce(d.formDataJson, '') not like '%난임치료휴가%'
+          ))
+        order by d.approvalId desc
+        """)
+    Page<ApprovalDocument> findLeaveAdminVisible(
+        @Param("deletedYn") String deletedYn,
+        @Param("templateCodes") Collection<String> templateCodes,
+        @Param("includeSensitive") boolean includeSensitive,
+        Pageable pageable
+    );
+
+    @Query("""
+        select d from ApprovalDocument d
+        where d.deletedYn = :deletedYn
+          and (:includeSensitive = true or d.templateCode not in :leaveTemplateCodes or (
+            coalesce(d.formDataJson, '') not like '%배우자 출산휴가%'
+            and coalesce(d.formDataJson, '') not like '%출산전후휴가%'
+            and coalesce(d.formDataJson, '') not like '%유산·사산휴가%'
+            and coalesce(d.formDataJson, '') not like '%난임치료휴가%'
+          ))
+        order by d.approvalId desc
+        """)
+    Page<ApprovalDocument> findAdminVisible(
+        @Param("deletedYn") String deletedYn,
+        @Param("leaveTemplateCodes") Collection<String> leaveTemplateCodes,
+        @Param("includeSensitive") boolean includeSensitive,
+        Pageable pageable
+    );
+
+    @Query("""
+        select d from ApprovalDocument d
+        where d.deletedYn = 'N'
+          and d.templateCode in :templateCodes
+          and (:hasKeyword = false or lower(coalesce(d.searchText, '')) like lower(concat('%', :keyword, '%')))
+          and (:hasTemplateCode = false or d.templateCode = :templateCode)
+          and (:hasStatus = false or d.status = :status)
+          and (:hasRequester = false or d.requester = :requester)
+          and (:hasDateFrom = false or d.requestedAt >= :dateFrom)
+          and (:hasDateTo = false or d.requestedAt < :dateTo)
+          and (:includeSensitive = true or (
+            coalesce(d.formDataJson, '') not like '%배우자 출산휴가%'
+            and coalesce(d.formDataJson, '') not like '%출산전후휴가%'
+            and coalesce(d.formDataJson, '') not like '%유산·사산휴가%'
+            and coalesce(d.formDataJson, '') not like '%난임치료휴가%'
+          ))
+        order by d.approvalId desc
+        """)
+    Page<ApprovalDocument> searchLeaveAdmin(
+        @Param("templateCodes") Collection<String> templateCodes,
+        @Param("hasKeyword") boolean hasKeyword,
+        @Param("keyword") String keyword,
+        @Param("hasTemplateCode") boolean hasTemplateCode,
+        @Param("templateCode") String templateCode,
+        @Param("hasStatus") boolean hasStatus,
+        @Param("status") String status,
+        @Param("hasRequester") boolean hasRequester,
+        @Param("requester") Emp requester,
+        @Param("hasDateFrom") boolean hasDateFrom,
+        @Param("dateFrom") LocalDateTime dateFrom,
+        @Param("hasDateTo") boolean hasDateTo,
+        @Param("dateTo") LocalDateTime dateTo,
+        @Param("includeSensitive") boolean includeSensitive,
+        Pageable pageable
+    );
+
     Page<ApprovalDocument> findByRequesterAndDeletedYnOrderByApprovalIdDesc(Emp requester, String deletedYn, Pageable pageable);
 
     Page<ApprovalDocument> findByRequesterAndDeletedYnAndStatusOrderByApprovalIdDesc(
@@ -37,6 +116,19 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
 
     java.util.List<ApprovalDocument> findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
         Emp requester,
+        String deletedYn,
+        String templateCode,
+        String status
+    );
+
+    java.util.List<ApprovalDocument> findByRequesterAndDeletedYnAndTemplateCodeAndStatusIn(
+        Emp requester,
+        String deletedYn,
+        String templateCode,
+        Collection<String> statuses
+    );
+
+    java.util.List<ApprovalDocument> findByDeletedYnAndTemplateCodeAndStatus(
         String deletedYn,
         String templateCode,
         String status
@@ -124,6 +216,16 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
           )
           and (:hasDateFrom = false or d.requestedAt >= :dateFrom)
           and (:hasDateTo = false or d.requestedAt < :dateTo)
+          and (:admin = false or :includeSensitive = true or (
+            coalesce(d.formDataJson, '') not like '%배우자 출산휴가%'
+            and coalesce(d.formDataJson, '') not like '%출산전후휴가%'
+            and coalesce(d.formDataJson, '') not like '%유산·사산휴가%'
+            and coalesce(d.formDataJson, '') not like '%난임치료휴가%'
+          ) or d.requester = :currentEmp or exists (
+            select 1 from ApprovalLine sensitiveLine
+            where sensitiveLine.document = d
+              and (sensitiveLine.assignedEmp = :currentEmp or sensitiveLine.actedEmp = :currentEmp)
+          ))
         order by d.approvalId desc
         """)
     Page<ApprovalDocument> searchVisible(
@@ -138,6 +240,7 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
         @Param("currentEmp") Emp currentEmp,
         @Param("decisionAssignees") Collection<Emp> decisionAssignees,
         @Param("admin") boolean admin,
+        @Param("includeSensitive") boolean includeSensitive,
         @Param("boxAgreement") boolean boxAgreement,
         @Param("boxPending") boolean boxPending,
         @Param("boxReceived") boolean boxReceived,

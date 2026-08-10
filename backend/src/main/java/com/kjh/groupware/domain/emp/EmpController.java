@@ -26,4 +26,9 @@ public class EmpController {
     ) {
         return ApiResponse.ok(empQueryService.search(keyword, deptId, status, page, size));
     }
+
+    @GetMapping("/{empId}")
+    public ApiResponse<EmpResponse> findById(@org.springframework.web.bind.annotation.PathVariable Long empId) {
+        return ApiResponse.ok(empQueryService.findById(empId));
+    }
 }

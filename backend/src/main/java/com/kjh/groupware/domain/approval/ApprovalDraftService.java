@@ -33,6 +33,7 @@ public class ApprovalDraftService {
     private final ApprovalLinePolicyService linePolicyService;
     private final ApprovalEquipmentProposalService equipmentProposalService;
     private final ApprovalLeaveUsageService leaveUsageService;
+    private final CompTimeLedgerService compTimeLedgerService;
     private final ApprovalDelegationService delegationService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
@@ -45,7 +46,10 @@ public class ApprovalDraftService {
         linePolicyService.validateLineSelection(requester, request, !draft);
         validateRequiredFields(template, request, !draft);
         if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            validateLeaveReceiver(request);
+            leaveUsageService.assertSelectableLeaveDates(request.formDataJson(), requester);
             leaveUsageService.assertNoCompletedLeaveOverlap(requester, null, request.formDataJson());
+            leaveUsageService.assertSufficientAnnualLeave(requester, null, request.formDataJson());
         }
         if (!draft && ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode())) {
             leaveUsageService.assertLeaveCancelTargetsApproved(requester, null, request.formDataJson());
@@ -73,6 +77,7 @@ public class ApprovalDraftService {
         } else {
             linePolicyService.createLines(document, request, true);
             document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
+            compTimeLedgerService.reserveForSubmission(document);
             delegationService.applyAutoDelegationForAbsenceDocument(requester, document, request.formDataJson());
             notifyInitialPendingLines(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
         }
@@ -146,7 +151,10 @@ public class ApprovalDraftService {
         ApprovalTemplate template = activeTemplate(request.templateCode());
         validateRequiredFields(template, request, true);
         if (ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            validateLeaveReceiver(request);
+            leaveUsageService.assertSelectableLeaveDates(request.formDataJson());
             leaveUsageService.assertNoCompletedLeaveOverlap(requester, document.getApprovalId(), request.formDataJson());
+            leaveUsageService.assertSufficientAnnualLeave(requester, document.getApprovalId(), request.formDataJson());
         }
         if (ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode())) {
             leaveUsageService.assertLeaveCancelTargetsApproved(requester, document.getApprovalId(), request.formDataJson());
@@ -168,6 +176,7 @@ public class ApprovalDraftService {
         lineRepository.flush();
         linePolicyService.createLines(document, request, true);
         document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
+        compTimeLedgerService.reserveForSubmission(document);
         delegationService.applyAutoDelegationForAbsenceDocument(requester, document, request.formDataJson());
         equipmentProposalService.syncFromApprovalRequest(document, request);
         notifyInitialPendingLines(document, lineRepository.findByDocumentOrderByLineOrderAsc(document));
@@ -191,6 +200,12 @@ public class ApprovalDraftService {
                 }
                 throw BusinessException.badRequest("APPROVAL_TEMPLATE_NOT_FOUND", "Active approval template was not found");
             });
+    }
+
+    private void validateLeaveReceiver(ApprovalRequest request) {
+        if (request.receiverEmpIds() == null || request.receiverEmpIds().size() != 1) {
+            throw BusinessException.badRequest("LEAVE_RECEIVER_REQUIRED", "휴가계 수신자를 1명 지정해 주세요.");
+        }
     }
 
     private ApprovalDocument getActiveDocumentForUpdate(Long approvalId) {

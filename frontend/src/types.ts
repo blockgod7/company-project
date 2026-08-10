@@ -19,16 +19,46 @@ export type User = {
   empId: number;
   loginId: string;
   empName: string;
+  genderCode: "MALE" | "FEMALE";
   roleCode: "ADMIN" | "APPROVAL_ADMIN" | "AUDIT_ADMIN" | "MANAGER" | "USER";
   deptId: number | null;
   deptName: string | null;
   permissions: string[];
+  mustChangePassword?: boolean;
 };
 
 export type LoginResponse = User & {
   accessToken: string;
   refreshToken: string | null;
   tokenType: string;
+};
+
+export type ManagedEmployee = {
+  empId: number;
+  empNo: string;
+  loginId: string | null;
+  empName: string;
+  genderCode: "MALE" | "FEMALE";
+  email: string | null;
+  phone: string | null;
+  deptId: number | null;
+  deptName: string | null;
+  positionName: string | null;
+  jobTitle: string | null;
+  managerEmpId: number | null;
+  managerName: string | null;
+  roleCode: string;
+  hireDate: string;
+  retireDate: string | null;
+  rehireDate: string | null;
+  employmentStartDate: string;
+  employmentType: "REGULAR" | "CONTRACT";
+  contractStartDate: string | null;
+  contractEndDate: string | null;
+  status: "ACTIVE" | "LEAVE" | "RETIRED";
+  accountStatus: "ACCOUNT_PENDING" | "ACTIVE" | "INACTIVE";
+  rehired: boolean;
+  permissions: string[];
 };
 
 export type Notice = {
@@ -257,11 +287,50 @@ export type LeaveUsageSelection = {
   documentNo: string | null;
 };
 
+export type LeaveExclusion = {
+  exclusionId: number;
+  approvalId: number;
+  documentNo: string | null;
+  date: string;
+  type: string;
+  restoredDays: string;
+  holidayId: number;
+  holidayName: string;
+  holidayType: "PUBLIC_HOLIDAY" | "SUBSTITUTE_HOLIDAY" | "COMPANY_HOLIDAY" | "OTHER";
+  reason: string;
+  excludedAt: string;
+};
+
 export type LeaveUsage = {
   usedAnnualDays: string;
+  reservedAnnualDays: string;
   totalAnnualDays: string;
   remainingAnnualDays: string;
   selections: LeaveUsageSelection[];
+  occupiedSelections: LeaveUsageSelection[];
+  exclusions: LeaveExclusion[];
+};
+
+export type ApprovalHoliday = {
+  holidayId: number;
+  holidayDate: string;
+  holidayName: string;
+  holidayType: "PUBLIC_HOLIDAY" | "SUBSTITUTE_HOLIDAY" | "COMPANY_HOLIDAY" | "OTHER";
+  sourceType: "LEGAL" | "COMPANY";
+  repeatType: "YEAR_ONLY" | "ANNUAL";
+  applyYear: number | null;
+  repeatMonth: number | null;
+  repeatDay: number | null;
+  policyVersion: string | null;
+  basisSource: string | null;
+  official: boolean;
+  active: boolean;
+  createdByEmpId: number | null;
+  createdByName: string | null;
+  createdAt: string | null;
+  updatedByEmpId: number | null;
+  updatedByName: string | null;
+  updatedAt: string | null;
 };
 
 export type ApprovalTemplateApi = {
@@ -522,11 +591,36 @@ export type EquipmentReport = {
   workDurationHours: number | null;
   initialApprovalId: number | null;
   completionApprovalId: number | null;
+  cancelStage: "REQUEST" | "ASSIGNMENT" | "WORK" | null;
+  cancelledByEmpId: number | null;
+  cancelledByName: string | null;
+  cancelledOn: string | null;
   createdAt: string;
 };
 
 export type EquipmentAssignmentPermission = { canAssign: boolean; canManageAssignmentAuthorities: boolean };
 export type EquipmentAssignmentAuthority = { authorityId: number; empId: number; empName: string; deptName: string | null; grantedByName: string; grantedAt: string };
+
+export type EquipmentMigrationRun = {
+  migrationRunId: number;
+  sourceSystem: string;
+  status: string;
+  equipmentTotal: number;
+  equipmentImported: number;
+  workOrderTotal: number;
+  workOrderImported: number;
+  duplicateCount: number;
+  warningCount: number;
+  errorCount: number;
+  startedAt: string;
+  completedAt: string | null;
+};
+
+export type EquipmentMigrationIssueSummary = {
+  severity: "ERROR" | "WARNING" | "INFO";
+  issueCode: string;
+  issueCount: number;
+};
 
 export type EquipmentHistoryEvent = {
   eventId: number;

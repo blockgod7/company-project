@@ -48,6 +48,7 @@ public class ApprovalGlobalSearchProvider implements GlobalSearchProvider {
             currentEmp,
             decisionAssignees,
             permissionService.canViewAllDocuments(currentEmp),
+            permissionService.canViewSensitiveLeaveDocuments(currentEmp),
             true,
             true,
             true,

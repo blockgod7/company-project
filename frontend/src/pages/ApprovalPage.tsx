@@ -96,7 +96,6 @@ import {
   isTrainingReportTemplateCode,
   isTrainingRequestTemplateCode,
   isTrainingTemplateCode,
-  KOREAN_PUBLIC_HOLIDAYS,
   lastReceiverLineOrder,
   LEAVE_TYPE_OPTIONS,
   leaveCancelContent,
@@ -163,6 +162,7 @@ import { formatDate } from "../utils/date";
 import type { GlobalSearchTarget } from "../utils/search";
 import type {
   Approval,
+  ApprovalHoliday,
   ApprovalDelegationApi,
   ApprovalDefaultLineApi,
   ApprovalDefaultLineStepApi,
@@ -174,14 +174,21 @@ import type {
   Employee,
   EquipmentProposal,
   EquipmentReport,
+  LeaveExclusion,
   LeaveUsage,
   PageResponse,
   User
 } from "../types";
 import { ClassicDraftEditor, downloadApprovalPdf } from "./ApprovalClassicParts";
+import { ApprovalHolidayPanel } from "./ApprovalHolidayPanel";
+import { AnnualLeaveAdminPanel } from "./AnnualLeaveAdminPanel";
+import { LeavePolicyAdminPanel } from "./LeavePolicyAdminPanel";
+import { CompTimeAdminPanel } from "./CompTimeAdminPanel";
+import { LeaveAdminCasePanel } from "./LeaveAdminCasePanel";
 import { ApprovalDetailView } from "./ApprovalParts";
 import { EquipmentProposalEditor, equipmentProposalContent, LeaveRequestEditor, PurchaseRequestEditor, TemplateFieldInputs, TrainingReportEditor, TrainingRequestEditor } from "./ApprovalFormParts";
 import { APPROVAL_BOXES, isApprovalBox, TemplateSelectModalV2 } from "./ApprovalTemplateParts";
+import { SchedulerStatusPanel } from "./SchedulerStatusPanel";
 export function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLaunch | null; target: GlobalSearchTarget | null }) {
   const [box, setBox] = useState<ApprovalBox>(launch?.box ?? "pending");
   const [dashboardFilter, setDashboardFilter] = useState<ApprovalLaunch | null>(launch);
@@ -201,6 +208,10 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const [previewTemplate, setPreviewTemplate] = useState<ApprovalTemplateOption>(DEFAULT_APPROVAL_TEMPLATES[0]);
   const [form, setForm] = useState<ApprovalForm>(() => defaultApprovalForm());
   const [leaveUsage, setLeaveUsage] = useState<LeaveUsage | null>(null);
+  const [holidays, setHolidays] = useState<ApprovalHoliday[]>([]);
+  const [leaveTypeOptions, setLeaveTypeOptions] = useState<string[]>(LEAVE_TYPE_OPTIONS);
+  const [leaveExclusions, setLeaveExclusions] = useState<LeaveExclusion[]>([]);
+  const [leavePreviewOpen, setLeavePreviewOpen] = useState(false);
   const [templateAdminForm, setTemplateAdminForm] = useState<ApprovalTemplateAdminForm>(() => templateAdminFormFromOption());
   const [templateLineForm, setTemplateLineForm] = useState<ApprovalForm>(() => defaultApprovalForm());
   const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
@@ -209,6 +220,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const [defaultLineMessage, setDefaultLineMessage] = useState("");
   const [savedApprovalLines, setSavedApprovalLines] = useState<ApprovalDefaultLineApi[]>([]);
   const [selectedSavedLineId, setSelectedSavedLineId] = useState("");
+  const [approvalInfoOpen, setApprovalInfoOpen] = useState(false);
   const [templateAdminMessage, setTemplateAdminMessage] = useState("");
   const [delegation, setDelegation] = useState<ApprovalDelegationApi | null>(null);
   const [delegationForm, setDelegationForm] = useState<ApprovalDelegationForm>(() => defaultDelegationForm());
@@ -219,6 +231,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const [approvalActionComment, setApprovalActionComment] = useState("");
   const [approvalSearch, setApprovalSearch] = useState<ApprovalSearchForm>(DEFAULT_APPROVAL_SEARCH);
   const isApprovalAdmin = user.roleCode === "ADMIN" || user.roleCode === "APPROVAL_ADMIN";
+  const isHolidayManager = user.permissions.includes("LEAVE_ADMIN");
 
   async function load(
     targetBox: ApprovalBox,
@@ -274,8 +287,13 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   }
 
   async function loadEmployees() {
-    const page = await api<PageResponse<Employee>>("/emps?size=100&status=ACTIVE");
-    setEmployees(page.content);
+    const firstPage = await api<PageResponse<Employee>>("/emps?size=100&page=0&status=ACTIVE");
+    const allEmployees = [...firstPage.content];
+    for (let pageIndex = 1; pageIndex < firstPage.totalPages; pageIndex += 1) {
+      const nextPage = await api<PageResponse<Employee>>(`/emps?size=100&page=${pageIndex}&status=ACTIVE`);
+      allEmployees.push(...nextPage.content);
+    }
+    setEmployees(allEmployees);
   }
 
   async function loadLeaveUsage() {
@@ -286,6 +304,23 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     } catch {
       setLeaveUsage(null);
       return null;
+    }
+  }
+
+  async function loadHolidays() {
+    try {
+      setHolidays(await api<ApprovalHoliday[]>("/approval-holidays"));
+    } catch {
+      setHolidays([]);
+    }
+  }
+
+  async function loadLeavePolicies() {
+    try {
+      const policies = await api<{ leaveType: string }[]>("/leave-policies");
+      setLeaveTypeOptions(policies.length ? policies.map((policy) => policy.leaveType) : LEAVE_TYPE_OPTIONS);
+    } catch {
+      setLeaveTypeOptions(LEAVE_TYPE_OPTIONS);
     }
   }
 
@@ -709,6 +744,15 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       }
       const completionReportId = equipmentCompletionReportId(detail);
       setEquipmentCompletionReport(completionReportId ? await api<EquipmentReport>(`/equipment/reports/${completionReportId}`) : null);
+      if (isLeaveTemplateCode(detail.templateCode) || isLeaveCancelTemplateCode(detail.templateCode)) {
+        try {
+          setLeaveExclusions(await api<LeaveExclusion[]>(`/approval-holidays/approvals/${id}/exclusions`));
+        } catch {
+          setLeaveExclusions([]);
+        }
+      } else {
+        setLeaveExclusions([]);
+      }
       setSelected(detail);
       setMode("detail");
       setApprovalError("");
@@ -757,6 +801,13 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     setApprovalError("");
     setOperationSettingsMessage("");
     void loadOperationSettings();
+  }
+
+  function openHolidayManagement() {
+    setMode("holidays");
+    setDashboardFilter(null);
+    setSelected(null);
+    setApprovalError("");
   }
 
   async function openDeletedApprovals() {
@@ -852,6 +903,8 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     void loadApprovalBoxes();
     void loadActiveTemplates().catch(() => undefined);
     void loadSavedApprovalLines();
+    void loadHolidays();
+    void loadLeavePolicies();
   }, []);
 
   useEffect(() => {
@@ -1048,10 +1101,9 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     const isTrainingTemplate = isTrainingTemplateCode(template.code);
     const isDelegationEligible = isLeaveRequest || isTrainingRequest || isTrainingReport;
     const peManagerId = productionEngineeringManagerId(employees);
-    const leaveReceiverEmpId = leaveReceiverId(employees);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
-    const receiverEmpIds = isLeaveRequest && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
+    const receiverEmpIds = isLeaveRequest ? form.receiverEmpIds : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     const baseFieldValues = isEquipmentProposalTemplateCode(template.code)
       ? { ...form.fieldValues, requestDeptName: requesterDeptName }
@@ -1079,6 +1131,10 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
             ? trainingReportContent(fieldValues)
         : form.content;
     if (submit) {
+      if (isLeaveRequest && receiverEmpIds.length !== 1) {
+        setApprovalError("휴가계 수신자를 1명 지정해 주세요.");
+        return;
+      }
       if ((isEquipmentProposalTemplateCode(template.code) || isPurchaseRequest || isTrainingTemplate) && !form.title.trim()) {
         setApprovalError("문서 제목 필수값을 입력해 주세요.");
         return;
@@ -1335,6 +1391,17 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     }
   }
 
+  async function managementCancelLeave() {
+    if (!selected) return;
+    const comment = window.prompt("승인 휴가 관리 취소 사유를 입력하세요.", "휴가관리자 관리 취소")?.trim();
+    if (!comment) return;
+    if (!window.confirm("승인 문서를 관리 취소하고 해당 휴가 사용량을 복원할까요? 과거 날짜도 취소할 수 있으며 원본과 감사 이력은 보존됩니다.")) return;
+    try {
+      const updated = await api<Approval>(`/approvals/${selected.approvalId}/management-cancel-leave`, { method: "POST", body: jsonBody({ comment }) });
+      setSelected(updated); setApprovalError(""); await loadLeaveUsage(); await load(box);
+    } catch (err) { setApprovalError(err instanceof Error ? err.message : "승인 휴가를 관리 취소하지 못했습니다."); }
+  }
+
   function changeTemplate(templateCode: string) {
     const nextTemplate = approvalTemplateByCode(templates, templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
     const currentTemplate = approvalTemplateByCode(templates, form.templateCode);
@@ -1380,6 +1447,8 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const isTrainingRequestForm = isTrainingRequestTemplateCode(selectedTemplate.code);
   const isTrainingReportForm = isTrainingReportTemplateCode(selectedTemplate.code);
   const isEquipmentProposalForm = isEquipmentProposalTemplateCode(selectedTemplate.code);
+  const leaveOverbooked = isLeaveRequestForm
+    && Number(leaveUsage?.reservedAnnualDays ?? 0) + Number(form.fieldValues.days ?? 0) > Number(leaveUsage?.remainingAnnualDays ?? 0);
   const isDelegationEligibleForm = isLeaveRequestForm || isTrainingRequestForm || isTrainingReportForm;
   const restrictedIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
   const peManagerEmployee = employees.find((employee) => employee.empId === productionEngineeringManagerId(employees));
@@ -1391,7 +1460,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
     { id: "drafts", label: "임시보관함", box: "requested" as ApprovalBox, dashboardFilter: "drafts" as ApprovalDashboardFilter }
   ];
   const activePrimaryApprovalViewId = (
-    mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "deleted"
+    mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "holidays" && mode !== "annualLeaves" && mode !== "leavePolicies" && mode !== "compTime" && mode !== "deleted"
       ? dashboardFilter?.dashboardFilter === "actionRequired" ? "todo"
         : dashboardFilter?.dashboardFilter === "approvedInProgress" ? "progress"
           : dashboardFilter?.dashboardFilter === "drafts" ? "drafts"
@@ -1414,13 +1483,17 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
         {approvalCategory === "active" && (
           <div className="approval-tab-actions">
             <button type="button" className={mode === "delegation" ? "active" : ""} onClick={() => void openDelegationSettings()}>대리설정</button>
+            <button type="button" className={mode === "compTime" ? "active" : ""} onClick={() => setMode("compTime")}>대체휴무</button>
             {isApprovalAdmin && <button type="button" className={mode === "templates" ? "active" : ""} onClick={() => void openTemplateAdmin()}>양식관리</button>}
             {isApprovalAdmin && <button type="button" className={mode === "operationSettings" ? "active" : ""} onClick={() => void openOperationSettings()}>운영설정</button>}
+            {isHolidayManager && <button type="button" className={mode === "holidays" ? "active" : ""} onClick={openHolidayManagement}>휴일관리</button>}
+            {isHolidayManager && <button type="button" className={mode === "annualLeaves" ? "active" : ""} onClick={() => setMode("annualLeaves")}>연차관리</button>}
+            {isHolidayManager && <button type="button" className={mode === "leavePolicies" ? "active" : ""} onClick={() => setMode("leavePolicies")}>휴가정책</button>}
             {isApprovalAdmin && <button type="button" className={mode === "deleted" ? "active" : ""} onClick={() => void openDeletedApprovals()}>보존삭제함</button>}
           </div>
         )}
       </div>
-      {mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "deleted" && <Toolbar title={approvalCategory === "completed" ? "결재 완료문서" : "전자결재"} onNew={startCreate} onRefresh={() => load(box, dashboardFilter?.dashboardFilter ?? null)} />}
+      {mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "holidays" && mode !== "annualLeaves" && mode !== "leavePolicies" && mode !== "compTime" && mode !== "deleted" && <Toolbar title={approvalCategory === "completed" ? "결재 완료문서" : "전자결재"} onNew={startCreate} onRefresh={() => load(box, dashboardFilter?.dashboardFilter ?? null)} />}
       {approvalError && <p className="error">{approvalError}</p>}
       {mode === "detail" && selected && (
         <div className={`approval-focus-bar approval-focus-${selected.status.toLowerCase()}`}>
@@ -1468,6 +1541,9 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
                 <button className="ghost" onClick={() => void correctStatus()}><RefreshCw size={16} /> 상태 보정</button>
                 <button className="danger" onClick={() => void deleteForRetention()}><Trash2 size={16} /> 보존삭제</button>
               </div>
+            )}
+            {isHolidayManager && selected.status === "APPROVED" && (isLeaveTemplateCode(selected.templateCode) || isLeaveCancelTemplateCode(selected.templateCode)) && (
+              <div className="approval-actions approval-actions-admin"><button className="danger" onClick={() => void managementCancelLeave()}><Trash2 size={16} /> 휴가 관리 취소</button></div>
             )}
           </div>
         </div>
@@ -1587,8 +1663,13 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
               <span>처리 기한 {operationSettings.fallbackDecisionDueHours}시간 · 알림 간격 {operationSettings.fallbackReminderFixedDelayMs}ms · 보관 {operationSettings.fallbackDeletedDocumentRetentionDays}일 · 영구삭제 {operationSettings.fallbackPermanentDeleteEnabled ? "허용" : "차단"}</span>
             </div>
           )}
+          <SchedulerStatusPanel />
         </div>
       )}
+      {mode === "holidays" && isHolidayManager && <ApprovalHolidayPanel onChanged={loadHolidays} />}
+      {mode === "annualLeaves" && isHolidayManager && <AnnualLeaveAdminPanel />}
+      {mode === "leavePolicies" && isHolidayManager && <LeavePolicyAdminPanel employees={employees} />}
+      {mode === "compTime" && <CompTimeAdminPanel user={user} employees={employees} isManager={isHolidayManager} />}
       {mode === "deleted" && isApprovalAdmin && (
         <div className="approval-template-editor">
           <div className="panel-head">
@@ -1691,6 +1772,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
             equipmentProposal={equipmentProposal}
             equipmentProposalLoading={equipmentProposalLoading}
             equipmentCompletionReport={equipmentCompletionReport}
+            leaveExclusions={leaveExclusions}
             employees={employees}
             onSavePurchaseDeliveryDate={savePurchaseDeliveryDate}
             onSubmitPurchaseApprovalLine={submitPurchaseApprovalLine}
@@ -1698,6 +1780,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
             onSubmitEquipmentStage={submitEquipmentStage}
             onAssignEquipmentAssignee={assignEquipmentAssignee}
           />
+          {isHolidayManager && isLeaveTemplateCode(selected.templateCode) && <LeaveAdminCasePanel approvalId={selected.approvalId} leaveTypes={parseLeaveSelections(approvalDraftData(selected).fieldValues).map((item) => item.type)} />}
           <AttachmentBox targetType="APPROVAL_DOCUMENT" targetId={selected.approvalId} readOnly={!permissions?.canEditDraft} canDownload={!!permissions?.canDownloadAttachment} />
         </DetailPage>
       )}
@@ -1710,28 +1793,19 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
                 <p className="muted-text">문서번호는 상신 시 자동 생성됩니다. 예상 형식: {documentPrefix(form.templateCode)}-{new Date().getFullYear()}-자동생성</p>
               </div>
               <div className="actions">
+                <button type="button" className="ghost" onClick={() => setApprovalInfoOpen(true)}>{isLeaveRequestForm ? "결재 정보 수정" : "결재 정보"}</button>
                 <button type="button" className="ghost" onClick={() => void savePersonalDefaultLine()}><Save size={16} /> 개인 기본 결재선 저장</button>
                 <button type="button" className="ghost" onClick={() => void save(false)}><Save size={16} /> 임시저장</button>
-                <button type="button" onClick={() => void save(true)}><Check size={16} /> 상신</button>
+                {(isLeaveRequestForm || isLeaveCancelForm) && <button type="button" className="ghost" onClick={() => setLeavePreviewOpen(true)}><Eye size={16} /> 미리보기</button>}
+                <button type="button" disabled={leaveOverbooked} title={leaveOverbooked ? "결재 중 휴가를 포함하면 연차를 초과합니다." : undefined} onClick={() => void save(true)}><Check size={16} /> 상신</button>
                 <button type="button" className="ghost" onClick={() => selected ? setMode("detail") : setMode("list")}><X size={16} /> 취소</button>
               </div>
             </div>
             {defaultLineMessage && <p className="template-note"><span>{defaultLineMessage}</span></p>}
-            <div className="approval-line-library">
-              <label>저장된 결재라인
-                <select value={selectedSavedLineId} onChange={(event) => setSelectedSavedLineId(event.target.value)}>
-                  {savedApprovalLines.length ? savedApprovalLines.map((line) => (
-                    <option key={line.defaultLineId ?? line.lineName} value={line.defaultLineId ?? ""}>{line.lineName}</option>
-                  )) : <option value="">저장된 결재라인 없음</option>}
-                </select>
-              </label>
-              <button type="button" className="ghost" onClick={applySavedApprovalLine} disabled={!savedApprovalLines.length}>불러오기</button>
-              <button type="button" className="ghost" onClick={() => void renameSavedApprovalLine()} disabled={!savedApprovalLines.length}>이름 변경</button>
-              <button type="button" className="ghost danger" onClick={() => void deleteSavedApprovalLine()} disabled={!savedApprovalLines.length}>삭제</button>
-              <button type="button" className="ghost" onClick={() => void saveNamedApprovalLine()}><Save size={16} /> 현재 결재라인 저장</button>
-            </div>
+            {approvalInfoOpen && <div className="modal-backdrop" role="presentation"><div className="org-picker-modal approval-info-modal" role="dialog" aria-modal="true" aria-label="결재 정보"><div className="modal-head"><h3>결재 정보</h3><button type="button" className="icon-button" onClick={() => setApprovalInfoOpen(false)}><X size={18} /></button></div><div className="approval-line-library"><label>저장된 결재라인<select value={selectedSavedLineId} onChange={(event) => setSelectedSavedLineId(event.target.value)}>{savedApprovalLines.length ? savedApprovalLines.map((line) => <option key={line.defaultLineId ?? line.lineName} value={line.defaultLineId ?? ""}>{line.lineName}</option>) : <option value="">저장된 결재라인 없음</option>}</select></label><button type="button" className="ghost" onClick={applySavedApprovalLine} disabled={!savedApprovalLines.length}>불러오기</button><button type="button" className="ghost" onClick={() => void saveNamedApprovalLine()}><Save size={16} /> 현재 결재라인 저장</button></div><div className="line-picker-grid"><EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} /><EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={form.approverEmpIds} disabledIds={[user.empId, ...form.agreementEmpIds, ...form.receiverEmpIds]} ordered onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} /><EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={[...form.agreementEmpIds, ...form.approverEmpIds]} onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} /><EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={[]} onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} /></div><div className="actions"><button type="button" onClick={() => setApprovalInfoOpen(false)}>적용</button></div></div></div>}
             {isClassicDraftForm && <ClassicDraftEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} onChange={setForm} />}
+            {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={setForm} />}
+            {leavePreviewOpen && (isLeaveRequestForm || isLeaveCancelForm) && <div className="modal-backdrop"><div className="leave-form-preview-modal"><div className="modal-head"><div><h3>휴가 신청 미리보기</h3><p className="muted-text">현재 입력값 기준이며 상신 전까지 문서는 변경되지 않습니다.</p></div><button className="icon-button" onClick={() => setLeavePreviewOpen(false)}><X size={18} /></button></div><div className="leave-preview-readonly"><LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={() => undefined} /></div></div></div>}
             {isPurchaseRequestForm && <PurchaseRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isTrainingRequestForm && <TrainingRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isTrainingReportForm && <TrainingReportEditor user={user} employees={employees} form={form} onChange={setForm} />}
@@ -1766,28 +1840,6 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
               </div>
             )}
             <DraftAttachmentPicker files={pendingFiles} onChange={setPendingFiles} />
-            <div className="line-picker-grid">
-              <EmployeeMultiPicker title={isClassicDraftForm ? "경유/협조" : "합의자"} user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} />
-              <EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={form.approverEmpIds} disabledIds={[user.empId, ...form.agreementEmpIds, ...form.receiverEmpIds]} ordered onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} />
-              {isEquipmentProposalForm ? (
-                <div className="line-picker-card">
-                  <div className="panel-head">
-                    <h3>수신자</h3>
-                    <span className="fixed-chip">자동 지정</span>
-                  </div>
-                  {peManagerEmployee ? (
-                    <div className="selected-approver">
-                      <strong>{peManagerEmployee.empName}</strong>
-                      <span>{peManagerEmployee.deptName ?? "-"} · {peManagerEmployee.positionName ?? peManagerEmployee.jobTitle ?? "-"}</span>
-                    </div>
-                  ) : <Empty text="생산기술팀장 계정을 찾지 못했습니다." />}
-                </div>
-              ) : (
-                <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={[...form.agreementEmpIds, ...form.approverEmpIds]} onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} />
-              )}
-              <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={[]} onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} />
-              <EmployeeMultiPicker title="연람자" user={user} employees={employees} selectedIds={form.readerEmpIds} disabledIds={[]} onChange={(readerEmpIds) => setForm({ ...form, readerEmpIds })} />
-            </div>
           </div>
         </DetailPage>
       )}

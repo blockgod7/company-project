@@ -2,8 +2,10 @@ package com.kjh.groupware.domain.approval;
 
 import com.kjh.groupware.domain.approval.dto.ApprovalPermissionResponse;
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.emp.EmployeePermissionService;
 import com.kjh.groupware.global.exception.BusinessException;
 import java.util.List;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 
@@ -11,7 +13,15 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ApprovalPermissionService {
 
+    private static final Set<String> SENSITIVE_LEAVE_TYPES = Set.of(
+        "배우자 출산휴가",
+        "출산전후휴가",
+        "유산·사산휴가",
+        "난임치료휴가"
+    );
+
     private final ApprovalDelegationService delegationService;
+    private final EmployeePermissionService employeePermissionService;
 
     public ApprovalPermissionResponse permissions(Emp emp, ApprovalDocument document, List<ApprovalLine> lines) {
         boolean requester = isRequester(emp, document);
@@ -23,6 +33,11 @@ public class ApprovalPermissionService {
         boolean receiver = lines.stream().anyMatch(line -> line.isReceiver() && line.isAssignedTo(emp));
         boolean shared = lines.stream().anyMatch(line -> (line.isReference() || line.isReader()) && line.isAssignedTo(emp));
         boolean auditAdmin = canViewAllDocuments(emp);
+        boolean leaveAdmin = canViewAllLeaveDocuments(emp) && isLeaveDocument(document);
+        boolean sensitiveLeave = isSensitiveLeaveDocument(document);
+        boolean broadAdminView = sensitiveLeave
+            ? canViewSensitiveLeaveDocuments(emp)
+            : auditAdmin || leaveAdmin;
         boolean approved = ApprovalDocument.STATUS_APPROVED.equals(document.getStatus());
         boolean receiverRoutedHandoff = isReceiverRoutedDocument(document)
             && document.isPending()
@@ -34,7 +49,8 @@ public class ApprovalPermissionService {
         boolean receiverRoutedReadyForReceiver = isReceiverRoutedReadyForReceiver(document, lines);
         boolean viewByPostApprovalRole = (approved || receiverRoutedHandoff) && (receiver || shared);
         boolean viewByReadyReceiver = receiverRoutedReadyForReceiver && receiver;
-        boolean canView = requester || decisionAssignee || delegatedPendingDecisionAssignee || delegatedActedDecisionAssignee || viewByPostApprovalRole || auditAdmin;
+        boolean canView = requester || decisionAssignee || delegatedPendingDecisionAssignee
+            || delegatedActedDecisionAssignee || viewByPostApprovalRole || broadAdminView;
         canView = canView || viewByReadyReceiver;
         boolean canPrintPdf = canView
             && approved
@@ -107,6 +123,27 @@ public class ApprovalPermissionService {
 
     public boolean canViewAllDocuments(Emp emp) {
         return canManageOperations(emp) || (emp != null && "AUDIT_ADMIN".equals(emp.getRoleCode()));
+    }
+
+    public boolean canViewAllLeaveDocuments(Emp emp) {
+        return employeePermissionService.hasPermission(emp, EmployeePermissionService.LEAVE_ADMIN);
+    }
+
+    public boolean canViewSensitiveLeaveDocuments(Emp emp) {
+        return employeePermissionService.canAccessSensitiveLeave(emp);
+    }
+
+    public boolean isSensitiveLeaveDocument(ApprovalDocument document) {
+        if (document == null || !isLeaveDocument(document)) {
+            return false;
+        }
+        String formDataJson = document.getFormDataJson();
+        return formDataJson != null && SENSITIVE_LEAVE_TYPES.stream().anyMatch(formDataJson::contains);
+    }
+
+    private boolean isLeaveDocument(ApprovalDocument document) {
+        return ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(document.getTemplateCode())
+            || ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(document.getTemplateCode());
     }
 
     private boolean isReceiverRoutedDocument(ApprovalDocument document) {

@@ -1,30 +1,223 @@
 package com.kjh.groupware.domain.approval;
 
-import com.kjh.groupware.domain.approval.dto.*;
-import com.kjh.groupware.domain.emp.*;
+import com.kjh.groupware.domain.approval.dto.AnnualLeaveAdjustmentRequest;
+import com.kjh.groupware.domain.approval.dto.AnnualLeaveResponse;
+import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.emp.EmpRepository;
+import com.kjh.groupware.domain.emp.EmployeePermissionService;
+import com.kjh.groupware.domain.notification.NotificationService;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
-import java.math.*;
-import java.time.*;
-import java.util.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service @RequiredArgsConstructor
+@Service
+@RequiredArgsConstructor
 public class AnnualLeaveService {
+
+    private static final BigDecimal FIFTEEN = new BigDecimal("15.0");
+    private static final BigDecimal MAX_DAYS = new BigDecimal("30.0");
+
     private final EmpAnnualLeaveRepository leaveRepository;
+    private final AnnualLeaveLedgerRepository ledgerRepository;
     private final EmpRepository empRepository;
     private final CurrentEmpProvider currentEmpProvider;
+    private final EmployeePermissionService permissionService;
+    private final NotificationService notificationService;
+    private final ScheduledJobStatusService scheduledJobStatusService;
 
-    @Transactional public BigDecimal totalDays(Emp emp, int year) { return ensure(emp, year).getGrantedDays().add(ensure(emp, year).getAdjustmentDays()); }
-    @Transactional public List<AnnualLeaveResponse> currentForHr() { requireHr(); int year=LocalDate.now().getYear(); empRepository.findAll().stream().filter(Emp::isActiveUser).forEach(e->ensure(e,year)); return leaveRepository.findByLeaveYearOrderByEmpEmpNameAsc(year).stream().map(this::response).toList(); }
-    @Transactional public AnnualLeaveResponse adjust(AnnualLeaveAdjustmentRequest request) { requireHr(); Emp editor=currentEmpProvider.getCurrentEmp(); Emp emp=empRepository.findById(request.empId()).orElseThrow(()->BusinessException.notFound("EMP_NOT_FOUND","Employee not found")); EmpAnnualLeave leave=ensure(emp,LocalDate.now().getYear()); leave.adjust(request.adjustmentDays(),request.reason(),editor); return response(leave); }
-    @Scheduled(cron="0 0 0 1 1 *", zone="Asia/Seoul") @Transactional public void resetAnnualLeaves() { int y=LocalDate.now().getYear(); empRepository.findAll().stream().filter(Emp::isActiveUser).forEach(e->ensure(e,y)); }
-    @Scheduled(cron="0 5 0 1 * *", zone="Asia/Seoul") @Transactional public void grantNewHireMonthlyLeave() { LocalDate today=LocalDate.now(), first=today.minusMonths(1).withDayOfMonth(1); empRepository.findAll().stream().filter(Emp::isActiveUser).filter(e->e.getHireDate()!=null&&e.getHireDate().getYear()==today.getYear()&&!e.getHireDate().isAfter(first)).forEach(e->{ EmpAnnualLeave leave=ensure(e,today.getYear()); leave.adjust(leave.getAdjustmentDays().add(BigDecimal.ONE),"Monthly leave grant",null); }); }
-    private EmpAnnualLeave ensure(Emp emp,int year) { return leaveRepository.findByEmpEmpIdAndLeaveYear(emp.getEmpId(),year).orElseGet(()->leaveRepository.save(new EmpAnnualLeave(emp,year,base(emp,year)))); }
-    private BigDecimal base(Emp emp,int year) { if(emp.getHireDate()==null||emp.getHireDate().getYear()>=year)return BigDecimal.ZERO; int years=year-emp.getHireDate().getYear(); int days=years<=10?14+years:25+(years-11)/2; return BigDecimal.valueOf(Math.min(days,30)); }
-    private AnnualLeaveResponse response(EmpAnnualLeave l){ BigDecimal total=l.getGrantedDays().add(l.getAdjustmentDays()); return new AnnualLeaveResponse(l.getEmp().getEmpId(),l.getEmp().getEmpName(),l.getEmp().getDept()==null?null:l.getEmp().getDept().getDeptName(),l.getLeaveYear(),l.getGrantedDays().toPlainString(),l.getAdjustmentDays().toPlainString(),total.toPlainString(),l.getAdjustmentReason()); }
-    private void requireHr(){ Emp e=currentEmpProvider.getCurrentEmp(); if(!"ADMIN".equals(e.getRoleCode()) && !(e.getDept()!=null&&"HR_ADMIN".equals(e.getDept().getDeptCode())&&"MANAGER".equals(e.getRoleCode()))) throw BusinessException.forbidden("ANNUAL_LEAVE_FORBIDDEN","HR manager only"); }
+    @Transactional
+    public BigDecimal totalDays(Emp emp, int year) {
+        return ensure(emp, year).getFinalDays();
+    }
+
+    @Transactional
+    public void lockForSubmission(Emp emp, int year) {
+        Emp lockedEmp = empRepository.findByIdForUpdate(emp.getEmpId())
+            .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
+        ensure(lockedEmp, year);
+        leaveRepository.flush();
+        leaveRepository.findByEmpEmpIdAndLeaveYearForUpdate(lockedEmp.getEmpId(), year)
+            .orElseThrow(() -> BusinessException.notFound("ANNUAL_LEAVE_NOT_FOUND", "연차 정보를 찾을 수 없습니다."));
+    }
+
+    @Transactional
+    public void initializeEmployee(Emp emp) {
+        ensure(emp, LocalDate.now().getYear());
+    }
+
+    @Transactional
+    public void reinitializeForRehire(Emp emp, Emp actor) {
+        int year = emp.currentEmploymentStartDate().getYear();
+        Calculation calculation = calculate(emp, year);
+        EmpAnnualLeave leave = leaveRepository.findByEmpEmpIdAndLeaveYear(emp.getEmpId(), year)
+            .orElseGet(() -> leaveRepository.save(new EmpAnnualLeave(emp, year, calculation.days())));
+        BigDecimal before = leave.getFinalDays();
+        leave.recalculate(calculation.days(), "재입사 · " + calculation.basis(), calculation.confirmationStatus());
+        ledgerRepository.save(new AnnualLeaveLedger(
+            leave, "REHIRE_RECALCULATE", before, calculation.days(),
+            "재입사일 " + emp.currentEmploymentStartDate() + " 기준 연차 재계산", "EMPLOYEE_REHIRE", emp.getEmpId(), actor
+        ));
+        notificationService.notifyEmp(
+            emp.getEmpId(), "재입사 연차 재계산",
+            year + "년 연차가 재입사일 기준 " + calculation.days().stripTrailingZeros().toPlainString() + "일로 계산되었습니다.",
+            "ANNUAL_LEAVE", (long) year
+        );
+    }
+
+    @Transactional
+    public List<AnnualLeaveResponse> currentForHr(int year) {
+        permissionService.requireLeaveAdmin();
+        empRepository.findAll().stream()
+            .filter(emp -> !"RETIRED".equals(emp.getStatus()))
+            .forEach(emp -> ensure(emp, year));
+        return leaveRepository.findByLeaveYearOrderByEmpEmpNameAsc(year).stream().map(this::response).toList();
+    }
+
+    @Transactional
+    public AnnualLeaveResponse adjust(AnnualLeaveAdjustmentRequest request) {
+        permissionService.requireLeaveAdmin();
+        Emp editor = currentEmpProvider.getCurrentEmp();
+        Emp emp = empRepository.findById(request.empId())
+            .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
+        EmpAnnualLeave leave = ensure(emp, request.leaveYear());
+        BigDecimal before = leave.getFinalDays();
+        BigDecimal finalDays = normalize(request.finalDays());
+        leave.finalizeDays(finalDays, request.reason(), editor);
+        ledgerRepository.save(new AnnualLeaveLedger(
+            leave, "MANUAL_FINALIZE", before, finalDays, request.reason(), "EMPLOYEE", emp.getEmpId(), editor
+        ));
+        notificationService.notifyEmp(emp.getEmpId(), "연차 수량 확정", request.leaveYear() + "년 최종 연차가 "
+            + finalDays.stripTrailingZeros().toPlainString() + "일로 확정되었습니다. 사유: " + request.reason(), "ANNUAL_LEAVE", (long) request.leaveYear());
+        return response(leave);
+    }
+
+    @Transactional
+    public AnnualLeaveResponse recalculate(Long empId, int year) {
+        permissionService.requireLeaveAdmin();
+        Emp emp = empRepository.findById(empId)
+            .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
+        EmpAnnualLeave leave = ensure(emp, year);
+        BigDecimal before = leave.getFinalDays();
+        Calculation calculation = calculate(emp, year);
+        leave.recalculate(calculation.days(), calculation.basis(), calculation.confirmationStatus());
+        ledgerRepository.save(new AnnualLeaveLedger(
+            leave, "RECALCULATE", before, calculation.days(), "연차 자동 재계산", "EMPLOYEE", empId,
+            currentEmpProvider.getCurrentEmp()
+        ));
+        notificationService.notifyEmp(empId, "연차 자동 재계산", year + "년 연차가 "
+            + calculation.days().stripTrailingZeros().toPlainString() + "일로 재계산되었습니다.", "ANNUAL_LEAVE", (long) year);
+        return response(leave);
+    }
+
+    @Scheduled(cron = "0 0 0 1 1 *", zone = "Asia/Seoul")
+    @Transactional
+    public void resetAnnualLeaves() {
+        String job = "annual-leave-january-reset";
+        scheduledJobStatusService.start(job);
+        try {
+            int year = LocalDate.now().getYear();
+            List<Emp> targets = empRepository.findAll().stream().filter(emp -> !"RETIRED".equals(emp.getStatus())).toList();
+            targets.forEach(emp -> resetForYear(emp, year));
+            scheduledJobStatusService.success(job, year + "년 대상 " + targets.size() + "명 생성/재계산");
+        } catch (RuntimeException exception) {
+            scheduledJobStatusService.failure(job, exception);
+            throw exception;
+        }
+    }
+
+    private void resetForYear(Emp emp, int year) {
+        Calculation calculation = calculate(emp, year);
+        EmpAnnualLeave leave = leaveRepository.findByEmpEmpIdAndLeaveYear(emp.getEmpId(), year)
+            .orElseGet(() -> leaveRepository.save(new EmpAnnualLeave(emp, year, calculation.days())));
+        BigDecimal before = leave.getFinalDays();
+        leave.recalculate(calculation.days(), calculation.basis(), calculation.confirmationStatus());
+        ledgerRepository.save(new AnnualLeaveLedger(
+            leave, "JANUARY_RESET", before, calculation.days(), "1월 1일 연차 자동 생성", "SYSTEM", null, null
+        ));
+        notificationService.notifyEmp(emp.getEmpId(), year + "년 연차 생성", "1월 1일 기준 연차 "
+            + calculation.days().stripTrailingZeros().toPlainString() + "일이 생성되었습니다.", "ANNUAL_LEAVE", (long) year);
+    }
+
+    private EmpAnnualLeave ensure(Emp emp, int year) {
+        return leaveRepository.findByEmpEmpIdAndLeaveYear(emp.getEmpId(), year).orElseGet(() -> {
+            Calculation calculation = calculate(emp, year);
+            EmpAnnualLeave leave = leaveRepository.save(new EmpAnnualLeave(emp, year, calculation.days()));
+            leave.recalculate(calculation.days(), calculation.basis(), calculation.confirmationStatus());
+            ledgerRepository.save(new AnnualLeaveLedger(
+                leave, "AUTO_GRANT", BigDecimal.ZERO, calculation.days(), calculation.basis(), "EMPLOYEE", emp.getEmpId(), null
+            ));
+            return leave;
+        });
+    }
+
+    Calculation calculate(Emp emp, int year) {
+        LocalDate start = emp.currentEmploymentStartDate();
+        if (start == null || year < start.getYear()) {
+            return new Calculation(BigDecimal.ZERO, "근로 시작일 없음 또는 계산연도 이전", confirmationStatus(emp));
+        }
+        if (emp.isContractEmployee()) {
+            return new Calculation(FIFTEEN, "계약직 기본 15일 · 관리자 최종 확인", "CONTRACT_CONFIRM_REQUIRED");
+        }
+        if (year == start.getYear()) {
+            int fullMonths = Math.max(0, 12 - start.getMonthValue());
+            return new Calculation(BigDecimal.valueOf(fullMonths), "입사 당해 완전 근무 가능월 " + fullMonths + "개월", confirmationStatus(emp));
+        }
+
+        long firstYearWorkedDays = ChronoUnit.DAYS.between(start, LocalDate.of(start.getYear() + 1, 1, 1));
+        boolean firstYearEightyPercent = firstYearWorkedDays * 100 >= 365L * 80;
+        if (year == start.getYear() + 1) {
+            if (firstYearEightyPercent) {
+                return new Calculation(FIFTEEN, "입사 당해 출근 인정일 8할 이상 · 15일", confirmationStatus(emp));
+            }
+            BigDecimal prorated = roundToHalf(FIFTEEN.multiply(BigDecimal.valueOf(firstYearWorkedDays)).divide(BigDecimal.valueOf(365), 6, RoundingMode.HALF_UP));
+            BigDecimal monthly = BigDecimal.valueOf(Math.max(0, start.getMonthValue() - 1));
+            BigDecimal total = prorated.add(monthly).min(MAX_DAYS);
+            return new Calculation(total, "15×" + firstYearWorkedDays + "/365=" + prorated.toPlainString()
+                + " + 입사월 전 월차 " + monthly.toPlainString(), confirmationStatus(emp));
+        }
+
+        int recognizedTenure = year - start.getYear() - (firstYearEightyPercent ? 0 : 1);
+        BigDecimal total;
+        if (recognizedTenure <= 1) {
+            total = FIFTEEN;
+        } else if (recognizedTenure <= 10) {
+            total = BigDecimal.valueOf(14L + recognizedTenure);
+        } else {
+            total = BigDecimal.valueOf(24L + ((recognizedTenure - 10) / 2));
+        }
+        total = total.min(MAX_DAYS);
+        return new Calculation(total, "인정 근속 " + Math.max(recognizedTenure, 0) + "년 · 회사 근속 가산식", confirmationStatus(emp));
+    }
+
+    private String confirmationStatus(Emp emp) {
+        return "LEAVE".equals(emp.getStatus()) ? "LEAVE_CONFIRM_REQUIRED" : "CONFIRMED";
+    }
+
+    private BigDecimal roundToHalf(BigDecimal value) {
+        return value.multiply(BigDecimal.valueOf(2)).setScale(0, RoundingMode.HALF_UP)
+            .divide(BigDecimal.valueOf(2), 1, RoundingMode.UNNECESSARY);
+    }
+
+    private BigDecimal normalize(BigDecimal value) {
+        return roundToHalf(value.max(BigDecimal.ZERO).min(MAX_DAYS));
+    }
+
+    private AnnualLeaveResponse response(EmpAnnualLeave leave) {
+        return new AnnualLeaveResponse(
+            leave.getEmp().getEmpId(), leave.getEmp().getEmpName(),
+            leave.getEmp().getDept() == null ? null : leave.getEmp().getDept().getDeptName(),
+            leave.getLeaveYear(), leave.getAutoCalculatedDays().toPlainString(), leave.getFinalDays().toPlainString(),
+            leave.getCalculationMode(), leave.getConfirmationStatus(), leave.getCalculationBasis(), leave.getAdjustmentReason()
+        );
+    }
+
+    record Calculation(BigDecimal days, String basis, String confirmationStatus) {}
 }

@@ -168,6 +168,7 @@ public class ApprovalService {
                 currentEmp,
                 decisionAssignees,
                 permissionService.canViewAllDocuments(currentEmp),
+                permissionService.canViewSensitiveLeaveDocuments(currentEmp),
                 BOX_AGREEMENT.equals(normalizedBox),
                 BOX_PENDING.equals(normalizedBox),
                 BOX_RECEIVED.equals(normalizedBox),
@@ -230,7 +231,12 @@ public class ApprovalService {
                 .map(this::summary));
         }
         if (BOX_ALL.equals(normalizedBox) && permissionService.canViewAllDocuments(currentEmp)) {
-            return PageResponse.from(documentRepository.findByDeletedYnOrderByApprovalIdDesc("N", documentPageRequest).map(this::summary));
+            return PageResponse.from(documentRepository.findAdminVisible(
+                "N",
+                List.of(ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE),
+                permissionService.canViewSensitiveLeaveDocuments(currentEmp),
+                documentPageRequest
+            ).map(this::summary));
         }
 
         Page<ApprovalDocument> visible = documentRepository.findVisibleToApprover(currentEmp, documentPageRequest);

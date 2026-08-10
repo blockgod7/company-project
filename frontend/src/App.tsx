@@ -4,6 +4,7 @@ import { AppRouteContent } from "./components/AppRouteContent";
 import { AppShell } from "./components/AppShell";
 import { useGlobalSearch } from "./hooks/useGlobalSearch";
 import { LoginPage } from "./pages/LoginPage";
+import { PasswordChangePage } from "./pages/PasswordChangePage";
 import type { User } from "./types";
 import type { ApprovalLaunch, Route } from "./utils/approvalDomain";
 
@@ -73,6 +74,10 @@ function App() {
         message={message}
       />
     );
+  }
+
+  if (user.mustChangePassword) {
+    return <PasswordChangePage empName={user.empName} onChanged={() => setUser({ ...user, mustChangePassword: false })} onLogout={logout} />;
   }
 
   return (

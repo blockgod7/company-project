@@ -62,9 +62,8 @@ public class FileController {
 
     @GetMapping("/{fileId}/download")
     public ResponseEntity<Resource> download(@PathVariable Long fileId, HttpServletRequest httpRequest) {
-        AttachFile file = fileService.getDownloadableFile(fileId);
+        AttachFile file = fileService.authorizeDownload(fileId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent"));
         Resource resource = fileService.loadResource(file);
-        fileService.recordDownload(fileId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent"));
         String encodedName = URLEncoder.encode(file.getOriginalFileName(), StandardCharsets.UTF_8).replace("+", "%20");
         return ResponseEntity.ok()
             .contentType(fileService.mediaType(file))

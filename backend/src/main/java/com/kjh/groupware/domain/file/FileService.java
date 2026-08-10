@@ -189,10 +189,24 @@ public class FileService {
 
     @Transactional
     public void recordDownload(Long fileId, String ipAddress, String userAgent) {
+        authorizeDownload(fileId, ipAddress, userAgent);
+    }
+
+    @Transactional
+    public AttachFile authorizeDownload(Long fileId, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         AttachFile file = getDownloadableFile(fileId);
-        assertTargetReadable(file.getTargetType(), file.getTargetId());
+        try {
+            assertTargetReadable(file.getTargetType(), file.getTargetId());
+        } catch (BusinessException exception) {
+            auditLogService.record(
+                currentEmp.getEmpId(), AuditActionType.ACCESS_DENIED, "attach_file", fileId,
+                null, null, ipAddress, userAgent, "첨부파일 다운로드 권한 없음", false
+            );
+            throw exception;
+        }
         auditLogService.record(currentEmp.getEmpId(), AuditActionType.DOWNLOAD, "attach_file", fileId, null, null, ipAddress, userAgent, "첨부파일 다운로드 시도", true);
+        return file;
     }
 
     public MediaType mediaType(AttachFile file) {

@@ -73,7 +73,7 @@ public class ApprovalQueryService {
     public List<ApprovalBoxResponse> boxes() {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         return APPROVAL_BOX_ORDER.stream()
-            .filter(box -> !BOX_ALL.equals(box) || permissionService.canViewAllDocuments(currentEmp))
+            .filter(box -> !BOX_ALL.equals(box) || permissionService.canViewAllDocuments(currentEmp) || permissionService.canViewAllLeaveDocuments(currentEmp))
             .map(box -> new ApprovalBoxResponse(box, APPROVAL_BOX_LABELS.get(box)))
             .toList();
     }
@@ -165,6 +165,24 @@ public class ApprovalQueryService {
             return findDashboardPage(dashboardFilter, currentEmp, documentPageRequest, linePageRequest);
         }
 
+        if (BOX_ALL.equals(normalizedBox)
+            && permissionService.canViewAllLeaveDocuments(currentEmp)
+            && !permissionService.canViewAllDocuments(currentEmp)) {
+            Emp requester = requesterEmpId == null ? null : empRepository.findById(requesterEmpId)
+                .orElseThrow(() -> BusinessException.notFound("REQUESTER_NOT_FOUND", "Requester was not found"));
+            LocalDateTime from = dateFrom == null ? null : dateFrom.atStartOfDay();
+            LocalDateTime to = dateTo == null ? null : dateTo.plusDays(1).atStartOfDay();
+            return PageResponse.from(documentRepository.searchLeaveAdmin(
+                List.of(ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE),
+                hasText(keyword), valueOrEmpty(keyword), hasText(templateCode), valueOrEmpty(templateCode),
+                hasText(status), valueOrEmpty(status), requesterEmpId != null, requester == null ? currentEmp : requester,
+                from != null, from == null ? LocalDateTime.now() : from,
+                to != null, to == null ? LocalDateTime.now() : to,
+                permissionService.canViewSensitiveLeaveDocuments(currentEmp),
+                documentPageRequest
+            ).map(this::summary));
+        }
+
         if (hasSearch(keyword, templateCode, status, requesterEmpId, dateFrom, dateTo)) {
             Emp requester = requesterEmpId == null ? null : empRepository.findById(requesterEmpId)
                 .orElseThrow(() -> BusinessException.notFound("REQUESTER_NOT_FOUND", "Requester was not found"));
@@ -183,6 +201,7 @@ public class ApprovalQueryService {
                 currentEmp,
                 decisionAssignees,
                 permissionService.canViewAllDocuments(currentEmp),
+                permissionService.canViewSensitiveLeaveDocuments(currentEmp),
                 BOX_AGREEMENT.equals(normalizedBox),
                 BOX_PENDING.equals(normalizedBox),
                 BOX_RECEIVED.equals(normalizedBox),
@@ -245,7 +264,20 @@ public class ApprovalQueryService {
                 .map(this::summary));
         }
         if (BOX_ALL.equals(normalizedBox) && permissionService.canViewAllDocuments(currentEmp)) {
-            return PageResponse.from(documentRepository.findByDeletedYnOrderByApprovalIdDesc("N", documentPageRequest).map(this::summary));
+            return PageResponse.from(documentRepository.findAdminVisible(
+                "N",
+                List.of(ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE),
+                permissionService.canViewSensitiveLeaveDocuments(currentEmp),
+                documentPageRequest
+            ).map(this::summary));
+        }
+        if (BOX_ALL.equals(normalizedBox) && permissionService.canViewAllLeaveDocuments(currentEmp)) {
+            return PageResponse.from(documentRepository.findLeaveAdminVisible(
+                "N",
+                List.of(ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE),
+                permissionService.canViewSensitiveLeaveDocuments(currentEmp),
+                documentPageRequest
+            ).map(this::summary));
         }
 
         Page<ApprovalDocument> visible = documentRepository.findVisibleToApprover(currentEmp, documentPageRequest);
@@ -276,7 +308,12 @@ public class ApprovalQueryService {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
         PageRequest pageRequest = PageRequest.of(safePage, safeSize, Sort.by(Sort.Order.desc("deletedAt"), Sort.Order.desc("approvalId")));
-        return PageResponse.from(documentRepository.findByDeletedYn("Y", pageRequest).map(this::summary));
+        return PageResponse.from(documentRepository.findAdminVisible(
+            "Y",
+            List.of(ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE),
+            permissionService.canViewSensitiveLeaveDocuments(currentEmp),
+            pageRequest
+        ).map(this::summary));
     }
 
     private PageResponse<ApprovalSummaryResponse> findDashboardPage(
@@ -401,7 +438,7 @@ public class ApprovalQueryService {
         if (!APPROVAL_BOX_LABELS.containsKey(box)) {
             throw BusinessException.badRequest("APPROVAL_BOX_INVALID", "지원하지 않는 전자결재 문서함입니다.");
         }
-        if (BOX_ALL.equals(box) && !permissionService.canViewAllDocuments(currentEmp)) {
+        if (BOX_ALL.equals(box) && !permissionService.canViewAllDocuments(currentEmp) && !permissionService.canViewAllLeaveDocuments(currentEmp)) {
             throw BusinessException.forbidden("APPROVAL_BOX_FORBIDDEN", "전체문서 문서함을 조회할 권한이 없습니다.");
         }
     }

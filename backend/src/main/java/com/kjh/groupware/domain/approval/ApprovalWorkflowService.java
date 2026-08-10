@@ -8,6 +8,7 @@ import com.kjh.groupware.domain.approval.dto.PurchaseRequestUpdateRequest;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.emp.EmpSignatureService;
+import com.kjh.groupware.domain.emp.EmployeePermissionService;
 import com.kjh.groupware.domain.equipment.EquipmentManagementService;
 import com.kjh.groupware.domain.file.AttachFile;
 import com.kjh.groupware.domain.notification.NotificationService;
@@ -43,8 +44,10 @@ public class ApprovalWorkflowService {
     private final ApprovalLinePolicyService linePolicyService;
     private final ApprovalEquipmentProposalService equipmentProposalService;
     private final ApprovalLeaveUsageService leaveUsageService;
+    private final CompTimeLedgerService compTimeLedgerService;
     private final EquipmentManagementService equipmentManagementService;
     private final ObjectMapper objectMapper;
+    private final EmployeePermissionService employeePermissionService;
 
     @Transactional
     public ApprovalResponse act(Long approvalId, String action, ApprovalActionRequest request, String ipAddress, String userAgent) {
@@ -115,6 +118,7 @@ public class ApprovalWorkflowService {
             .filter(line -> !ApprovalLine.STATUS_SKIPPED.equals(line.getStatus()))
             .forEach(line -> line.skip("REJECTED"));
         document.reject();
+        compTimeLedgerService.releasePending(document, "전자결재 반려");
         equipmentManagementService.onApprovalResolved(document, false);
         notificationService.notifyEmp(document.getRequester().getEmpId(), "전자결재 반려", "상신한 문서가 반려되었습니다.", "APPROVAL", document.getApprovalId());
         notifyPreviousApprovers(document, lines, currentLine, "전자결재 반려", "상신한 문서가 반려되었습니다.");
@@ -133,6 +137,7 @@ public class ApprovalWorkflowService {
         }
         lines.forEach(line -> line.skip("WITHDRAWN"));
         document.withdraw(request == null ? null : request.comment());
+        compTimeLedgerService.releasePending(document, "전자결재 회수");
         auditApproval(requester, AuditActionType.WITHDRAW, document, request == null ? null : request.comment(), true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), requester);
     }
@@ -149,6 +154,37 @@ public class ApprovalWorkflowService {
         document.cancel();
         auditApproval(requester, AuditActionType.CANCEL, document, "취소", true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), requester);
+    }
+
+    @Transactional
+    public ApprovalResponse managementCancelLeave(Long approvalId, ApprovalActionRequest request, String ipAddress, String userAgent) {
+        Emp manager = currentEmpProvider.getCurrentEmp();
+        if (!employeePermissionService.hasPermission(manager, EmployeePermissionService.LEAVE_ADMIN)) {
+            throw BusinessException.forbidden("LEAVE_MANAGEMENT_CANCEL_FORBIDDEN", "휴가관리자만 승인 휴가를 관리 취소할 수 있습니다.");
+        }
+        if (request == null || request.comment() == null || request.comment().isBlank()) {
+            throw BusinessException.badRequest("LEAVE_MANAGEMENT_CANCEL_REASON_REQUIRED", "관리 취소 사유를 입력해 주세요.");
+        }
+        ApprovalDocument document = getApprovedDocumentForUpdate(approvalId);
+        if (!ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(document.getTemplateCode())
+            && !ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(document.getTemplateCode())) {
+            throw BusinessException.badRequest("LEAVE_MANAGEMENT_CANCEL_TARGET_INVALID", "휴가계 문서만 관리 취소할 수 있습니다.");
+        }
+        if (ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(document.getTemplateCode())) {
+            compTimeLedgerService.restoreApprovedLeave(document, "휴가관리자 승인 휴가 취소");
+        } else {
+            compTimeLedgerService.reverseApprovedCancellation(document, "휴가 취소계 관리 취소");
+        }
+        document.cancel();
+        notificationService.notifyEmp(
+            document.getRequester().getEmpId(),
+            "승인 휴가 관리 취소",
+            "휴가관리자가 승인 휴가를 취소했습니다. 사유: " + request.comment().trim(),
+            "APPROVAL",
+            document.getApprovalId()
+        );
+        auditApproval(manager, AuditActionType.CANCEL, document, "관리 취소: " + request.comment().trim(), true, ipAddress, userAgent);
+        return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), manager);
     }
 
     @Transactional
@@ -345,9 +381,12 @@ public class ApprovalWorkflowService {
         if (progressReceiverRoutedDocumentAfterApproval(document, lines)) {
             return;
         }
+        leaveUsageService.assertSelectableLeaveDates(document);
         leaveUsageService.assertNoCompletedLeaveOverlap(document);
+        leaveUsageService.assertSufficientAnnualLeave(document);
         leaveUsageService.assertLeaveCancelTargetsApproved(document);
         document.approve();
+        compTimeLedgerService.consumeOnFinalApproval(document);
         equipmentManagementService.onApprovalResolved(document, true);
         pdfService.generateForFinalApproval(document);
         openPostApprovalLines(document, lines);

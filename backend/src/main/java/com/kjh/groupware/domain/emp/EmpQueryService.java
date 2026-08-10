@@ -2,6 +2,7 @@ package com.kjh.groupware.domain.emp;
 
 import com.kjh.groupware.domain.emp.dto.EmpResponse;
 import com.kjh.groupware.global.response.PageResponse;
+import com.kjh.groupware.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,5 +28,12 @@ public class EmpQueryService {
                 .map(EmpResponse::from));
         }
         return PageResponse.from(empRepository.search(normalizedKeyword, deptId, normalizedStatus, pageable).map(EmpResponse::from));
+    }
+
+    @Transactional(readOnly = true)
+    public EmpResponse findById(Long empId) {
+        Emp employee = empRepository.findById(empId)
+            .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "Employee was not found"));
+        return EmpResponse.from(employee);
     }
 }

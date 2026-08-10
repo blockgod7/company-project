@@ -25,6 +25,7 @@ app:
     access-token-validity-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_SECONDS:1800}
     refresh-token-validity-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:604800}
   auth:
+    login-options-enabled: ${LOGIN_OPTIONS_ENABLED:false}
     refresh-cookie:
       secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
       same-site: ${REFRESH_TOKEN_COOKIE_SAME_SITE:Strict}

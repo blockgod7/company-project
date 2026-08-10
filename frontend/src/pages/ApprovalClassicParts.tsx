@@ -96,7 +96,6 @@ import {
   isTrainingReportTemplateCode,
   isTrainingRequestTemplateCode,
   isTrainingTemplateCode,
-  KOREAN_PUBLIC_HOLIDAYS,
   lastReceiverLineOrder,
   LEAVE_TYPE_OPTIONS,
   leaveCancelContent,

@@ -29,6 +29,8 @@ public class EquipmentReport extends BaseEntity {
     public static final String REWORK = "REWORK";
     public static final String COMPLETED = "COMPLETED";
     public static final String REJECTED = "REJECTED";
+    public static final String DRAFT = "DRAFT";
+    public static final String CANCELLED = "CANCELLED";
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "report_id") private Long reportId;
@@ -52,6 +54,13 @@ public class EquipmentReport extends BaseEntity {
     @Column(name = "state", nullable = false, length = 40) private String state;
     @Column(name = "initial_approval_id") private Long initialApprovalId;
     @Column(name = "completion_approval_id") private Long completionApprovalId;
+    @Column(name = "cancel_stage", length = 30) private String cancelStage;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "cancelled_by_emp_id") private Emp cancelledBy;
+    @Column(name = "cancelled_on") private LocalDate cancelledOn;
+    @Column(name = "source_system", length = 30) private String sourceSystem;
+    @Column(name = "source_record_id", length = 100) private String sourceRecordId;
+    @Column(name = "source_status", length = 20) private String sourceStatus;
+    @Column(name = "migration_run_id") private Long migrationRunId;
 
     public EquipmentReport(Equipment equipment, Emp reporter, String title, String symptom, String requestContent, String priority, LocalDate occurredOn) {
         this.equipment = equipment; this.reporter = reporter; this.title = title; this.symptom = symptom;
@@ -72,4 +81,10 @@ public class EquipmentReport extends BaseEntity {
     public void initialRejected() { this.state = REJECTED; }
     public void completionApproved() { this.state = COMPLETED; }
     public void completionRejected() { this.state = REWORK; }
+    public void cancel(String stage, Emp actor, LocalDate date) {
+        this.cancelStage = stage;
+        this.cancelledBy = actor;
+        this.cancelledOn = date == null ? LocalDate.now() : date;
+        this.state = CANCELLED;
+    }
 }

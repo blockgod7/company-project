@@ -3,16 +3,16 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 export default defineConfig({
-  root: __dirname,
+  root: import.meta.dirname,
   plugins: [react()],
   server: {
     port: 5173
   },
   build: {
-    outDir: path.resolve(__dirname, "dist"),
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
     rollupOptions: {
-      input: path.resolve(__dirname, "index.html")
+      input: path.resolve(import.meta.dirname, "index.html")
     }
   }
 });

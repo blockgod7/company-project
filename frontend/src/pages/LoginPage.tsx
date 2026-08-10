@@ -16,9 +16,11 @@ type LoginPageProps = {
   message: string;
 };
 
+const defaultLoginPassword = import.meta.env.VITE_LOGIN_DEFAULT_PASSWORD ?? "";
+
 export function LoginPage({ onLogin, message }: LoginPageProps) {
-  const [loginId, setLoginId] = useState("admin");
-  const [password, setPassword] = useState("admin1234");
+  const [loginId, setLoginId] = useState("");
+  const [password, setPassword] = useState(defaultLoginPassword);
   const [loginOptions, setLoginOptions] = useState<LoginOption[]>([]);
   const [error, setError] = useState("");
 
@@ -51,20 +53,20 @@ export function LoginPage({ onLogin, message }: LoginPageProps) {
           <p>업무, 공지, 게시판, 조직 정보를 한 화면에서 관리합니다.</p>
         </div>
         <div className="login-fields">
-          <label>
+          {!!loginOptions.length && <label>
             테스트 계정
             <select value={loginId} onChange={(event) => {
               setLoginId(event.target.value);
-              setPassword("admin1234");
+              setPassword(defaultLoginPassword);
             }}>
-              <option value="admin">admin · 관리자</option>
-              {loginOptions.filter((option) => option.loginId !== "admin").map((option) => (
+              <option value="">계정 선택</option>
+              {loginOptions.map((option) => (
                 <option key={option.loginId} value={option.loginId}>
                   {option.loginId} · {option.empName} · {option.deptName ?? "-"} · {option.positionName ?? option.roleCode}
                 </option>
               ))}
             </select>
-          </label>
+          </label>}
           <label>
             아이디
             <input value={loginId} onChange={(event) => setLoginId(event.target.value)} />

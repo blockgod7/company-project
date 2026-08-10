@@ -1,4 +1,4 @@
-import { LogOut, Search, Shield, UserRound } from "lucide-react";
+import { LogOut, Search, Shield, UserCog, UserRound } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import schunkLogo from "../assets/schunk-carbon-logo.png";
 import type { User } from "../types";
@@ -53,6 +53,11 @@ export function AppShell({
               </button>
             );
           })}
+          {user.permissions.includes("EMPLOYEE_ADMIN") && (
+            <button className={route === "employees" ? "side active" : "side"} onClick={() => onNavigate("employees")}>
+              <UserCog size={19} /> 직원 관리
+            </button>
+          )}
           {isAdmin && (
             <button className={route === "audit" ? "side active" : "side"} onClick={() => onNavigate("audit")}>
               <Shield size={19} /> 감사 로그

@@ -19,6 +19,7 @@ public class ApprovalReminderService {
     private final ApprovalDelegationService delegationService;
     private final NotificationService notificationService;
     private final ApprovalOperationSettingService operationSettingService;
+    private final ScheduledJobStatusService scheduledJobStatusService;
     private LocalDateTime lastReminderScanAt;
 
     public LocalDateTime decisionDueAt() {
@@ -28,13 +29,22 @@ public class ApprovalReminderService {
     @Scheduled(fixedDelayString = "${app.approval.reminder-scheduler-tick-ms:60000}")
     @Transactional
     public synchronized void sendDueRemindersOnSchedule() {
-        LocalDateTime now = LocalDateTime.now();
-        if (lastReminderScanAt != null
-            && now.isBefore(lastReminderScanAt.plusNanos(operationSettingService.reminderFixedDelayMs() * 1_000_000))) {
-            return;
+        String job = "approval-due-reminder";
+        scheduledJobStatusService.start(job);
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            if (lastReminderScanAt != null
+                && now.isBefore(lastReminderScanAt.plusNanos(operationSettingService.reminderFixedDelayMs() * 1_000_000))) {
+                scheduledJobStatusService.skipped(job, "운영설정 알림 간격 대기 중");
+                return;
+            }
+            int sent = sendDueReminders(now);
+            lastReminderScanAt = now;
+            scheduledJobStatusService.success(job, "지연 결재선 " + sent + "건 알림");
+        } catch (RuntimeException exception) {
+            scheduledJobStatusService.failure(job, exception);
+            throw exception;
         }
-        sendDueReminders(now);
-        lastReminderScanAt = now;
     }
 
     @Transactional

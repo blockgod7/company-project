@@ -632,6 +632,48 @@ public class ApprovalPdfService {
     }
 
     private GeneratedPdf renderLeaveRequest(ApprovalDocument document, List<ApprovalLine> lines) {
+        return useLegacyLeaveLayout(document)
+            ? renderLegacyLeaveRequest(document, lines)
+            : renderWebLeaveRequest(document, lines);
+    }
+
+    private GeneratedPdf renderWebLeaveRequest(ApprovalDocument document, List<ApprovalLine> lines) {
+        JsonNode fields = formFields(document.getFormDataJson());
+        boolean cancel = "LEAVE_CANCEL".equals(document.getTemplateCode());
+        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.A4); pdf.addPage(page); PDFont font = loadFont(pdf);
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+                content.setLineWidth(0.8f);
+                drawText(content, font, "전자결재 · 휴가", 60, 785, 9);
+                drawText(content, font, cancel ? "휴가 취소 신청" : "휴가 신청", 60, 752, 22);
+                drawText(content, font, safe(document.getTitle()), 60, 728, 10);
+
+                List<ApprovalLine> approvals = linesOfType(lines, ApprovalLine.TYPE_APPROVAL);
+                List<ApprovalLine> receivers = linesOfType(lines, ApprovalLine.TYPE_RECEIVER);
+                drawDepartmentStamp(content, font, 60, 620, 230, "결재", requesterStamp(document), approvals);
+                drawDepartmentStamp(content, font, 306, 620, 230, "수신", null, receivers);
+
+                float x=60, width=476, row=30;
+                drawInfoRow(content,font,x,590,70,88,row,"신청자",safe(document.getRequester().getEmpName()));
+                drawInfoRow(content,font,x+158,590,60,100,row,"부서",safe(document.getDraftDeptName()));
+                drawInfoRow(content,font,x+318,590,58,100,row,"신청일",dateText(document.getRequestedAt()));
+
+                float cardY=530, cardW=width/3f;
+                drawMetricCard(content,font,x,cardY,cardW,"총 휴가 일수",dayText(text(fields,"totalAnnualDays")));
+                drawMetricCard(content,font,x+cardW,cardY,cardW,"신청 전 사용 일수",dayText(text(fields,"usedAnnualDays")));
+                drawMetricCard(content,font,x+cardW*2,cardY,cardW,cancel?"이번 취소 일수":"이번 신청 일수",dayText(text(fields,"days")));
+
+                drawLeaveTextRow(content,font,x,430,86,width-86,80,cancel?"취소 날짜":"신청 날짜",leaveSelectionText(fields),7.5f,6);
+                drawLeaveTextRow(content,font,x,350,86,width-86,80,"상세 정보",leaveDetailText(fields));
+                drawLeaveTextRow(content,font,x,270,86,width-86,80,"신청 사유",text(fields,"leaveReason"));
+                drawText(content,font,"문서번호 " + safe(document.getDocumentNo()) + " · 최종 상태 " + safe(document.getStatus()),x,240,8);
+                drawText(content,font,"시스템 생성 문서 · 생성 " + java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),x,218,7);
+            }
+            pdf.save(output); byte[] bytes=output.toByteArray(); return new GeneratedPdf(bytes,sha256(bytes));
+        } catch(IOException ex){throw BusinessException.badRequest("PDF_GENERATION_FAILED","Failed to generate leave request PDF");}
+    }
+
+    private GeneratedPdf renderLegacyLeaveRequest(ApprovalDocument document, List<ApprovalLine> lines) {
         JsonNode fields = formFields(document.getFormDataJson());
         boolean cancel = "LEAVE_CANCEL".equals(document.getTemplateCode());
         try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
@@ -679,6 +721,35 @@ public class ApprovalPdfService {
         } catch (IOException ex) {
             throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate leave request PDF");
         }
+    }
+
+    private boolean useLegacyLeaveLayout(ApprovalDocument document) {
+        try {
+            JsonNode snapshot = OBJECT_MAPPER.readTree(document.getTemplateSnapshotJson());
+            String layout = snapshot.path("printLayoutJson").asText("");
+            return !layout.isBlank() && "LEGACY".equalsIgnoreCase(OBJECT_MAPPER.readTree(layout).path("leaveLayout").asText(""));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void drawMetricCard(PDPageContentStream content, PDFont font, float x, float y, float width, String label, String value) throws IOException {
+        drawBox(content,x,y,width,54); drawCenteredText(content,font,label,x,y+34,width,8,24); drawCenteredText(content,font,value,x,y+13,width,13,24);
+    }
+
+    private String leaveSelectionText(JsonNode fields) {
+        String raw=text(fields,"leaveSelectionsJson"); if(raw.isBlank()) return leaveRangeText(fields)+" · "+text(fields,"leaveType");
+        try { JsonNode items=OBJECT_MAPPER.readTree(raw); List<String> values=new ArrayList<>(); for(JsonNode item:items){String date=item.path("date").asText();String shortDate=date.length()>=10?date.substring(5):date;String days=item.path("days").asText("");values.add(shortDate+" "+item.path("type").asText()+(days.isBlank()?"":"("+days+"일)"));} return String.join(" · ",values); }
+        catch(Exception ignored){return leaveRangeText(fields);}
+    }
+
+    private String leaveDetailText(JsonNode fields) {
+        List<String> values=new ArrayList<>();
+        if(!text(fields,"familyEventType").isBlank()) values.add("경조: "+BereavementCatalog.eventLabel(text(fields,"familyEventType"))+" / "+BereavementCatalog.relationLabel(text(fields,"familyRelation")));
+        if(!text(fields,"accidentReceiptInfo").isBlank()) values.add("산재 접수: "+text(fields,"accidentReceiptInfo"));
+        if(!text(fields,"expectedBirthDate").isBlank()) values.add("출산 예정일: "+text(fields,"expectedBirthDate"));
+        if(!text(fields,"actualBirthDate").isBlank()) values.add("실제 출산일: "+text(fields,"actualBirthDate"));
+        return values.isEmpty()?"-":String.join("\n",values);
     }
 
     private GeneratedPdf renderEquipmentProposal(ApprovalDocument document, List<ApprovalLine> lines) {
@@ -1294,10 +1365,14 @@ public class ApprovalPdfService {
     }
 
     private void drawLeaveTextRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value) throws IOException {
+        drawLeaveTextRow(content, font, x, y, labelWidth, valueWidth, height, label, value, 9, 4);
+    }
+
+    private void drawLeaveTextRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value, float fontSize, int maxLines) throws IOException {
         drawBox(content, x, y, labelWidth, height);
         drawBox(content, x + labelWidth, y, valueWidth, height);
         drawCenteredText(content, font, label, x, y + height / 2f - 4, labelWidth, 8, 12);
-        drawWrappedText(content, font, value, x + labelWidth + 8, y + height - 18, valueWidth - 16, 9, 4);
+        drawWrappedText(content, font, value, x + labelWidth + 8, y + height - 15, valueWidth - 16, fontSize, maxLines);
     }
 
     private void drawLeaveCompactRow(PDPageContentStream content, PDFont font, float x, float y, float labelWidth, float valueWidth, float height, String label, String value) throws IOException {

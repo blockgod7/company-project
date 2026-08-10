@@ -4,6 +4,7 @@ import com.kjh.groupware.domain.auth.dto.CurrentUserResponse;
 import com.kjh.groupware.domain.auth.dto.LoginOptionResponse;
 import com.kjh.groupware.domain.auth.dto.LoginRequest;
 import com.kjh.groupware.domain.auth.dto.LoginResponse;
+import com.kjh.groupware.domain.auth.dto.PasswordChangeRequest;
 import com.kjh.groupware.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -42,6 +43,9 @@ public class AuthController {
     @Value("${app.jwt.refresh-token-validity-seconds}")
     private long refreshTokenValiditySeconds;
 
+    @Value("${app.auth.login-options-enabled:false}")
+    private boolean loginOptionsEnabled;
+
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
         @Valid @RequestBody LoginRequest request,
@@ -57,7 +61,7 @@ public class AuthController {
 
     @GetMapping("/login-options")
     public ApiResponse<List<LoginOptionResponse>> loginOptions() {
-        return ApiResponse.ok(authService.loginOptions());
+        return ApiResponse.ok(loginOptionsEnabled ? authService.loginOptions() : List.of());
     }
 
     @GetMapping("/me")
@@ -86,6 +90,12 @@ public class AuthController {
         return ResponseEntity.ok()
             .header(HttpHeaders.SET_COOKIE, expiredRefreshCookie().toString())
             .body(ApiResponse.ok(null, "Logged out"));
+    }
+
+    @PostMapping("/change-password")
+    public ApiResponse<Void> changePassword(@Valid @RequestBody PasswordChangeRequest request) {
+        authService.changePassword(request.newPassword());
+        return ApiResponse.ok(null, "비밀번호가 변경되었습니다. 다시 로그인해 주세요.");
     }
 
     private ResponseEntity<ApiResponse<LoginResponse>> withRefreshCookie(AuthService.AuthenticatedLogin login) {

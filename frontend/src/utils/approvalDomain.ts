@@ -18,8 +18,8 @@ import type { LucideIcon } from "lucide-react";import type {
   LeaveUsage,
   User
 } from "../types";
-export type Route = "dashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "equipment" | "notifications" | "organization" | "audit";
-export type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "deleted";
+export type Route = "dashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "equipment" | "notifications" | "organization" | "employees" | "audit";
+export type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "holidays" | "annualLeaves" | "leavePolicies" | "compTime" | "deleted";
 export type ApprovalDelegationForm = { delegateEmpId: number | null; startDate: string; endDate: string; reason: string; active: boolean };
 export type ApprovalOperationSettingsForm = { decisionDueHours: number; reminderFixedDelayMs: number; deletedDocumentRetentionDays: number; permanentDeleteEnabled: boolean };
 export type ApprovalTemplateOption = {
@@ -132,47 +132,28 @@ export const APPROVAL_TEMPLATE_CATEGORIES: ApprovalTemplateCategory[] = [
 export const ENABLE_TEMPLATE_FALLBACK = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEMPLATE_FALLBACK === "true";
 export const LEAVE_TYPE_OPTIONS = [
   "연차",
+  "하계휴가",
   "오전반차",
   "오후반차",
   "공가",
   "공가(오전)",
   "공가(오후)",
   "경조",
-  "산휴",
-  "출장",
-  "외근",
-  "기타",
   "대체휴무",
   "병가",
-  "교육",
-  "휴무",
+  "산재요양",
+  "무급휴가",
+  "특별유급휴가",
+  "배우자 출산휴가",
+  "출산전후휴가",
+  "여성휴가",
+  "유산·사산휴가",
+  "난임치료휴가",
+  "가족돌봄휴가",
   "육아휴직",
   "자녀돌봄휴가"
 ];
 export const DEFAULT_TOTAL_ANNUAL_DAYS = "22";
-export const KOREAN_PUBLIC_HOLIDAYS: Record<string, string> = {
-  "2026-01-01": "신정",
-  "2026-02-16": "설날",
-  "2026-02-17": "설날",
-  "2026-02-18": "설날",
-  "2026-03-01": "삼일절",
-  "2026-03-02": "대체공휴일",
-  "2026-05-01": "근로자의 날",
-  "2026-05-05": "어린이날",
-  "2026-05-24": "부처님오신날",
-  "2026-05-25": "대체공휴일",
-  "2026-06-03": "지방선거",
-  "2026-06-06": "현충일",
-  "2026-08-15": "광복절",
-  "2026-08-17": "대체공휴일",
-  "2026-09-24": "추석",
-  "2026-09-25": "추석",
-  "2026-09-26": "추석",
-  "2026-10-03": "개천절",
-  "2026-10-05": "대체공휴일",
-  "2026-10-09": "한글날",
-  "2026-12-25": "성탄절"
-};
 
 export function todayDate() {
   return new Date().toISOString().slice(0, 10);
@@ -702,7 +683,7 @@ export function isRequiredTemplateField(field: ApprovalTemplateField) {
 }
 
 export function leaveDayValue(type: string) {
-  if (type === "연차") return 1;
+  if (type === "연차" || type === "하계휴가") return 1;
   if (type === "오전반차" || type === "오후반차") return 0.5;
   return 0;
 }
@@ -733,7 +714,7 @@ export function parseLeaveSelections(values: Record<string, string> | null | und
     return parsed
       .filter((item): item is Record<string, unknown> => item && typeof item === "object" && typeof item.date === "string")
       .map((item) => {
-        const type = typeof item.type === "string" && LEAVE_TYPE_OPTIONS.includes(item.type) ? item.type : "연차";
+        const type = typeof item.type === "string" && item.type.trim() ? item.type.trim() : "연차";
         return {
           date: String(item.date),
           type,
@@ -815,6 +796,7 @@ export const routeLabels: Record<Route, string> = {
   equipment: "설비관리",
   notifications: "알림",
   organization: "조직도",
+  employees: "직원 관리",
   audit: "감사 로그"
 };
 

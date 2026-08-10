@@ -142,6 +142,17 @@ public class ApprovalController {
         return ApiResponse.ok(approvalWorkflowService.cancel(approvalId, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")));
     }
 
+    @PostMapping("/{approvalId}/management-cancel-leave")
+    public ApiResponse<ApprovalResponse> managementCancelLeave(
+        @PathVariable Long approvalId,
+        @RequestBody ApprovalActionRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.ok(approvalWorkflowService.managementCancelLeave(
+            approvalId, request, httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")
+        ));
+    }
+
     @PostMapping("/{approvalId}/redraft")
     public ApiResponse<ApprovalResponse> redraft(
         @PathVariable Long approvalId,

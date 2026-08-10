@@ -21,6 +21,7 @@ import com.kjh.groupware.domain.approval.dto.LeaveUsageResponse;
 import com.kjh.groupware.domain.approval.dto.PurchaseRequestUpdateRequest;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
+import com.kjh.groupware.domain.emp.EmployeePermissionService;
 import com.kjh.groupware.domain.emp.EmpSignatureService;
 import com.kjh.groupware.domain.equipment.EquipmentManagementService;
 import com.kjh.groupware.domain.notification.Notification;
@@ -67,7 +68,12 @@ class ApprovalServiceWorkflowTest {
     private final ApprovalDelegationService delegationService = mock(ApprovalDelegationService.class);
     private final ApprovalReminderService reminderService = mock(ApprovalReminderService.class);
     private final AnnualLeaveService annualLeaveService = mock(AnnualLeaveService.class);
-    private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService);
+    private final ApprovalHolidayRepository holidayRepository = mock(ApprovalHolidayRepository.class);
+    private final ApprovalLeaveExclusionRepository exclusionRepository = mock(ApprovalLeaveExclusionRepository.class);
+    private final ApprovalLeaveLifecycleCancellationRepository lifecycleCancellationRepository = mock(ApprovalLeaveLifecycleCancellationRepository.class);
+    private final EmployeePermissionService employeePermissionService = mock(EmployeePermissionService.class);
+    private final CompTimeLedgerService compTimeLedgerService = mock(CompTimeLedgerService.class);
+    private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService, employeePermissionService);
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final AtomicReference<Emp> currentEmp = new AtomicReference<>();
     private final AtomicLong documentIds = new AtomicLong(100);
@@ -92,6 +98,7 @@ class ApprovalServiceWorkflowTest {
             ReflectionTestUtils.setField(emp, "roleCode", "USER");
             ReflectionTestUtils.setField(emp, "positionName", "Staff");
             ReflectionTestUtils.setField(emp, "status", "ACTIVE");
+            ReflectionTestUtils.setField(emp, "accountStatus", "ACTIVE");
             ReflectionTestUtils.setField(emp, "useYn", "Y");
             emps.put(id, emp);
         }
@@ -255,7 +262,13 @@ class ApprovalServiceWorkflowTest {
             documentRepository,
             currentEmpProvider,
             new ObjectMapper(),
-            annualLeaveService
+            annualLeaveService,
+            holidayRepository,
+            exclusionRepository,
+            lifecycleCancellationRepository,
+            mock(LeavePolicyService.class),
+            mock(LeavePolicyOverrideService.class),
+            mock(BereavementPolicyRepository.class)
         );
         draftService = new ApprovalDraftService(
             documentRepository,
@@ -268,6 +281,7 @@ class ApprovalServiceWorkflowTest {
             linePolicyService,
             equipmentProposalService,
             leaveUsageService,
+            compTimeLedgerService,
             delegationService,
             jdbcTemplate,
             new ObjectMapper()
@@ -287,8 +301,10 @@ class ApprovalServiceWorkflowTest {
             linePolicyService,
             equipmentProposalService,
             leaveUsageService,
+            compTimeLedgerService,
             equipmentManagementService,
-            new ObjectMapper()
+            new ObjectMapper(),
+            employeePermissionService
         );
 
         service = new ApprovalService(
@@ -653,7 +669,8 @@ class ApprovalServiceWorkflowTest {
             lineRepository,
             delegationService,
             notificationService,
-            operationSettingService
+            operationSettingService,
+            mock(ScheduledJobStatusService.class)
         );
 
         assertThat(service.sendDueReminders(now)).isEqualTo(1);
@@ -796,7 +813,7 @@ class ApprovalServiceWorkflowTest {
             "NORMAL",
             List.of(),
             List.of(4L),
-            List.of(),
+            List.of(2L),
             List.of(),
             List.of(),
             false
@@ -848,7 +865,7 @@ class ApprovalServiceWorkflowTest {
             "\\uC624\\uC804\\uBC18\\uCC28"
         ), "127.0.0.1", "test"))
             .isInstanceOf(BusinessException.class)
-            .hasMessageContaining("already approved");
+            .hasMessageContaining("겹칩니다");
     }
 
     @Test
@@ -992,7 +1009,7 @@ class ApprovalServiceWorkflowTest {
             "NORMAL",
             List.of(),
             List.of(4L),
-            List.of(),
+            List.of(2L),
             List.of(),
             List.of(),
             false

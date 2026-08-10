@@ -113,6 +113,7 @@ class ApprovalDefaultLineServiceTest {
             ReflectionTestUtils.setField(emp, "roleCode", "USER");
             ReflectionTestUtils.setField(emp, "positionName", "Staff");
             ReflectionTestUtils.setField(emp, "status", "ACTIVE");
+            ReflectionTestUtils.setField(emp, "accountStatus", "ACTIVE");
             ReflectionTestUtils.setField(emp, "useYn", "Y");
             return emp;
         } catch (ReflectiveOperationException ex) {

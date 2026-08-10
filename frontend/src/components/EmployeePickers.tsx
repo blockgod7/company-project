@@ -29,6 +29,15 @@ export function EmployeeMultiPicker({ title, user, employees, selectedIds, disab
     setKnownEmployees((prev) => mergeEmployees(prev, employees));
   }, [employees]);
 
+  useEffect(() => {
+    const missingIds = selectedIds.map(Number).filter((id) => Number.isFinite(id) && !knownEmployees.some((employee) => employee.empId === id));
+    if (!missingIds.length) return;
+    void Promise.all(missingIds.map((id) => api<Employee>(`/emps/${id}`).catch(() => null))).then((resolved) => {
+      const found = resolved.filter((employee): employee is Employee => employee !== null);
+      if (found.length) setKnownEmployees((prev) => mergeEmployees(prev, found));
+    });
+  }, [knownEmployees, selectedIds]);
+
   async function openPicker() {
     setOpen(true);
     if (!tree.length) setTree(await api<DeptNode[]>("/depts/tree"));
@@ -73,13 +82,13 @@ export function EmployeeMultiPicker({ title, user, employees, selectedIds, disab
   }
 
   return (
-    <div className="line-picker-card">
+    <div className="line-picker-card compact-line-picker">
       <div className="panel-head">
         <h3>{title}</h3>
         <button type="button" onClick={openPicker}><Building2 size={16} /> 선택</button>
       </div>
       {selectedIds.length ? selectedIds.map((id, index) => {
-        const employee = knownEmployees.find((item) => item.empId === id);
+        const employee = knownEmployees.find((item) => item.empId === Number(id));
         return (
           <div className="selected-approver" key={id}>
             <strong>{ordered ? `${index + 1}. ` : ""}{employee?.empName ?? id}</strong>
@@ -122,7 +131,7 @@ export function EmployeeMultiPicker({ title, user, employees, selectedIds, disab
               <div className="org-picker-selected">
                 <h3>선택된 {title}</h3>
                 {selectedIds.length ? selectedIds.map((id, index) => {
-                  const employee = knownEmployees.find((item) => item.empId === id);
+                  const employee = knownEmployees.find((item) => item.empId === Number(id));
                   return <div className="selected-approver" key={id}><strong>{ordered ? `${index + 1}. ` : ""}{employee?.empName ?? id}</strong><span>{employee?.deptName ?? "-"}</span></div>;
                 }) : <Empty text="선택된 직원이 없습니다." />}
                 <button type="button" className="primary" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setOpen(false); }}>적용</button>
@@ -203,7 +212,7 @@ function ApproverPicker({ employees, selectedIds, onChange }: { employees: Emplo
       {selectedIds.length ? (
         <div className="approval-path">
           {selectedIds.map((id, index) => {
-            const employee = knownEmployees.find((item) => item.empId === id);
+            const employee = knownEmployees.find((item) => item.empId === Number(id));
             return (
               <span key={id}>
                 {index + 1}. {employee?.empName ?? id}
@@ -243,7 +252,7 @@ function ApproverPicker({ employees, selectedIds, onChange }: { employees: Emplo
               <div className="org-picker-selected">
                 <h3>선택된 결재선</h3>
                 {selectedIds.length ? selectedIds.map((id, index) => {
-                  const employee = knownEmployees.find((item) => item.empId === id);
+                  const employee = knownEmployees.find((item) => item.empId === Number(id));
                   return (
                     <div className="selected-approver" key={id}>
                       <strong>{index + 1}. {employee?.empName ?? id}</strong>

@@ -96,7 +96,6 @@ import {
   isTrainingReportTemplateCode,
   isTrainingRequestTemplateCode,
   isTrainingTemplateCode,
-  KOREAN_PUBLIC_HOLIDAYS,
   lastReceiverLineOrder,
   LEAVE_TYPE_OPTIONS,
   leaveCancelContent,
@@ -173,6 +172,7 @@ import type {
   Employee,
   EquipmentProposal,
   EquipmentReport,
+  LeaveExclusion,
   LeaveUsage,
   PageResponse,
   User
@@ -186,6 +186,7 @@ export function ApprovalDetailView({
   equipmentProposal,
   equipmentProposalLoading = false,
   equipmentCompletionReport,
+  leaveExclusions = [],
   employees = [],
   onSavePurchaseDeliveryDate,
   onSubmitPurchaseApprovalLine,
@@ -199,6 +200,7 @@ export function ApprovalDetailView({
   equipmentProposal?: EquipmentProposal | null;
   equipmentProposalLoading?: boolean;
   equipmentCompletionReport?: EquipmentReport | null;
+  leaveExclusions?: LeaveExclusion[];
   employees?: Employee[];
   onSavePurchaseDeliveryDate?: (deliveryDate: string) => void;
   onSubmitPurchaseApprovalLine?: (agreementEmpIds: number[], approverEmpIds: number[]) => void;
@@ -210,7 +212,7 @@ export function ApprovalDetailView({
     return <ClassicDraftDetailView approval={approval} templates={templates} />;
   }
   if (isLeaveTemplateCode(approval.templateCode) || isLeaveCancelTemplateCode(approval.templateCode)) {
-    return <LeaveRequestDetailView approval={approval} />;
+    return <LeaveRequestDetailView approval={approval} exclusions={leaveExclusions} />;
   }
   if (isPurchaseTemplateCode(approval.templateCode)) {
     return <PurchaseRequestDetailView user={user} employees={employees} approval={approval} onSaveDeliveryDate={onSavePurchaseDeliveryDate} onSubmitPurchaseApprovalLine={onSubmitPurchaseApprovalLine} />;
@@ -272,11 +274,7 @@ export function ApprovalDetailView({
         <h3>문서 내용</h3>
         <div className="detail-content">{approvalContent(approval) ? <RichContent content={approvalContent(approval)} /> : "내용이 없습니다."}</div>
       </section>
-      <ApprovalLineSection title="합의자" lines={approval.lines.filter((line) => line.lineType === "AGREEMENT")} />
-      <ApprovalLineSection title="결재자" lines={approval.lines.filter((line) => line.lineType === "APPROVAL")} />
-      <ApprovalLineSection title="수신자" lines={approval.lines.filter((line) => line.lineType === "RECEIVER")} />
-      <ApprovalLineSection title="참조자" lines={approval.lines.filter((line) => line.lineType === "REFERENCE")} />
-      <ApprovalLineSection title="연람자" lines={approval.lines.filter((line) => line.lineType === "READER")} />
+      <ApprovalHistorySection lines={approval.lines} />
       <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
       <section className="approval-detail-section">
         <h3>감사 이력</h3>
@@ -703,6 +701,29 @@ function ApprovalLineSection({ title, lines }: { title: string; lines: ApprovalL
           ))}
         </div>
       ) : <Empty text={`${title}가 없습니다.`} />}
+    </section>
+  );
+}
+
+function ApprovalHistorySection({ lines }: { lines: ApprovalLine[] }) {
+  const decisionLines = lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL").slice().sort((a, b) => a.lineOrder - b.lineOrder);
+  const receiverLines = lines.filter((line) => line.lineType === "RECEIVER");
+  const referenceLines = lines.filter((line) => line.lineType === "REFERENCE" || line.lineType === "READER");
+  return (
+    <section className="approval-detail-section approval-history-section">
+      <h3>결재 현황 및 이력</h3>
+      <div className="approval-history-list">
+        <div className="approval-history-row"><strong>1. 기안</strong><span>기안자</span><span>문서 작성</span></div>
+        {decisionLines.map((line, index) => (
+          <div className="approval-history-row" key={line.lineId}>
+            <strong>{index + 2}. {lineTypeLabel(line.lineType)}</strong>
+            <span>{line.empNameSnapshot ?? line.approverName}</span>
+            <span>{lineStatusLabel(line.status)}{line.comment ? ` · ${line.comment}` : ""}</span>
+          </div>
+        ))}
+        {receiverLines.length > 0 && <div className="approval-history-row shared"><strong>수신</strong><span>{receiverLines.map((line) => line.empNameSnapshot ?? line.approverName).join(", ")}</span><span>최종 결재 완료 후 수신</span></div>}
+        {referenceLines.length > 0 && <div className="approval-history-row shared"><strong>참조</strong><span>{referenceLines.map((line) => line.empNameSnapshot ?? line.approverName).join(", ")}</span><span>최종 결재 완료 후 공유</span></div>}
+      </div>
     </section>
   );
 }
