@@ -436,6 +436,30 @@ UPDATE bereavement_policy SET family_relation = CASE replace(trim(family_relatio
 CREATE UNIQUE INDEX IF NOT EXISTS uq_bereavement_policy_type_relation_from
     ON bereavement_policy(event_type, family_relation, effective_from);
 
+-- Confirmed company-paid death leave defaults. Existing relation policies are preserved
+-- so rerunning this patch never overwrites leave-admin changes.
+INSERT INTO bereavement_policy (
+    event_type, family_relation, allowed_days, pay_type, evidence_required_yn,
+    effective_from, effective_to, active_yn, change_reason, last_changed_by
+)
+SELECT
+    'DEATH', defaults.family_relation, defaults.allowed_days, 'PAID', 'N',
+    DATE '2026-01-01', NULL, 'Y', '사내 사망 경조휴가 기본 기준', NULL
+FROM (VALUES
+    ('SPOUSE', 5.0::numeric),
+    ('PARENT', 5.0::numeric),
+    ('SPOUSE_PARENT', 5.0::numeric),
+    ('GRANDPARENT', 3.0::numeric),
+    ('CHILD', 3.0::numeric),
+    ('SIBLING', 1.0::numeric)
+) AS defaults(family_relation, allowed_days)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM bereavement_policy existing
+    WHERE existing.event_type = 'DEATH'
+      AND existing.family_relation = defaults.family_relation
+);
+
 CREATE TABLE IF NOT EXISTS scheduled_job_run (
     job_name VARCHAR(80) PRIMARY KEY,
     status VARCHAR(20) NOT NULL DEFAULT 'NEVER_RUN',

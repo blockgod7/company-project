@@ -24,6 +24,10 @@ public final class BereavementCatalog {
         new Item("SIBLING", "형제자매")
     );
 
+    private static final java.util.Set<String> DEATH_RELATIONS = java.util.Set.of(
+        "SPOUSE", "CHILD", "PARENT", "SPOUSE_PARENT", "GRANDPARENT", "SIBLING"
+    );
+
     private static final Map<String, String> EVENT_ALIASES = Map.ofEntries(
         Map.entry("MARRIAGE", "MARRIAGE"), Map.entry("결혼", "MARRIAGE"),
         Map.entry("BIRTH", "BIRTH"), Map.entry("출산", "BIRTH"),
@@ -63,6 +67,15 @@ public final class BereavementCatalog {
 
     public static String relationLabel(String code) {
         return label(FAMILY_RELATIONS, code);
+    }
+
+    public static void validateCombination(String eventType, String familyRelation) {
+        if ("DEATH".equals(eventType) && !DEATH_RELATIONS.contains(familyRelation)) {
+            throw BusinessException.badRequest(
+                "BEREAVEMENT_RELATION_NOT_ALLOWED",
+                "사망 경조휴가는 상신자와 고인의 관계를 선택해 주세요."
+            );
+        }
     }
 
     private static String normalize(String value, Map<String, String> aliases) {

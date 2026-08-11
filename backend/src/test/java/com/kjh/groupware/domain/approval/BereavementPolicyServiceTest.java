@@ -54,4 +54,18 @@ class BereavementPolicyServiceTest {
             );
         assertThat(BereavementCatalog.eventLabel("MARRIAGE")).isEqualTo("결혼");
     }
+
+    @Test
+    void deathPolicyRequiresRelationshipToDeceased() {
+        assertThatThrownBy(() -> BereavementCatalog.validateCombination("DEATH", "SELF"))
+            .isInstanceOfSatisfying(BusinessException.class, exception ->
+                assertThat(exception.getCode()).isEqualTo("BEREAVEMENT_RELATION_NOT_ALLOWED")
+            );
+
+        BereavementCatalog.validateCombination("DEATH", "SPOUSE");
+        BereavementCatalog.validateCombination("DEATH", "PARENT");
+        BereavementCatalog.validateCombination("DEATH", "GRANDPARENT");
+        BereavementCatalog.validateCombination("DEATH", "CHILD");
+        BereavementCatalog.validateCombination("DEATH", "SIBLING");
+    }
 }

@@ -26,6 +26,7 @@ test.describe("휴가·전자결재 운영 스모크", () => {
       await expect(page.getByRole("heading", { name: "경조 유형·관계별 기준표" })).toBeVisible();
       await expect(page.getByLabel("경조 유형")).toHaveValue("MARRIAGE");
       await expect(page.getByLabel("대상 관계")).toHaveValue("SELF");
+      await expect(page.getByRole("button", { name: "수정", exact: true }).first()).toBeVisible();
     }
   });
 
