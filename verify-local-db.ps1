@@ -183,6 +183,88 @@ foreach ($item in $requiredColumns) {
     Assert-Equals "column $($item.Table).$($item.Column) exists" (Invoke-Scalar $sql) "ok"
 }
 
+$unlinkedLeaveCancelSql = @"
+WITH cancel_selections AS (
+    SELECT selection.item
+    FROM approval_document cancel
+    CROSS JOIN LATERAL jsonb_array_elements(
+        NULLIF(cancel.form_data_json::jsonb -> 'fields' ->> 'leaveSelectionsJson', '')::jsonb
+    ) AS selection(item)
+    WHERE cancel.template_code = 'LEAVE_CANCEL'
+      AND COALESCE(cancel.form_data_json::jsonb -> 'fields' ->> 'leaveSelectionsJson', '') <> ''
+), legacy_fallback AS (
+    SELECT cancel.approval_id
+    FROM approval_document cancel
+    WHERE cancel.template_code = 'LEAVE_CANCEL'
+      AND COALESCE(cancel.form_data_json::jsonb -> 'fields' ->> 'leaveSelectionsJson', '') = ''
+      AND COALESCE(cancel.form_data_json::jsonb -> 'fields' ->> 'startDate', '') <> ''
+)
+SELECT (
+    (SELECT count(*) FROM cancel_selections WHERE COALESCE(item ->> 'sourceApprovalId', '') !~ '^[1-9][0-9]*$')
+    + (SELECT count(*) FROM legacy_fallback)
+)::text;
+"@
+Assert-Equals "leave cancellation selections have source approval ids" (Invoke-Scalar $unlinkedLeaveCancelSql) "0"
+
+$invalidLeaveCancelSourceSql = @"
+WITH source_selections AS (
+    SELECT
+        source.approval_id,
+        selection.item ->> 'date' AS leave_date,
+        selection.item ->> 'type' AS leave_type
+    FROM approval_document source
+    CROSS JOIN LATERAL jsonb_array_elements(
+        NULLIF(source.form_data_json::jsonb -> 'fields' ->> 'leaveSelectionsJson', '')::jsonb
+    ) AS selection(item)
+    WHERE source.template_code = 'LEAVE'
+      AND source.status = 'APPROVED'
+      AND source.deleted_yn = 'N'
+      AND COALESCE(source.form_data_json::jsonb -> 'fields' ->> 'leaveSelectionsJson', '') <> ''
+    UNION ALL
+    SELECT
+        source.approval_id,
+        source.form_data_json::jsonb -> 'fields' ->> 'startDate',
+        source.form_data_json::jsonb -> 'fields' ->> 'leaveType'
+    FROM approval_document source
+    WHERE source.template_code = 'LEAVE'
+      AND source.status = 'APPROVED'
+      AND source.deleted_yn = 'N'
+      AND COALESCE(source.form_data_json::jsonb -> 'fields' ->> 'leaveSelectionsJson', '') = ''
+), linked_cancel_selections AS (
+    SELECT cancel.requester_emp_id, selection.item
+    FROM approval_document cancel
+    CROSS JOIN LATERAL jsonb_array_elements(
+        NULLIF(cancel.form_data_json::jsonb -> 'fields' ->> 'leaveSelectionsJson', '')::jsonb
+    ) AS selection(item)
+    WHERE cancel.template_code = 'LEAVE_CANCEL'
+      AND COALESCE(selection.item ->> 'sourceApprovalId', '') ~ '^[1-9][0-9]*$'
+)
+SELECT count(*)::text
+FROM linked_cancel_selections linked
+LEFT JOIN approval_document source
+  ON source.approval_id = (linked.item ->> 'sourceApprovalId')::bigint
+WHERE source.approval_id IS NULL
+   OR source.requester_emp_id <> linked.requester_emp_id
+   OR source.template_code <> 'LEAVE'
+   OR source.status <> 'APPROVED'
+   OR source.deleted_yn <> 'N'
+   OR (
+       COALESCE(linked.item ->> 'sourceDocumentNo', '') <> ''
+       AND linked.item ->> 'sourceDocumentNo' <> source.document_no
+   )
+   OR NOT EXISTS (
+       SELECT 1
+       FROM source_selections source_selection
+       WHERE source_selection.approval_id = source.approval_id
+         AND source_selection.leave_date = linked.item ->> 'date'
+         AND source_selection.leave_type = linked.item ->> 'type'
+   );
+"@
+Assert-Equals "leave cancellation source approval references are valid" (Invoke-Scalar $invalidLeaveCancelSourceSql) "0"
+
+$leaveDefaultReceiverCount = Invoke-Scalar "SELECT count(*)::text FROM approval_operation_setting setting JOIN emp ON emp.emp_id = CASE WHEN setting.setting_value ~ '^[1-9][0-9]*$' THEN setting.setting_value::bigint END WHERE setting.setting_key = 'LEAVE_DEFAULT_RECEIVER_EMP_ID' AND emp.use_yn = 'Y' AND emp.status = 'ACTIVE' AND emp.account_status = 'ACTIVE';"
+Assert-Equals "leave default receiver setting resolves to an active employee" $leaveDefaultReceiverCount "1"
+
 $orphanImportedReports = Invoke-Scalar "SELECT count(*)::text FROM equipment_report report LEFT JOIN equipment target ON target.equipment_id = report.equipment_id WHERE report.source_system IS NOT NULL AND target.equipment_id IS NULL;"
 Assert-Equals "imported equipment report references" $orphanImportedReports "0"
 

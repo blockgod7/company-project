@@ -283,7 +283,7 @@ export type LeaveUsageSelection = {
   date: string;
   type: string;
   days: string;
-  approvalId: number;
+  approvalId: number | null;
   documentNo: string | null;
 };
 
@@ -309,6 +309,8 @@ export type LeaveUsage = {
   selections: LeaveUsageSelection[];
   occupiedSelections: LeaveUsageSelection[];
   exclusions: LeaveExclusion[];
+  balanceYear: number;
+  pendingCancelSelections: LeaveUsageSelection[];
 };
 
 export type CompTimeCredit = {
@@ -417,10 +419,14 @@ export type ApprovalOperationSettings = {
   reminderFixedDelayMs: number;
   deletedDocumentRetentionDays: number;
   permanentDeleteEnabled: boolean;
+  leaveDefaultReceiverEmpId: number | null;
+  leaveDefaultReceiverName: string | null;
   fallbackDecisionDueHours: number;
   fallbackReminderFixedDelayMs: number;
   fallbackDeletedDocumentRetentionDays: number;
   fallbackPermanentDeleteEnabled: boolean;
+  fallbackLeaveDefaultReceiverEmpId: number | null;
+  fallbackLeaveDefaultReceiverName: string | null;
 };
 
 export type EquipmentProposal = {

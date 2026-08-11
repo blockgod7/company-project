@@ -20,7 +20,7 @@ public class ApprovalOperationSettingController {
 
     @GetMapping
     public ApiResponse<ApprovalOperationSettingResponse> current() {
-        return ApiResponse.ok(settingService.currentForAdmin());
+        return ApiResponse.ok(settingService.current());
     }
 
     @PutMapping

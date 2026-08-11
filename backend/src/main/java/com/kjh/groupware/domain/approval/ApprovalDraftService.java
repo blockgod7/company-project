@@ -45,8 +45,12 @@ public class ApprovalDraftService {
         boolean draft = Boolean.TRUE.equals(request.draft());
         linePolicyService.validateLineSelection(requester, request, !draft);
         validateRequiredFields(template, request, !draft);
-        if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+        boolean leaveDocument = ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())
+            || ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode());
+        if (!draft && leaveDocument) {
             validateLeaveReceiver(request);
+        }
+        if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
             leaveUsageService.assertSelectableLeaveDates(request.formDataJson(), requester);
             leaveUsageService.assertNoCompletedLeaveOverlap(requester, null, request.formDataJson());
             leaveUsageService.assertSufficientAnnualLeave(requester, null, request.formDataJson());
@@ -150,8 +154,12 @@ public class ApprovalDraftService {
 
         ApprovalTemplate template = activeTemplate(request.templateCode());
         validateRequiredFields(template, request, true);
-        if (ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+        boolean leaveDocument = ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())
+            || ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode());
+        if (leaveDocument) {
             validateLeaveReceiver(request);
+        }
+        if (ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
             leaveUsageService.assertSelectableLeaveDates(request.formDataJson());
             leaveUsageService.assertNoCompletedLeaveOverlap(requester, document.getApprovalId(), request.formDataJson());
             leaveUsageService.assertSufficientAnnualLeave(requester, document.getApprovalId(), request.formDataJson());
@@ -204,7 +212,7 @@ public class ApprovalDraftService {
 
     private void validateLeaveReceiver(ApprovalRequest request) {
         if (request.receiverEmpIds() == null || request.receiverEmpIds().size() != 1) {
-            throw BusinessException.badRequest("LEAVE_RECEIVER_REQUIRED", "휴가계 수신자를 1명 지정해 주세요.");
+            throw BusinessException.badRequest("LEAVE_RECEIVER_REQUIRED", "휴가 문서 수신자를 1명 지정해 주세요.");
         }
     }
 

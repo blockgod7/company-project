@@ -2,7 +2,7 @@
 
 Backend for the company integrated groupware project.
 
-Current working state: electronic approval finalization is complete for the first production-ready pass. Core workflow, operations settings, dashboard drill-down, retention restore, retention policy, audit report, CSV export, backend/frontend builds, and API smoke checks pass. Final handoff notes are in `docs/electronic-approval-final.md`.
+Current working state: electronic approval finalization is complete for the first production-ready pass. Core workflow, operations settings, dashboard drill-down, retention restore, retention policy, audit report, CSV export, backend/frontend builds, and API smoke checks pass. Final handoff notes are in `docs/electronic-approval-final.md`. The Korean end-user and administrator guide for leave requests and cancellations is in `docs/leave-form-user-guide.md`.
 
 ## Stack
 

@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.approval.dto;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 public record ApprovalOperationSettingRequest(
     @NotNull @Min(1) @Max(720)
@@ -15,6 +16,9 @@ public record ApprovalOperationSettingRequest(
     Long deletedDocumentRetentionDays,
 
     @NotNull
-    Boolean permanentDeleteEnabled
+    Boolean permanentDeleteEnabled,
+
+    @NotNull @Positive
+    Long leaveDefaultReceiverEmpId
 ) {
 }

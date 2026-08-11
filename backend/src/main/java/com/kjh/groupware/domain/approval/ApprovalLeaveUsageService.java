@@ -51,7 +51,16 @@ public class ApprovalLeaveUsageService {
 
     @Transactional(readOnly = true)
     public LeaveUsageResponse myUsage() {
-        return usageFor(currentEmpProvider.getCurrentEmp(), null, LocalDate.now().getYear());
+        return myUsage(null);
+    }
+
+    @Transactional(readOnly = true)
+    public LeaveUsageResponse myUsage(Integer requestedYear) {
+        int balanceYear = requestedYear == null ? LocalDate.now().getYear() : requestedYear;
+        if (balanceYear < 1900 || balanceYear > 2100) {
+            throw BusinessException.badRequest("LEAVE_YEAR_INVALID", "Leave balance year is invalid");
+        }
+        return usageFor(currentEmpProvider.getCurrentEmp(), null, balanceYear);
     }
 
     @Transactional(readOnly = true)
@@ -207,7 +216,7 @@ public class ApprovalLeaveUsageService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void assertLeaveCancelTargetsApproved(ApprovalDocument document) {
         if (!LEAVE_CANCEL_TEMPLATE_CODE.equals(document.getTemplateCode())) {
             return;
@@ -215,23 +224,81 @@ public class ApprovalLeaveUsageService {
         assertLeaveCancelTargetsApproved(document.getRequester(), document.getApprovalId(), document.getFormDataJson());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void assertLeaveCancelTargetsApproved(Emp requester, Long excludeApprovalId, String formDataJson) {
-        LeaveUsageResponse usage = usageFor(requester, excludeApprovalId, LocalDate.now().getYear());
-        Set<String> approvedDates = new HashSet<>();
-        usage.selections().forEach(selection -> approvedDates.add(selectionKey(selection)));
-        List<LeaveUsageSelectionResponse> cancelSelections = selectionsFrom(formDataJson, null, null);
+        List<LeaveUsageSelectionResponse> cancelSelections = selectionsFrom(formDataJson, null, null, true);
         if (cancelSelections.isEmpty()) {
             throw BusinessException.badRequest("LEAVE_CANCEL_DATE_REQUIRED", "Leave cancel date is required");
         }
+        lockReferencedLeaveDocuments(requester, cancelSelections);
+        LeaveUsageResponse usage = usageFor(requester, excludeApprovalId, LocalDate.now().getYear());
+        Set<String> approvedTargets = usage.selections().stream()
+            .map(this::targetSelectionKey)
+            .collect(java.util.stream.Collectors.toSet());
+        Set<String> approvedLegacyTargets = usage.selections().stream()
+            .map(this::selectionKey)
+            .collect(java.util.stream.Collectors.toSet());
+        Set<String> pendingTargets = usage.pendingCancelSelections().stream()
+            .map(this::targetSelectionKey)
+            .collect(java.util.stream.Collectors.toSet());
+        Set<String> pendingLegacyTargets = usage.pendingCancelSelections().stream()
+            .map(this::selectionKey)
+            .collect(java.util.stream.Collectors.toSet());
         for (LeaveUsageSelectionResponse selection : cancelSelections) {
-            if (!approvedDates.contains(selectionKey(selection))) {
+            boolean referenced = selection.approvalId() != null;
+            boolean alreadyPending = referenced
+                ? pendingTargets.contains(targetSelectionKey(selection))
+                    || pendingLegacyTargets.contains(selectionKey(selection))
+                : pendingLegacyTargets.contains(selectionKey(selection));
+            if (alreadyPending) {
+                throw BusinessException.badRequest(
+                    "LEAVE_CANCEL_ALREADY_PENDING",
+                    selection.date() + " already has a leave cancellation in progress"
+                );
+            }
+            boolean approved = referenced
+                ? approvedTargets.contains(targetSelectionKey(selection))
+                : approvedLegacyTargets.contains(selectionKey(selection));
+            if (!approved) {
                 throw BusinessException.badRequest(
                     "LEAVE_CANCEL_DATE_NOT_APPROVED",
                     selection.date() + " is not an approved leave date"
                 );
             }
         }
+    }
+
+    private void lockReferencedLeaveDocuments(Emp requester, List<LeaveUsageSelectionResponse> selections) {
+        selections.stream()
+            .map(LeaveUsageSelectionResponse::approvalId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .sorted()
+            .forEach(approvalId -> {
+                ApprovalDocument source = documentRepository.findByIdForUpdate(approvalId)
+                    .orElseThrow(() -> BusinessException.badRequest(
+                        "LEAVE_CANCEL_SOURCE_NOT_FOUND", "The original leave document was not found"
+                    ));
+                if (!source.getRequester().getEmpId().equals(requester.getEmpId())
+                    || !LEAVE_TEMPLATE_CODE.equals(source.getTemplateCode())
+                    || !ApprovalDocument.STATUS_APPROVED.equals(source.getStatus())
+                    || "Y".equals(source.getDeletedYn())) {
+                    throw BusinessException.badRequest(
+                        "LEAVE_CANCEL_SOURCE_INVALID", "The original leave document cannot be canceled"
+                    );
+                }
+                Set<String> sourceSelections = selectionsFor(source).stream()
+                    .map(this::selectionKey)
+                    .collect(java.util.stream.Collectors.toSet());
+                boolean matches = selections.stream()
+                    .filter(selection -> approvalId.equals(selection.approvalId()))
+                    .allMatch(selection -> sourceSelections.contains(selectionKey(selection)));
+                if (!matches) {
+                    throw BusinessException.badRequest(
+                        "LEAVE_CANCEL_SOURCE_MISMATCH", "The selected leave date does not match the original document"
+                    );
+                }
+            });
     }
 
     @Transactional(readOnly = true)
@@ -388,14 +455,32 @@ public class ApprovalLeaveUsageService {
             LEAVE_CANCEL_TEMPLATE_CODE,
             ApprovalDocument.STATUS_APPROVED
         );
-        Set<String> canceledSelections = new HashSet<>();
+        List<ApprovalDocument> pendingCancelDocuments = documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatusIn(
+            requester,
+            "N",
+            LEAVE_CANCEL_TEMPLATE_CODE,
+            List.of(ApprovalDocument.STATUS_IN_PROGRESS)
+        );
+        Set<String> canceledTargetSelections = new HashSet<>();
+        Set<String> legacyCanceledSelections = new HashSet<>();
         for (ApprovalDocument document : cancelDocuments) {
             if (excludeApprovalId != null && excludeApprovalId.equals(document.getApprovalId())) {
                 continue;
             }
             for (LeaveUsageSelectionResponse selection : selectionsFor(document)) {
-                canceledSelections.add(selectionKey(selection));
+                if (selection.approvalId() == null) {
+                    legacyCanceledSelections.add(selectionKey(selection));
+                } else {
+                    canceledTargetSelections.add(targetSelectionKey(selection));
+                }
             }
+        }
+        List<LeaveUsageSelectionResponse> pendingCancelSelections = new ArrayList<>();
+        for (ApprovalDocument document : pendingCancelDocuments) {
+            if (excludeApprovalId != null && excludeApprovalId.equals(document.getApprovalId())) {
+                continue;
+            }
+            pendingCancelSelections.addAll(selectionsFor(document));
         }
         List<LeaveExclusionResponse> exclusions = exclusionRepository.findByDocumentRequesterOrderByLeaveDateAsc(requester)
             .stream()
@@ -422,7 +507,8 @@ public class ApprovalLeaveUsageService {
                 if (excludedDates.contains(document.getApprovalId() + "|" + selection.date())) {
                     continue;
                 }
-                if (canceledSelections.contains(selectionKey(selection))) {
+                if (canceledTargetSelections.contains(targetSelectionKey(document.getApprovalId(), selection))
+                    || legacyCanceledSelections.contains(selectionKey(selection))) {
                     continue;
                 }
                 selections.add(selection);
@@ -459,19 +545,35 @@ public class ApprovalLeaveUsageService {
             formatDay(remainingAnnualDays),
             selections,
             occupiedSelections,
-            exclusions
+            exclusions,
+            balanceYear,
+            pendingCancelSelections
         );
     }
 
     List<LeaveUsageSelectionResponse> selectionsFor(ApprovalDocument document) {
-        return selectionsFrom(document.getFormDataJson(), document.getApprovalId(), document.getDocumentNo());
+        return selectionsFrom(
+            document.getFormDataJson(),
+            document.getApprovalId(),
+            document.getDocumentNo(),
+            LEAVE_CANCEL_TEMPLATE_CODE.equals(document.getTemplateCode())
+        );
     }
 
     private List<LeaveUsageSelectionResponse> selectionsFrom(String formDataJson, Long approvalId, String documentNo) {
+        return selectionsFrom(formDataJson, approvalId, documentNo, false);
+    }
+
+    private List<LeaveUsageSelectionResponse> selectionsFrom(
+        String formDataJson,
+        Long approvalId,
+        String documentNo,
+        boolean sourceReferences
+    ) {
         JsonNode fields = formFields(formDataJson);
         JsonNode rawSelections = fields.path("leaveSelectionsJson");
         if (rawSelections.isMissingNode() || rawSelections.asText("").isBlank()) {
-            return fallbackSelection(approvalId, documentNo, fields);
+            return fallbackSelection(sourceReferences ? null : approvalId, sourceReferences ? null : documentNo, fields);
         }
         try {
             JsonNode parsed = objectMapper.readTree(rawSelections.asText());
@@ -485,18 +587,31 @@ public class ApprovalLeaveUsageService {
                     continue;
                 }
                 String type = normalizedType(node.path("type").asText("연차"));
+                Long resolvedApprovalId = sourceReferences ? positiveLong(node.path("sourceApprovalId")) : approvalId;
+                String sourceDocumentNo = node.path("sourceDocumentNo").asText("").trim();
+                String resolvedDocumentNo = sourceReferences
+                    ? (sourceDocumentNo.isBlank() ? null : sourceDocumentNo)
+                    : documentNo;
                 selections.add(new LeaveUsageSelectionResponse(
                     date,
                     type,
                     formatDay(daysFor(type, parseDate(date))),
-                    approvalId,
-                    documentNo
+                    resolvedApprovalId,
+                    resolvedDocumentNo
                 ));
             }
             return selections;
         } catch (Exception ex) {
             return List.of();
         }
+    }
+
+    private Long positiveLong(JsonNode node) {
+        if (node == null || !node.canConvertToLong()) {
+            return null;
+        }
+        long value = node.asLong();
+        return value > 0 ? value : null;
     }
 
     private List<LeaveUsageSelectionResponse> fallbackSelection(Long approvalId, String documentNo, JsonNode fields) {
@@ -556,6 +671,14 @@ public class ApprovalLeaveUsageService {
 
     private String selectionKey(LeaveUsageSelectionResponse selection) {
         return selection.date() + "|" + selection.type();
+    }
+
+    private String targetSelectionKey(LeaveUsageSelectionResponse selection) {
+        return targetSelectionKey(selection.approvalId(), selection);
+    }
+
+    private String targetSelectionKey(Long approvalId, LeaveUsageSelectionResponse selection) {
+        return (approvalId == null ? "legacy" : approvalId) + "|" + selectionKey(selection);
     }
 
     private String slotFor(String type) {

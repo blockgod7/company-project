@@ -65,8 +65,8 @@ public class ApprovalController {
     }
 
     @GetMapping("/leave-usage/me")
-    public ApiResponse<LeaveUsageResponse> myLeaveUsage() {
-        return ApiResponse.ok(leaveUsageService.myUsage());
+    public ApiResponse<LeaveUsageResponse> myLeaveUsage(@RequestParam(required = false) Integer year) {
+        return ApiResponse.ok(leaveUsageService.myUsage(year));
     }
 
     @GetMapping

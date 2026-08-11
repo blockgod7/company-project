@@ -21,7 +21,7 @@ import type { LucideIcon } from "lucide-react";import type {
 export type Route = "dashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "equipment" | "notifications" | "organization" | "employees" | "audit";
 export type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "holidays" | "annualLeaves" | "leavePolicies" | "compTime" | "deleted";
 export type ApprovalDelegationForm = { delegateEmpId: number | null; startDate: string; endDate: string; reason: string; active: boolean };
-export type ApprovalOperationSettingsForm = { decisionDueHours: number; reminderFixedDelayMs: number; deletedDocumentRetentionDays: number; permanentDeleteEnabled: boolean };
+export type ApprovalOperationSettingsForm = { decisionDueHours: number; reminderFixedDelayMs: number; deletedDocumentRetentionDays: number; permanentDeleteEnabled: boolean; leaveDefaultReceiverEmpId: number | null };
 export type ApprovalTemplateOption = {
   code: string;
   name: string;
@@ -96,11 +96,12 @@ export type LeaveSelection = {
   date: string;
   type: string;
   days: number;
+  sourceApprovalId?: number;
+  sourceDocumentNo?: string | null;
 };
 
 export const PURCHASE_RECEIVER_LOGIN_ID = "lim.purchase";
 export const TRAINING_RECEIVER_LOGIN_ID = "hong.gildong";
-export const LEAVE_RECEIVER_LOGIN_ID = "e7016";
 export const PURCHASE_BU_CODES = ["BU1", "BU2", "BU3", "BU4", "BU5", "BU7", "BU9", "BU20", "EC", "BU60"] as const;
 
 export const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
@@ -174,7 +175,8 @@ export function defaultOperationSettingsForm(): ApprovalOperationSettingsForm {
     decisionDueHours: 72,
     reminderFixedDelayMs: 300000,
     deletedDocumentRetentionDays: 1825,
-    permanentDeleteEnabled: false
+    permanentDeleteEnabled: false,
+    leaveDefaultReceiverEmpId: null
   };
 }
 
@@ -425,8 +427,9 @@ export function trainingReceiverId(employees: Employee[]) {
   return employees.find((employee) => employee.loginId === TRAINING_RECEIVER_LOGIN_ID)?.empId ?? null;
 }
 
-export function leaveReceiverId(employees: Employee[]) {
-  return employees.find((employee) => employee.loginId === LEAVE_RECEIVER_LOGIN_ID)?.empId ?? null;
+export function leaveReceiverId(employees: Employee[], configuredEmpId?: number | null) {
+  if (!configuredEmpId) return null;
+  return employees.some((employee) => employee.empId === configuredEmpId) ? configuredEmpId : null;
 }
 
 export function purchaseReceiptDate(lines: ApprovalLine[]) {
@@ -718,7 +721,9 @@ export function parseLeaveSelections(values: Record<string, string> | null | und
         return {
           date: String(item.date),
           type,
-          days: leaveDayValue(type)
+          days: leaveDayValue(type),
+          ...(typeof item.sourceApprovalId === "number" && item.sourceApprovalId > 0 ? { sourceApprovalId: item.sourceApprovalId } : {}),
+          ...(typeof item.sourceDocumentNo === "string" ? { sourceDocumentNo: item.sourceDocumentNo } : {})
         };
       })
       .sort((a, b) => a.date.localeCompare(b.date));

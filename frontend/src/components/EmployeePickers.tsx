@@ -8,12 +8,13 @@ import type { DeptNode, Employee, PageResponse, User } from "../types";
 function clampApprovalSlotCount(count: number) {
   return Math.min(6, Math.max(2, count));
 }
-export function EmployeeMultiPicker({ title, user, employees, selectedIds, disabledIds, ordered = false, cardLayout = false, prependUser = false, onChange }: {
+export function EmployeeMultiPicker({ title, user, employees, selectedIds, disabledIds, maxSelections, ordered = false, cardLayout = false, prependUser = false, onChange }: {
   title: string;
   user: User;
   employees: Employee[];
   selectedIds: number[];
   disabledIds: number[];
+  maxSelections?: number;
   ordered?: boolean;
   cardLayout?: boolean;
   prependUser?: boolean;
@@ -67,6 +68,11 @@ export function EmployeeMultiPicker({ title, user, employees, selectedIds, disab
     }
     if (disabledIds.includes(employee.empId)) return;
     setKnownEmployees((prev) => mergeEmployees(prev, [employee]));
+    if (maxSelections === 1) {
+      onChange([employee.empId]);
+      return;
+    }
+    if (maxSelections && selectedIds.length >= maxSelections) return;
     onChange([...selectedIds, employee.empId]);
   }
 

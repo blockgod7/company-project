@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.approval;
 import com.kjh.groupware.domain.approval.dto.ApprovalOperationSettingRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalOperationSettingResponse;
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.util.List;
@@ -16,33 +17,43 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ApprovalOperationSettingService {
 
+    private static final String FALLBACK_LEAVE_RECEIVER_LOGIN_ID = "e7016";
     private static final long DEFAULT_DELETED_DOCUMENT_RETENTION_DAYS = 1825;
     private static final boolean DEFAULT_PERMANENT_DELETE_ENABLED = false;
     private static final List<String> MANAGED_KEYS = List.of(
         ApprovalOperationSetting.KEY_DECISION_DUE_HOURS,
         ApprovalOperationSetting.KEY_REMINDER_FIXED_DELAY_MS,
         ApprovalOperationSetting.KEY_DELETED_DOCUMENT_RETENTION_DAYS,
-        ApprovalOperationSetting.KEY_PERMANENT_DELETE_ENABLED
+        ApprovalOperationSetting.KEY_PERMANENT_DELETE_ENABLED,
+        ApprovalOperationSetting.KEY_LEAVE_DEFAULT_RECEIVER_EMP_ID
     );
 
     private final ApprovalOperationSettingRepository settingRepository;
     private final ApprovalOperationProperties operationProperties;
     private final ApprovalPermissionService permissionService;
     private final CurrentEmpProvider currentEmpProvider;
+    private final EmpRepository empRepository;
 
     @Transactional(readOnly = true)
     public ApprovalOperationSettingResponse current() {
         Map<String, String> values = settingRepository.findBySettingKeyIn(MANAGED_KEYS).stream()
             .collect(Collectors.toMap(ApprovalOperationSetting::getSettingKey, ApprovalOperationSetting::getSettingValue));
+        Emp fallbackLeaveReceiver = empRepository.findActiveByLoginId(FALLBACK_LEAVE_RECEIVER_LOGIN_ID).orElse(null);
+        Emp configuredLeaveReceiver = activeEmployee(values.get(ApprovalOperationSetting.KEY_LEAVE_DEFAULT_RECEIVER_EMP_ID));
+        Emp effectiveLeaveReceiver = configuredLeaveReceiver != null ? configuredLeaveReceiver : fallbackLeaveReceiver;
         return new ApprovalOperationSettingResponse(
             positiveLong(values.get(ApprovalOperationSetting.KEY_DECISION_DUE_HOURS), operationProperties.decisionDueHours()),
             positiveLong(values.get(ApprovalOperationSetting.KEY_REMINDER_FIXED_DELAY_MS), operationProperties.reminderFixedDelayMs()),
             positiveLong(values.get(ApprovalOperationSetting.KEY_DELETED_DOCUMENT_RETENTION_DAYS), DEFAULT_DELETED_DOCUMENT_RETENTION_DAYS),
             booleanValue(values.get(ApprovalOperationSetting.KEY_PERMANENT_DELETE_ENABLED), DEFAULT_PERMANENT_DELETE_ENABLED),
+            employeeId(effectiveLeaveReceiver),
+            employeeName(effectiveLeaveReceiver),
             operationProperties.decisionDueHours(),
             operationProperties.reminderFixedDelayMs(),
             DEFAULT_DELETED_DOCUMENT_RETENTION_DAYS,
-            DEFAULT_PERMANENT_DELETE_ENABLED
+            DEFAULT_PERMANENT_DELETE_ENABLED,
+            employeeId(fallbackLeaveReceiver),
+            employeeName(fallbackLeaveReceiver)
         );
     }
 
@@ -55,6 +66,12 @@ public class ApprovalOperationSettingService {
     @Transactional
     public ApprovalOperationSettingResponse update(ApprovalOperationSettingRequest request) {
         requireOperationAdmin();
+        Emp leaveDefaultReceiver = empRepository.findById(request.leaveDefaultReceiverEmpId())
+            .filter(Emp::isActiveUser)
+            .orElseThrow(() -> BusinessException.badRequest(
+                "LEAVE_DEFAULT_RECEIVER_INVALID",
+                "활성 상태인 휴가 기본 수신자를 선택해 주세요."
+            ));
         upsert(
             ApprovalOperationSetting.KEY_DECISION_DUE_HOURS,
             String.valueOf(request.decisionDueHours()),
@@ -74,6 +91,11 @@ public class ApprovalOperationSettingService {
             ApprovalOperationSetting.KEY_PERMANENT_DELETE_ENABLED,
             String.valueOf(request.permanentDeleteEnabled()),
             "전자결재 영구삭제 실행 허용 여부"
+        );
+        upsert(
+            ApprovalOperationSetting.KEY_LEAVE_DEFAULT_RECEIVER_EMP_ID,
+            String.valueOf(leaveDefaultReceiver.getEmpId()),
+            "휴가 신청·취소 문서 기본 수신자 사번"
         );
         return current();
     }
@@ -123,5 +145,26 @@ public class ApprovalOperationSettingService {
             : "false".equalsIgnoreCase(value) || "N".equalsIgnoreCase(value)
                 ? false
                 : fallback;
+    }
+
+    private Emp activeEmployee(String empIdValue) {
+        if (empIdValue == null || empIdValue.isBlank()) {
+            return null;
+        }
+        try {
+            return empRepository.findById(Long.parseLong(empIdValue))
+                .filter(Emp::isActiveUser)
+                .orElse(null);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private Long employeeId(Emp emp) {
+        return emp == null ? null : emp.getEmpId();
+    }
+
+    private String employeeName(Emp emp) {
+        return emp == null ? null : emp.getEmpName();
     }
 }

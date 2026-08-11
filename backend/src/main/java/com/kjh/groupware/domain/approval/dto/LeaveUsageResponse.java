@@ -9,6 +9,8 @@ public record LeaveUsageResponse(
     String remainingAnnualDays,
     List<LeaveUsageSelectionResponse> selections,
     List<LeaveUsageSelectionResponse> occupiedSelections,
-    List<LeaveExclusionResponse> exclusions
+    List<LeaveExclusionResponse> exclusions,
+    int balanceYear,
+    List<LeaveUsageSelectionResponse> pendingCancelSelections
 ) {
 }

@@ -408,7 +408,7 @@ function leaveAbsenceDayValue(type: string) {
   return ["오전반차", "오후반차", "공가(오전)", "공가(오후)"].includes(type) ? 0.5 : 1;
 }
 
-export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, compTimeSummary, holidays, leaveTypeOptions = LEAVE_TYPE_OPTIONS, onChange }: { mode: "request" | "cancel"; user: User; employees: Employee[]; form: ApprovalForm; leaveUsage: LeaveUsage | null; compTimeSummary: CompTimeSummary | null; holidays: ApprovalHoliday[]; leaveTypeOptions?: string[]; onChange: (form: ApprovalForm) => void }) {
+export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, compTimeSummary, holidays, leaveTypeOptions = LEAVE_TYPE_OPTIONS, onBalanceYearChange, onChange }: { mode: "request" | "cancel"; user: User; employees: Employee[]; form: ApprovalForm; leaveUsage: LeaveUsage | null; compTimeSummary: CompTimeSummary | null; holidays: ApprovalHoliday[]; leaveTypeOptions?: string[]; onBalanceYearChange?: (year: number) => void; onChange: (form: ApprovalForm) => void }) {
   const values = form.fieldValues;
   const selections = parseLeaveSelections(values);
   const cancelMode = mode === "cancel";
@@ -452,16 +452,26 @@ export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, co
       leaveSelectionsJson: JSON.stringify(sorted)
     };
     updateValues(nextValues);
+    if (cancelMode && sorted[0]?.date) {
+      onBalanceYearChange?.(Number(sorted[0].date.slice(0, 4)));
+    }
   }
 
   return (
     <div className="leave-request-editor">
-      <section className="leave-web-card leave-web-head"><div><span className="eyebrow">전자결재 · 휴가</span><h2>{cancelMode ? "휴가 취소 신청" : "휴가 신청"}</h2><p>{cancelMode ? "승인된 휴가 중 취소할 날짜를 선택하세요." : "날짜마다 휴가 종류를 선택하면 사용량이 자동 계산됩니다."}</p></div><label className="leave-web-title">문서 제목<input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder={cancelMode ? "휴가 취소계" : "휴가계"} /></label></section>
-      <section className="leave-applicant-row"><div><span>신청자</span><strong>{user.empName} · {requester?.positionName ?? requester?.jobTitle ?? "직급 미지정"}</strong></div><div><span>부서</span><strong>{deptName || "부서 미지정"}</strong></div><div><span>신청일</span><strong>{todayDate()}</strong></div></section>
-      <section className="leave-metrics" aria-label="휴가 현황"><div><span>총 휴가 일수</span><strong>{totalDays}<small>일</small></strong></div><div><span>신청 전 휴가 사용 일수</span><strong>{usedBefore}<small>일</small></strong><em>최종 결재 완료 기준</em></div><div className="accent"><span>{cancelMode ? "이번 취소 휴가 일수" : "이번 신청 휴가 일수"}</span><strong>{requestedDays}<small>일</small></strong><em>{cancelMode ? `취소 후 연차 잔여 ${remainingDays}일` : `신청 후 연차 잔여 ${remainingDays}일`}</em></div></section>
+      <section className="leave-web-card leave-overview">
+        <div className="leave-web-head">
+          <div><span className="eyebrow">전자결재 · 휴가</span><h2>{cancelMode ? "휴가 취소 신청" : "휴가 신청"}</h2><p>{cancelMode ? "승인된 휴가 중 취소할 날짜를 선택하세요." : "날짜마다 휴가 종류를 선택하면 사용량이 자동 계산됩니다."}</p></div>
+          <label className="leave-web-title">문서 제목<input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder={cancelMode ? "휴가 취소계" : "휴가계"} /></label>
+        </div>
+        <div className="leave-applicant-row"><div><span>신청자</span><strong>{user.empName} · {requester?.positionName ?? requester?.jobTitle ?? "직급 미지정"}</strong></div><div><span>부서</span><strong>{deptName || "부서 미지정"}</strong></div><div><span>신청일</span><strong>{todayDate()}</strong></div></div>
+      </section>
+      <div className={`leave-balance-grid${cancelMode ? " is-cancel" : ""}`}>
+        <section className="leave-metrics" aria-label="휴가 현황"><div><span>총 휴가 일수</span><strong>{totalDays}<small>일</small></strong></div><div><span>신청 전 휴가 사용 일수</span><strong>{usedBefore}<small>일</small></strong><em>최종 결재 완료 기준</em></div><div className="accent"><span>{cancelMode ? "이번 취소 휴가 일수" : "이번 신청 휴가 일수"}</span><strong>{requestedDays}<small>일</small></strong><em>{cancelMode ? `취소 후 연차 잔여 ${remainingDays}일` : `신청 후 연차 잔여 ${remainingDays}일`}</em></div></section>
+        {!cancelMode && <div className={`leave-comp-time-summary${selectedCompTimeDays > availableCompTimeDays ? " insufficient" : ""}`}><div><strong>대체휴무</strong><span>대체근무 적립분을 휴가 종류에서 바로 선택할 수 있습니다.</span></div><div><b>사용 가능 {formatDayValue(availableCompTimeDays)}일</b><span>결재 중 예약 {formatDayValue(compTimeSummary?.reservedDays ?? 0)}일 · 이번 선택 {selectedCompTimeDays}일</span></div></div>}
+      </div>
       {overbooked && <p className="leave-overbooked">결재 중인 휴가 {leaveUsage?.reservedAnnualDays}일을 포함하면 총 휴가 일수를 초과합니다. 진행 중 문서를 회수하거나 휴가관리자에게 확인해 주세요.</p>}
-      {!cancelMode && <div className={`leave-comp-time-summary${selectedCompTimeDays > availableCompTimeDays ? " insufficient" : ""}`}><div><strong>대체휴무</strong><span>대체근무 적립분을 휴가 종류에서 바로 선택할 수 있습니다.</span></div><div><b>사용 가능 {formatDayValue(availableCompTimeDays)}일</b><span>결재 중 예약 {formatDayValue(compTimeSummary?.reservedDays ?? 0)}일 · 이번 선택 {selectedCompTimeDays}일</span></div></div>}
-      <section className="leave-web-card"><div className="leave-section-title"><div><CalendarDays size={20} /><div><h3>{cancelMode ? "취소 날짜" : "신청 날짜"}</h3><p>날짜를 선택한 뒤 해당 날짜 안에서 휴가 종류를 지정하세요.</p></div></div><strong>{leaveDateRangeText(values)}</strong></div><LeaveCalendarInline mode={mode} selections={selections} lockedSelections={(cancelMode ? leaveUsage?.selections : leaveUsage?.occupiedSelections) ?? []} holidays={holidays} leaveTypeOptions={availableLeaveTypeOptions} compTimeSummary={compTimeSummary} onChange={applySelections} /></section>
+      <section className="leave-web-card"><div className="leave-section-title"><div><CalendarDays size={20} /><div><h3>{cancelMode ? "취소 날짜" : "신청 날짜"}</h3><p>날짜를 선택한 뒤 해당 날짜 안에서 휴가 종류를 지정하세요.</p></div></div><strong>{leaveDateRangeText(values)}</strong></div><LeaveCalendarInline mode={mode} selections={selections} lockedSelections={(cancelMode ? leaveUsage?.selections : leaveUsage?.occupiedSelections) ?? []} pendingCancelSelections={leaveUsage?.pendingCancelSelections ?? []} holidays={holidays} leaveTypeOptions={availableLeaveTypeOptions} compTimeSummary={compTimeSummary} onChange={applySelections} /></section>
       <LeaveConditionalDetails selections={selections} values={values} compTimeSummary={compTimeSummary} onChange={(next) => updateValues({ ...values, ...next })} />
       <section className="leave-web-card leave-routing"><LeaveRouteRow title="결재" people={[{ employee: requester, role: "작성" }, ...employeesByIds(employees, form.approverEmpIds).map((employee, index, list) => ({ employee, role: index === list.length - 1 ? "승인" : "검토" }))]} /><LeaveRouteRow title="수신" people={employeesByIds(employees, form.receiverEmpIds).map((employee) => ({ employee, role: "수신" }))} /></section>
       <p className="muted-text">{cancelMode ? "최종 결재 완료된 휴가 날짜만 선택할 수 있고, 취소계 승인 후 연차가 복구됩니다." : "연차와 하계휴가는 1일, 오전·오후반차는 0.5일로 계산하며 주말과 등록 휴일은 선택할 수 없습니다."}</p>
@@ -508,11 +518,14 @@ function LeaveConditionalDetails({ selections, values, compTimeSummary, onChange
   </div></section>;
 }
 
-function LeaveCalendarInline({ mode, selections, lockedSelections, holidays, leaveTypeOptions, compTimeSummary, onChange }: { mode: "request" | "cancel"; selections: LeaveSelection[]; lockedSelections: LeaveUsage["selections"]; holidays: ApprovalHoliday[]; leaveTypeOptions: string[]; compTimeSummary: CompTimeSummary | null; onChange: (selections: LeaveSelection[]) => void }) {
+function LeaveCalendarInline({ mode, selections, lockedSelections, pendingCancelSelections, holidays, leaveTypeOptions, compTimeSummary, onChange }: { mode: "request" | "cancel"; selections: LeaveSelection[]; lockedSelections: LeaveUsage["selections"]; pendingCancelSelections: LeaveUsage["pendingCancelSelections"]; holidays: ApprovalHoliday[]; leaveTypeOptions: string[]; compTimeSummary: CompTimeSummary | null; onChange: (selections: LeaveSelection[]) => void }) {
   const initialDate = selections[0]?.date ? new Date(`${selections[0].date}T00:00:00`) : new Date();
   const [visibleMonth, setVisibleMonth] = useState(new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
   const selectedMap = new Map(selections.map((selection) => [selection.date, selection]));
-  const lockedMap = new Map(lockedSelections.map((selection) => [selection.date, selection]));
+  const lockedByDate = new Map<string, LeaveUsage["selections"]>();
+  lockedSelections.forEach((selection) => lockedByDate.set(selection.date, [...(lockedByDate.get(selection.date) ?? []), selection]));
+  const pendingCancelKeys = new Set(pendingCancelSelections.map((selection) => `${selection.approvalId ?? "legacy"}|${selection.date}|${selection.type}`));
+  const pendingLegacyKeys = new Set(pendingCancelSelections.filter((selection) => selection.approvalId == null).map((selection) => `${selection.date}|${selection.type}`));
   const cancelMode = mode === "cancel";
   const holidayMap = new Map(holidays.filter((holiday) => holiday.active).map((holiday) => [holiday.holidayDate, holiday.holidayName]));
   const compTimeWorkMap = new Map<string, number>();
@@ -522,26 +535,57 @@ function LeaveCalendarInline({ mode, selections, lockedSelections, holidays, lea
   const monthCells = calendarCells(visibleMonth, holidayMap);
 
   function moveMonth(delta: number) { setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + delta, 1)); }
-  function allowedTypes(locked?: LeaveUsage["selections"][number]) {
-    if (!locked) return leaveTypeOptions;
-    if (["오전반차", "공가(오전)"].includes(locked.type)) return leaveTypeOptions.filter((type) => ["오후반차", "공가(오후)"].includes(type));
-    if (["오후반차", "공가(오후)"].includes(locked.type)) return leaveTypeOptions.filter((type) => ["오전반차", "공가(오전)"].includes(type));
+  function cancelKey(selection: LeaveSelection | LeaveUsage["selections"][number]) {
+    const approvalId = (selection as LeaveSelection).sourceApprovalId
+      ?? (selection as LeaveUsage["selections"][number]).approvalId;
+    return `${approvalId ?? "legacy"}|${selection.date}|${selection.type}`;
+  }
+  function cancellationPending(selection: LeaveUsage["selections"][number]) {
+    return pendingCancelKeys.has(cancelKey(selection)) || pendingLegacyKeys.has(`${selection.date}|${selection.type}`);
+  }
+  function allowedTypes(lockedItems: LeaveUsage["selections"] = []) {
+    if (!lockedItems.length) return leaveTypeOptions;
+    const occupiedSlots = new Set(lockedItems.map((item) => ["오전반차", "공가(오전)"].includes(item.type) ? "AM" : ["오후반차", "공가(오후)"].includes(item.type) ? "PM" : "FULL"));
+    if (occupiedSlots.has("FULL") || (occupiedSlots.has("AM") && occupiedSlots.has("PM"))) return [];
+    if (occupiedSlots.has("AM")) return leaveTypeOptions.filter((type) => ["오후반차", "공가(오후)"].includes(type));
+    if (occupiedSlots.has("PM")) return leaveTypeOptions.filter((type) => ["오전반차", "공가(오전)"].includes(type));
     return [];
   }
-  function toggleDate(date: string) {
-    const locked = lockedMap.get(date);
-    if (cancelMode && !locked) return;
-    if (selectedMap.has(date)) { onChange(selections.filter((selection) => selection.date !== date)); return; }
-    const selectedDate = new Date(`${date}T00:00:00`);
-    if (!cancelMode && (selectedDate.getDay() === 0 || selectedDate.getDay() === 6 || holidayMap.has(date))) return;
-    if (cancelMode && locked) { onChange([...selections, { date, type: locked.type, days: Number(locked.days || 0) }].sort((a, b) => a.date.localeCompare(b.date))); return; }
-    const options = allowedTypes(locked);
-    if (!options.length) return;
+  function selectedYearAllows(date: string) {
     const year = date.slice(0, 4);
     const annualYears = new Set(selections.map((item) => item.date.slice(0, 4)));
-    if (annualYears.size && !annualYears.has(year)) return;
+    return !annualYears.size || annualYears.has(year);
+  }
+  function toggleRequestDate(date: string) {
+    const lockedItems = lockedByDate.get(date) ?? [];
+    if (selectedMap.has(date)) { onChange(selections.filter((selection) => selection.date !== date)); return; }
+    if (!selectedYearAllows(date)) return;
+    const selectedDate = new Date(`${date}T00:00:00`);
+    if (selectedDate.getDay() === 0 || selectedDate.getDay() === 6 || holidayMap.has(date)) return;
+    const options = allowedTypes(lockedItems);
+    if (!options.length) return;
+    const locked = lockedItems[0];
     const type = locked?.type === "오전반차" || locked?.type === "공가(오전)" ? "오후반차" : locked?.type === "오후반차" || locked?.type === "공가(오후)" ? "오전반차" : "연차";
     onChange([...selections, { date, type, days: leaveDayValue(type) }].sort((a, b) => a.date.localeCompare(b.date)));
+  }
+  function toggleCancelSelection(locked: LeaveUsage["selections"][number]) {
+    const key = cancelKey(locked);
+    if (cancellationPending(locked)) return;
+    if (selections.some((selection) => cancelKey(selection) === key)) {
+      onChange(selections.filter((selection) => cancelKey(selection) !== key));
+      return;
+    }
+    if (!selectedYearAllows(locked.date)) return;
+    onChange([
+      ...selections,
+      {
+        date: locked.date,
+        type: locked.type,
+        days: Number(locked.days || 0),
+        ...(locked.approvalId ? { sourceApprovalId: locked.approvalId } : {}),
+        sourceDocumentNo: locked.documentNo
+      }
+    ].sort((a, b) => a.date.localeCompare(b.date) || a.type.localeCompare(b.type)));
   }
   function compTimeUnavailable(currentType: string) {
     const otherSelectedDays = selectedCompTimeDays - (currentType === "대체휴무" ? 1 : 0);
@@ -556,13 +600,27 @@ function LeaveCalendarInline({ mode, selections, lockedSelections, holidays, lea
   return <div className="leave-calendar-inline">
     <div className="leave-calendar-toolbar"><button type="button" className="ghost" onClick={() => moveMonth(-1)}>이전</button><strong>{visibleMonth.getFullYear()}년 {visibleMonth.getMonth() + 1}월</strong><button type="button" className="ghost" onClick={() => moveMonth(1)}>다음</button></div>
     <div className="leave-calendar-grid">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <div key={day} className="leave-calendar-week">{day}</div>)}{monthCells.map((cell) => {
-      const selected = selectedMap.get(cell.date); const locked = lockedMap.get(cell.date); const options = allowedTypes(locked); const compTimeWorkedDays = compTimeWorkMap.get(cell.date);
-      const unavailable = cancelMode ? !locked : (cell.weekend || Boolean(cell.holidayName) || Boolean(locked && !options.length));
-      return <button type="button" key={cell.date} className={`leave-calendar-day${cell.inMonth ? "" : " outside"}${cell.weekend ? " weekend" : ""}${cell.holidayName ? " holiday" : ""}${selected ? " selected" : ""}${locked ? " locked" : ""}${unavailable ? " unavailable" : ""}`} onClick={() => toggleDate(cell.date)} disabled={unavailable} title={unavailable ? cell.holidayName || (locked ? `${locked.type} 사용 중` : "선택할 수 없는 날짜") : ""}>
-        <span>{cell.day}</span>{cell.holidayName && <em className="leave-calendar-holiday">{cell.holidayName}</em>}{compTimeWorkedDays != null && <small className="leave-calendar-comp-time">대체근무 {formatDayValue(compTimeWorkedDays)}일 적립</small>}{locked && <small className="leave-calendar-locked-type">기존 {locked.type}</small>}{selected && !cancelMode && <select className="leave-calendar-type-select" value={selected.type} onClick={(event) => event.stopPropagation()} onChange={(event) => changeType(cell.date, event.target.value)}>{(options.length ? options : leaveTypeOptions).map((option) => <option key={option} value={option} disabled={option === "대체휴무" && compTimeUnavailable(selected.type)}>{option === "대체휴무" ? `대체휴무 (잔여 ${formatDayValue(availableCompTimeDays)}일)` : option}</option>)}</select>}{selected && cancelMode && <strong className="leave-calendar-locked-type">취소 {selected.type}</strong>}
+      const selected = selectedMap.get(cell.date); const lockedItems = lockedByDate.get(cell.date) ?? []; const locked = lockedItems[0]; const options = allowedTypes(lockedItems); const compTimeWorkedDays = compTimeWorkMap.get(cell.date);
+      if (cancelMode) {
+        const selectedOnDate = lockedItems.some((item) => selections.some((selection) => cancelKey(selection) === cancelKey(item)));
+        const unavailable = !lockedItems.length || lockedItems.every(cancellationPending);
+        return <div key={cell.date} className={`leave-calendar-day cancel-day${cell.inMonth ? "" : " outside"}${cell.weekend ? " weekend" : ""}${cell.holidayName ? " holiday" : ""}${selectedOnDate ? " selected" : ""}${lockedItems.length ? " locked" : ""}${unavailable ? " unavailable" : ""}`} aria-disabled={unavailable}>
+          <span>{cell.day}</span>{cell.holidayName && <em className="leave-calendar-holiday">{cell.holidayName}</em>}
+          {!!lockedItems.length && <div className="leave-calendar-cancel-options">{lockedItems.map((item) => {
+            const pending = cancellationPending(item);
+            const itemSelected = selections.some((selection) => cancelKey(selection) === cancelKey(item));
+            return <button type="button" key={cancelKey(item)} className={`leave-calendar-cancel-option${itemSelected ? " selected" : ""}${pending ? " pending" : ""}`} disabled={pending} onClick={() => toggleCancelSelection(item)} title={pending ? "휴가 취소 결재가 진행 중입니다." : item.documentNo ? `원본 문서 ${item.documentNo}` : undefined}>
+              <strong>{pending ? "취소 결재 중" : itemSelected ? `취소 ${item.type}` : `기존 ${item.type}`}</strong>{item.documentNo && <small>{item.documentNo}</small>}
+            </button>;
+          })}</div>}
+        </div>;
+      }
+      const unavailable = cell.weekend || Boolean(cell.holidayName) || Boolean(lockedItems.length && !options.length);
+      return <button type="button" key={cell.date} className={`leave-calendar-day${cell.inMonth ? "" : " outside"}${cell.weekend ? " weekend" : ""}${cell.holidayName ? " holiday" : ""}${selected ? " selected" : ""}${lockedItems.length ? " locked" : ""}${unavailable ? " unavailable" : ""}`} onClick={() => toggleRequestDate(cell.date)} disabled={unavailable} title={unavailable ? cell.holidayName || (locked ? `${locked.type} 사용 중` : "선택할 수 없는 날짜") : ""}>
+        <span>{cell.day}</span>{cell.holidayName && <em className="leave-calendar-holiday">{cell.holidayName}</em>}{compTimeWorkedDays != null && <small className="leave-calendar-comp-time">대체근무 {formatDayValue(compTimeWorkedDays)}일 적립</small>}{locked && <small className="leave-calendar-locked-type">{lockedItems.length > 1 ? "기존 휴가 2건" : `기존 ${locked.type}`}</small>}{selected && <select className="leave-calendar-type-select" value={selected.type} onClick={(event) => event.stopPropagation()} onChange={(event) => changeType(cell.date, event.target.value)}>{(options.length ? options : leaveTypeOptions).map((option) => <option key={option} value={option} disabled={option === "대체휴무" && compTimeUnavailable(selected.type)}>{option === "대체휴무" ? `대체휴무 (잔여 ${formatDayValue(availableCompTimeDays)}일)` : option}</option>)}</select>}
       </button>;
     })}</div>
-    <div className="leave-selection-list"><div className="leave-selection-summary">선택 {selections.length}일 · 일반 연차 차감 {formatDayValue(selections.reduce((sum, item) => sum + item.days, 0))}일</div>{selections.length ? <p className="leave-selection-inline-summary">{selections.map((selection) => `${selection.date} ${selection.type}`).join(", ")}</p> : <p className="muted-text">달력에서 날짜를 선택하세요.</p>}</div>
+    <div className="leave-selection-list"><div className="leave-selection-summary">{cancelMode ? `선택 ${selections.length}건 · 취소 ${formatDayValue(selections.reduce((sum, item) => sum + leaveAbsenceDayValue(item.type), 0))}일 · 일반 연차 복원 ${formatDayValue(selections.reduce((sum, item) => sum + item.days, 0))}일` : `선택 ${selections.length}일 · 일반 연차 차감 ${formatDayValue(selections.reduce((sum, item) => sum + item.days, 0))}일`}</div>{selections.length ? <p className="leave-selection-inline-summary">{selections.map((selection) => `${selection.date} ${selection.type}${selection.sourceDocumentNo ? ` (${selection.sourceDocumentNo})` : ""}`).join(", ")}</p> : <p className="muted-text">달력에서 날짜를 선택하세요.</p>}</div>
   </div>;
 }
 
