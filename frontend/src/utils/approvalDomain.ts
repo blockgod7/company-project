@@ -133,9 +133,9 @@ export const APPROVAL_TEMPLATE_CATEGORIES: ApprovalTemplateCategory[] = [
 export const ENABLE_TEMPLATE_FALLBACK = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEMPLATE_FALLBACK === "true";
 export const LEAVE_TYPE_OPTIONS = [
   "연차",
-  "하계휴가",
   "오전반차",
   "오후반차",
+  "하계휴가",
   "공가",
   "공가(오전)",
   "공가(오후)",
@@ -144,16 +144,25 @@ export const LEAVE_TYPE_OPTIONS = [
   "병가",
   "산재요양",
   "무급휴가",
-  "특별유급휴가",
   "배우자 출산휴가",
   "출산전후휴가",
   "여성휴가",
   "유산·사산휴가",
   "난임치료휴가",
-  "가족돌봄휴가",
-  "육아휴직",
-  "자녀돌봄휴가"
+  "육아휴직"
 ];
+
+const REMOVED_LEAVE_TYPES = new Set(["자녀돌봄휴가", "특별유급휴가", "가족돌봄휴가"]);
+const LEAVE_TYPE_PRIORITY = new Map(["연차", "오전반차", "오후반차"].map((type, index) => [type, index]));
+
+export function selectableLeaveTypeOptions(options: string[]) {
+  const unique = Array.from(new Set(options)).filter((type) => !REMOVED_LEAVE_TYPES.has(type));
+  const originalOrder = new Map(unique.map((type, index) => [type, index]));
+  return unique.sort((left, right) =>
+    (LEAVE_TYPE_PRIORITY.get(left) ?? 3 + (originalOrder.get(left) ?? 0))
+    - (LEAVE_TYPE_PRIORITY.get(right) ?? 3 + (originalOrder.get(right) ?? 0))
+  );
+}
 export const DEFAULT_TOTAL_ANNUAL_DAYS = "22";
 
 export function todayDate() {

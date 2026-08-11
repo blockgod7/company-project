@@ -43,11 +43,11 @@ public class ApprovalLeaveUsageService {
 
     private static final Set<String> LEAVE_TYPES = Set.of(
         "연차", "하계휴가", "오전반차", "오후반차", "공가", "공가(오전)", "공가(오후)",
-        "경조", "대체휴무", "병가", "산재요양", "무급휴가", "특별유급휴가", "배우자 출산휴가",
-        "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "가족돌봄휴가", "육아휴직", "자녀돌봄휴가"
+        "경조", "대체휴무", "병가", "산재요양", "무급휴가", "배우자 출산휴가",
+        "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "육아휴직"
     );
     private static final Set<String> CROSS_YEAR_TYPES = Set.of();
-    private static final Set<String> REASON_REQUIRED_TYPES = Set.of("공가", "공가(오전)", "공가(오후)", "무급휴가", "특별유급휴가");
+    private static final Set<String> REASON_REQUIRED_TYPES = Set.of("공가", "공가(오전)", "공가(오후)", "무급휴가");
 
     @Transactional(readOnly = true)
     public LeaveUsageResponse myUsage() {

@@ -118,6 +118,7 @@ import {
   PURCHASE_RECEIVER_LOGIN_ID,
   purchaseBuTotal,
   purchaseDefaultFieldValues,
+  selectableLeaveTypeOptions,
   purchaseItemsJson,
   purchaseReceiptDate,
   purchaseReceiverId,
@@ -348,7 +349,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   async function loadLeavePolicies() {
     try {
       const policies = await api<{ leaveType: string }[]>("/leave-policies");
-      setLeaveTypeOptions(policies.length ? policies.map((policy) => policy.leaveType) : LEAVE_TYPE_OPTIONS);
+      setLeaveTypeOptions(policies.length ? selectableLeaveTypeOptions(policies.map((policy) => policy.leaveType)) : LEAVE_TYPE_OPTIONS);
     } catch {
       setLeaveTypeOptions(LEAVE_TYPE_OPTIONS);
     }

@@ -302,16 +302,22 @@ INSERT INTO leave_policy (
     ('병가', '병가', 'Y', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('산재요양', '산재요양', 'Y', 'SEPARATE', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('무급휴가', '무급휴가', 'Y', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
-    ('특별유급휴가', '특별유급휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
+    ('특별유급휴가', '특별유급휴가', 'N', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '운영 제외 휴가 유형'),
     ('배우자 출산휴가', '배우자 출산휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', 20.0, 50, 120, 'ALL', 'N', 4, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('출산전후휴가', '출산전후휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'FEMALE', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('여성휴가', '여성휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'FEMALE', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('유산·사산휴가', '유산·사산휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'FEMALE', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('난임치료휴가', '난임치료휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
-    ('가족돌봄휴가', '가족돌봄휴가', 'Y', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
+    ('가족돌봄휴가', '가족돌봄휴가', 'N', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '운영 제외 휴가 유형'),
     ('육아휴직', '육아휴직', 'Y', 'SEPARATE', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
-    ('자녀돌봄휴가', '자녀돌봄휴가', 'Y', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책')
+    ('자녀돌봄휴가', '자녀돌봄휴가', 'N', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '운영 제외 휴가 유형')
 ON CONFLICT (leave_type, effective_from) DO NOTHING;
+
+-- Removed from new leave requests while preserving policy and approval history.
+UPDATE leave_policy
+SET active_yn = 'N', change_reason = '운영 제외 휴가 유형', updated_at = NOW()
+WHERE leave_type IN ('자녀돌봄휴가', '특별유급휴가', '가족돌봄휴가')
+  AND active_yn <> 'N';
 
 CREATE TABLE IF NOT EXISTS comp_time_credit (
     credit_id BIGSERIAL PRIMARY KEY,
