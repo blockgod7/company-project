@@ -49,6 +49,8 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
   const [form, setForm] = useState<EmployeeForm>(EMPTY_FORM);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [genderSavingId, setGenderSavingId] = useState<number | null>(null);
+  const [workCategorySavingId, setWorkCategorySavingId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [temporary, setTemporary] = useState<TemporaryPassword | null>(null);
@@ -126,12 +128,37 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
   }
 
   async function changeWorkCategory(employee: ManagedEmployee, workCategory: "MANAGEMENT" | "FIELD") {
+    if (employee.workCategory === workCategory || workCategorySavingId === employee.empId) return;
+    const previousWorkCategory = employee.workCategory;
+    setError(""); setMessage(""); setWorkCategorySavingId(employee.empId);
+    setEmployees((current) => current.map((item) => item.empId === employee.empId ? { ...item, workCategory } : item));
     try {
-      await api(`/employee-management/${employee.empId}/work-category`, {
+      const saved = await api<ManagedEmployee>(`/employee-management/${employee.empId}/work-category`, {
         method: "PUT", body: jsonBody({ workCategory })
       });
-      await load();
-    } catch (err) { setError(err instanceof Error ? err.message : "직군을 변경하지 못했습니다."); }
+      setEmployees((current) => current.map((item) => item.empId === saved.empId ? saved : item));
+      setMessage(`${employee.empName}님의 직군을 ${workCategory === "MANAGEMENT" ? "관리직" : "현장직"}으로 변경했습니다.`);
+    } catch (err) {
+      setEmployees((current) => current.map((item) => item.empId === employee.empId ? { ...item, workCategory: previousWorkCategory } : item));
+      setError(err instanceof Error ? err.message : "직군을 변경하지 못했습니다.");
+    } finally { setWorkCategorySavingId(null); }
+  }
+
+  async function changeGender(employee: ManagedEmployee, genderCode: "MALE" | "FEMALE") {
+    if (employee.genderCode === genderCode || genderSavingId === employee.empId) return;
+    const previousGenderCode = employee.genderCode;
+    setError(""); setMessage(""); setGenderSavingId(employee.empId);
+    setEmployees((current) => current.map((item) => item.empId === employee.empId ? { ...item, genderCode } : item));
+    try {
+      const saved = await api<ManagedEmployee>(`/employee-management/${employee.empId}/gender`, {
+        method: "PUT", body: jsonBody({ genderCode })
+      });
+      setEmployees((current) => current.map((item) => item.empId === saved.empId ? saved : item));
+      setMessage(`${employee.empName}님의 성별을 ${genderCode === "FEMALE" ? "여성" : "남성"}으로 변경했습니다.`);
+    } catch (err) {
+      setEmployees((current) => current.map((item) => item.empId === employee.empId ? { ...item, genderCode: previousGenderCode } : item));
+      setError(err instanceof Error ? err.message : "성별을 변경하지 못했습니다.");
+    } finally { setGenderSavingId(null); }
   }
 
   async function retire(employee: ManagedEmployee) {
@@ -178,11 +205,17 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
         <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option><option value="ACTIVE">재직</option><option value="LEAVE">휴직</option><option value="RETIRED">퇴사</option></select>
       </div>
       {(message || error) && <p className={error ? "error" : "success"}>{error || message}</p>}
-      <div className="table-scroll"><table><thead><tr><th>직원</th><th>부서 / 직급</th><th>고용 / 직군</th><th>재직 상태</th><th>계정</th><th>관리 권한</th><th></th></tr></thead>
+      <div className="table-scroll"><table className="employee-table"><colgroup><col className="employee-col-person" /><col className="employee-col-dept" /><col className="employee-col-work" /><col className="employee-col-status" /><col className="employee-col-account" /><col className="employee-col-permissions" /><col className="employee-col-actions" /></colgroup><thead><tr><th>직원</th><th>부서 / 직급</th><th>고용 / 직군</th><th>재직 상태</th><th>계정</th><th>관리 권한</th><th>작업</th></tr></thead>
         <tbody>{filtered.map((employee) => <tr key={employee.empId}>
-          <td><strong>{employee.empName}</strong>{employee.rehired && <em className="status-chip accent">재입사</em>}<small>{employee.empNo} · {employee.genderCode === "FEMALE" ? "여성" : "남성"}</small></td>
+          <td><strong>{employee.empName}</strong>{employee.rehired && <em className="status-chip accent">재입사</em>}<small>{employee.empNo}</small>{canManageEmployees ? <div className="binary-toggle gender-toggle" role="group" aria-label={`${employee.empName} 성별`}>
+            <button type="button" className={employee.genderCode === "MALE" ? "active" : ""} aria-pressed={employee.genderCode === "MALE"} disabled={genderSavingId === employee.empId} onClick={() => void changeGender(employee, "MALE")}>남성</button>
+            <button type="button" className={employee.genderCode === "FEMALE" ? "active" : ""} aria-pressed={employee.genderCode === "FEMALE"} disabled={genderSavingId === employee.empId} onClick={() => void changeGender(employee, "FEMALE")}>여성</button>
+          </div> : <small>{employee.genderCode === "FEMALE" ? "여성" : "남성"}</small>}</td>
           <td>{employee.deptName ?? "미지정"}<small>{employee.positionName ?? employee.jobTitle ?? "-"}</small></td>
-          <td>{employee.employmentType === "CONTRACT" ? "계약직" : "정규직"}<small>{employee.employmentStartDate} 입사</small>{canManageWorkCategory ? <select value={employee.workCategory} onChange={(event) => void changeWorkCategory(employee, event.target.value as "MANAGEMENT" | "FIELD")}><option value="MANAGEMENT">관리직</option><option value="FIELD">현장직</option></select> : <small>{employee.workCategory === "MANAGEMENT" ? "관리직" : "현장직"}</small>}</td>
+          <td>{employee.employmentType === "CONTRACT" ? "계약직" : "정규직"}<small>{employee.employmentStartDate} 입사</small>{canManageWorkCategory ? <div className="binary-toggle work-category-toggle" role="group" aria-label={`${employee.empName} 직군`}>
+            <button type="button" className={employee.workCategory === "MANAGEMENT" ? "active" : ""} aria-pressed={employee.workCategory === "MANAGEMENT"} disabled={workCategorySavingId === employee.empId} onClick={() => void changeWorkCategory(employee, "MANAGEMENT")}>관리직</button>
+            <button type="button" className={employee.workCategory === "FIELD" ? "active" : ""} aria-pressed={employee.workCategory === "FIELD"} disabled={workCategorySavingId === employee.empId} onClick={() => void changeWorkCategory(employee, "FIELD")}>현장직</button>
+          </div> : <small>{employee.workCategory === "MANAGEMENT" ? "관리직" : "현장직"}</small>}</td>
           <td><span className={`status-chip ${employee.status.toLowerCase()}`}>{employee.status === "ACTIVE" ? "재직" : employee.status === "LEAVE" ? "휴직" : "퇴사"}</span></td>
           <td>{employee.loginId ?? "미발급"}<small>{employee.accountStatus}</small></td>
           <td><div className="permission-chips">

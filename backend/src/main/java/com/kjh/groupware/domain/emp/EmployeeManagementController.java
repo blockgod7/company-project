@@ -2,6 +2,7 @@ package com.kjh.groupware.domain.emp;
 
 import com.kjh.groupware.domain.emp.dto.EmployeeAccountIssueRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeCreateRequest;
+import com.kjh.groupware.domain.emp.dto.EmployeeGenderRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeLeaveRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeManagementResponse;
 import com.kjh.groupware.domain.emp.dto.EmployeeRehireRequest;
@@ -35,6 +36,7 @@ public class EmployeeManagementController {
     @GetMapping("/{empId}/leave-impact") public ApiResponse<com.kjh.groupware.domain.emp.dto.EmployeeLeaveImpactResponse> leaveImpact(@PathVariable Long empId, @RequestParam LocalDate startDate, @RequestParam LocalDate endDate) { return ApiResponse.ok(service.leaveImpact(empId, startDate, endDate)); }
     @PostMapping public ApiResponse<EmployeeManagementResponse> create(@Valid @RequestBody EmployeeCreateRequest request) { return ApiResponse.ok(service.create(request)); }
     @PutMapping("/{empId}") public ApiResponse<EmployeeManagementResponse> update(@PathVariable Long empId, @Valid @RequestBody EmployeeUpdateRequest request) { return ApiResponse.ok(service.update(empId, request)); }
+    @PutMapping("/{empId}/gender") public ApiResponse<EmployeeManagementResponse> updateGender(@PathVariable Long empId, @Valid @RequestBody EmployeeGenderRequest request) { return ApiResponse.ok(service.updateGender(empId, request)); }
     @PutMapping("/{empId}/work-category") public ApiResponse<EmployeeManagementResponse> updateWorkCategory(@PathVariable Long empId, @Valid @RequestBody EmployeeWorkCategoryRequest request) { return ApiResponse.ok(service.updateWorkCategory(empId, request)); }
     @PostMapping("/{empId}/retire") public ApiResponse<EmployeeManagementResponse> retire(@PathVariable Long empId, @Valid @RequestBody EmployeeRetireRequest request) { return ApiResponse.ok(service.retire(empId, request)); }
     @PostMapping("/{empId}/leave") public ApiResponse<EmployeeManagementResponse> leave(@PathVariable Long empId, @Valid @RequestBody EmployeeLeaveRequest request) { return ApiResponse.ok(service.startLeave(empId, request)); }

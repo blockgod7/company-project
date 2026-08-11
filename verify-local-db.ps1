@@ -223,6 +223,24 @@ Assert-Equals "bereavement childbirth options are inactive" (Invoke-Scalar @"
 SELECT COUNT(*) FROM bereavement_policy WHERE event_type = 'BIRTH' AND active_yn = 'Y';
 "@) "0"
 
+Assert-Equals "management positions have management work category" (Invoke-Scalar @"
+SELECT COUNT(*) FROM emp
+WHERE (
+    encode(convert_to(trim(position_name), 'UTF8'), 'hex') IN (
+        'eab8b0ec9b90', 'eab8b0ec9ea5', 'eb8c80eba6ac',
+        'eab3bcec9ea5', 'ecb0a8ec9ea5', 'ebb680ec9ea5'
+    )
+    OR right(encode(convert_to(trim(position_name), 'UTF8'), 'hex'), 12) = 'ec9db4ec82ac'
+)
+AND work_category <> 'MANAGEMENT';
+"@) "0"
+
+Assert-Equals "line-leader positions have field work category" (Invoke-Scalar @"
+SELECT COUNT(*) FROM emp
+WHERE encode(convert_to(trim(position_name), 'UTF8'), 'hex') IN ('eca1b0ec9ea5', 'ebb098ec9ea5')
+  AND work_category <> 'FIELD';
+"@) "0"
+
 $unlinkedLeaveCancelSql = @"
 WITH cancel_selections AS (
     SELECT selection.item

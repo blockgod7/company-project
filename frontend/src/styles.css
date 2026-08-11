@@ -1222,8 +1222,16 @@ select { min-height: 42px; }
 .employee-filter label { min-width: 280px; display: flex; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; background: white; }
 .employee-filter input { width: 100%; min-height: 38px; border: 0; outline: 0; }
 .employee-filter select { min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: white; }
-.employee-management .table-scroll { overflow-x: auto; }
-.employee-management table { min-width: 1040px; }
+.employee-management .table-scroll { width: 100%; overflow-x: clip; }
+.employee-management table { width: 100%; min-width: 0; table-layout: fixed; }
+.employee-table .employee-col-person { width: 13%; }
+.employee-table .employee-col-dept { width: 13%; }
+.employee-table .employee-col-work { width: 17%; }
+.employee-table .employee-col-status { width: 6%; }
+.employee-table .employee-col-account { width: 10%; }
+.employee-table .employee-col-permissions { width: 30%; }
+.employee-table .employee-col-actions { width: 11%; }
+.employee-management th, .employee-management td { padding-inline: 7px; vertical-align: middle; overflow-wrap: anywhere; }
 .employee-management td strong, .employee-management td small { display: block; }
 .employee-management td small { margin-top: 4px; color: var(--muted); font-size: 11px; }
 .employee-management td em { margin-left: 7px; font-style: normal; }
@@ -1231,11 +1239,18 @@ select { min-height: 42px; }
 .status-chip.leave { color: #a16207; background: #fef3c7; }
 .status-chip.retired { color: #64748b; background: #e2e8f0; }
 .status-chip.accent { color: #166534; background: #dcfce7; }
-.permission-chips, .row-actions { display: flex; gap: 6px; }
-.permission-chips button { min-height: 28px; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 999px; color: var(--muted); background: white; font-size: 11px; }
+.binary-toggle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 8px; padding: 3px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; }
+.work-category-toggle { width: 168px; }
+.gender-toggle { width: 124px; }
+.binary-toggle button { min-width: 0; min-height: 34px; padding: 5px 8px; border: 0; border-radius: 7px; color: #64748b; background: transparent; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.binary-toggle button.active { color: white; background: #1d4ed8; box-shadow: 0 1px 3px rgba(15, 23, 42, .18); }
+.binary-toggle button:disabled { cursor: wait; opacity: .72; }
+.permission-chips, .row-actions { display: flex; gap: 5px; }
+.permission-chips { flex-wrap: wrap; align-content: center; }
+.permission-chips button { min-height: 27px; padding: 3px 7px; border: 1px solid #cbd5e1; border-radius: 999px; color: var(--muted); background: white; font-size: 10px; white-space: nowrap; }
 .permission-chips button.on { color: #075985; border-color: #7dd3fc; background: #e0f2fe; font-weight: 800; }
-.row-actions { flex-wrap: wrap; min-width: 112px; }
-.row-actions button { display: grid; place-items: center; min-width: 32px; height: 32px; padding: 0 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--navy); background: white; font-size: 11px; }
+.row-actions { flex-wrap: wrap; min-width: 0; }
+.row-actions button { display: grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; border: 1px solid var(--line); border-radius: 8px; color: var(--navy); background: white; font-size: 10px; white-space: nowrap; }
 .employee-management .success { color: #166534; }
 .employee-management .empty-state { padding: 32px; color: var(--muted); text-align: center; }
 .modal-card { width: min(760px, calc(100vw - 36px)); max-height: calc(100vh - 48px); overflow: auto; padding: 22px; border-radius: 15px; background: white; box-shadow: 0 24px 80px rgba(15, 23, 42, .28); }
@@ -1248,4 +1263,18 @@ select { min-height: 42px; }
 .temporary-password dt, .temporary-password dd { margin: 0; padding: 11px; border-bottom: 1px solid var(--line); }
 .temporary-password dt { color: var(--muted); background: var(--soft); font-weight: 800; }
 .temporary-password dd strong { color: #b91c1c; font-size: 18px; letter-spacing: 1px; }
+@media (max-width: 1250px) {
+  .employee-management th, .employee-management td { padding-inline: 5px; font-size: 12px; }
+  .employee-table .employee-col-person { width: 14%; }
+  .employee-table .employee-col-dept { width: 13%; }
+  .employee-table .employee-col-work { width: 18%; }
+  .employee-table .employee-col-status { width: 7%; }
+  .employee-table .employee-col-account { width: 10%; }
+  .employee-table .employee-col-permissions { width: 26%; }
+  .employee-table .employee-col-actions { width: 12%; }
+  .gender-toggle { width: 112px; }
+  .work-category-toggle { width: 150px; }
+  .binary-toggle button { padding-inline: 5px; font-size: 11px; }
+  .permission-chips button { padding-inline: 5px; font-size: 9px; }
+}
 @media (max-width: 700px) { .employee-filter { flex-direction: column; }.employee-filter label { min-width: 0; }.employee-form-grid { grid-template-columns: 1fr; } }

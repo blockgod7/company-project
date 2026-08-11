@@ -7,6 +7,7 @@ import com.kjh.groupware.domain.dept.Dept;
 import com.kjh.groupware.domain.dept.DeptRepository;
 import com.kjh.groupware.domain.emp.dto.EmployeeAccountIssueRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeCreateRequest;
+import com.kjh.groupware.domain.emp.dto.EmployeeGenderRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeLeaveRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeLeaveImpactResponse;
 import com.kjh.groupware.domain.emp.dto.EmployeeManagementResponse;
@@ -108,6 +109,15 @@ public class EmployeeManagementService {
             throw BusinessException.forbidden("SYSTEM_ADMIN_PROTECTED", "시스템관리자 계정은 변경할 수 없습니다.");
         }
         emp.updateWorkCategory(request.workCategory());
+        return response(emp);
+    }
+
+    @Transactional
+    public EmployeeManagementResponse updateGender(Long empId, EmployeeGenderRequest request) {
+        Emp actor = currentEmpProvider.getCurrentEmp();
+        Emp emp = find(empId);
+        permissionService.assertCanEditTarget(actor, emp);
+        emp.updateGender(request.genderCode());
         return response(emp);
     }
 
