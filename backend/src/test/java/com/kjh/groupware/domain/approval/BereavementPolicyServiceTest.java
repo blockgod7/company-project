@@ -29,7 +29,7 @@ class BereavementPolicyServiceTest {
     void canonicalizesKoreanAliasesAndRejectsOverlappingActivePolicy() {
         Emp manager = mock(Emp.class);
         when(current.getCurrentEmp()).thenReturn(manager);
-        when(permissions.hasPermission(manager, EmployeePermissionService.LEAVE_ADMIN)).thenReturn(true);
+        when(permissions.hasPermission(manager, EmployeePermissionService.LEAVE_POLICY_ADMIN)).thenReturn(true);
         when(repository.findOverlaps(
             "DEATH", "PARENT", null,
             LocalDate.of(2026, 8, 1), LocalDate.of(9999, 12, 31)

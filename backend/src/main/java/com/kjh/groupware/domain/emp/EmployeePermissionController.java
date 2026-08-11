@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.emp;
 import com.kjh.groupware.domain.emp.dto.EmployeePermissionUpdateRequest;
 import com.kjh.groupware.global.response.ApiResponse;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -20,8 +21,12 @@ public class EmployeePermissionController {
     @PutMapping("/{empId}")
     public ApiResponse<List<String>> update(
         @PathVariable Long empId,
-        @Valid @RequestBody EmployeePermissionUpdateRequest request
+        @Valid @RequestBody EmployeePermissionUpdateRequest request,
+        HttpServletRequest httpRequest
     ) {
-        return ApiResponse.ok(permissionService.update(empId, request.permissionCode(), request.active(), request.reason()));
+        return ApiResponse.ok(permissionService.update(
+            empId, request.permissionCode(), request.active(), request.reason(),
+            httpRequest.getRemoteAddr(), httpRequest.getHeader("User-Agent")
+        ));
     }
 }

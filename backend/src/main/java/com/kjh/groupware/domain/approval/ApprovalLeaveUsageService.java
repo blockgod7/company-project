@@ -6,13 +6,16 @@ import com.kjh.groupware.domain.approval.dto.LeaveExclusionResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageSelectionResponse;
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.file.AttachFileRepository;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -40,14 +43,15 @@ public class ApprovalLeaveUsageService {
     private final LeavePolicyService leavePolicyService;
     private final LeavePolicyOverrideService leavePolicyOverrideService;
     private final BereavementPolicyRepository bereavementPolicyRepository;
+    private final AttachFileRepository attachFileRepository;
 
     private static final Set<String> LEAVE_TYPES = Set.of(
         "연차", "하계휴가", "오전반차", "오후반차", "공가", "공가(오전)", "공가(오후)",
         "경조", "대체휴무", "병가", "산재요양", "무급휴가", "배우자 출산휴가",
-        "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "육아휴직"
+        "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "육아휴직", "조퇴", "공상"
     );
     private static final Set<String> CROSS_YEAR_TYPES = Set.of();
-    private static final Set<String> REASON_REQUIRED_TYPES = Set.of("공가", "공가(오전)", "공가(오후)", "무급휴가");
+    private static final Set<String> REASON_REQUIRED_TYPES = Set.of("공가", "공가(오전)", "공가(오후)", "무급휴가", "공상");
 
     @Transactional(readOnly = true)
     public LeaveUsageResponse myUsage() {
@@ -143,10 +147,13 @@ public class ApprovalLeaveUsageService {
             LocalDate firstDate = selections.stream().filter(item -> entry.getKey().equals(item.type()))
                 .map(item -> parseDate(item.date())).findFirst().orElse(LocalDate.now());
             LeavePolicy policy = leavePolicyService.resolve(entry.getKey(), firstDate);
-            if (policy != null && policy.getMaxDays() != null && entry.getValue().compareTo(policy.getMaxDays()) > 0) {
+            BigDecimal effectiveMaxDays = "배우자 출산휴가".equals(entry.getKey())
+                ? null
+                : policy == null ? null : policy.getMaxDays();
+            if (effectiveMaxDays != null && entry.getValue().compareTo(effectiveMaxDays) > 0) {
                 throw BusinessException.badRequest(
                     "LEAVE_POLICY_MAX_DAYS_EXCEEDED",
-                    entry.getKey() + "은 한 신청에서 최대 " + formatDay(policy.getMaxDays()) + "일까지 사용할 수 있습니다."
+                    entry.getKey() + "은 한 신청에서 최대 " + formatDay(effectiveMaxDays) + "일까지 사용할 수 있습니다."
                 );
             }
         }
@@ -159,6 +166,37 @@ public class ApprovalLeaveUsageService {
         if (selectedTypes.stream().anyMatch(REASON_REQUIRED_TYPES::contains)
             && fields.path("leaveReason").asText("").isBlank()) {
             throw BusinessException.badRequest("LEAVE_REASON_REQUIRED", "선택한 휴가의 구체적인 신청 사유를 입력해 주세요.");
+        }
+        if (selectedTypes.contains("조퇴")) {
+            String startTime = fields.path("earlyLeaveStartTime").asText("").trim();
+            try {
+                LocalTime.parse(startTime);
+            } catch (Exception ex) {
+                throw BusinessException.badRequest("EARLY_LEAVE_START_TIME_REQUIRED", "조퇴 시작 시간을 입력해 주세요.");
+            }
+            if (requester != null) {
+                String expectedPayType = "MANAGEMENT".equals(requester.getWorkCategory()) ? "관리직 · 유급" : "현장직 · 무급";
+                if (!expectedPayType.equals(fields.path("earlyLeavePayType").asText(""))) {
+                    throw BusinessException.badRequest("EARLY_LEAVE_PAY_TYPE_INVALID", "직원 직군에 맞는 조퇴 급여 구분을 다시 확인해 주세요.");
+                }
+            }
+        }
+        if (requester != null && selectedTypes.contains("무급휴가")) {
+            int year = selections.stream().filter(item -> "무급휴가".equals(item.type()))
+                .map(item -> parseDate(item.date()).getYear()).findFirst().orElse(LocalDate.now().getYear());
+            LeaveUsageResponse usage = usageFor(requester, null, year);
+            BigDecimal effectiveRemaining = new BigDecimal(usage.remainingAnnualDays())
+                .subtract(new BigDecimal(usage.reservedAnnualDays()));
+            if (effectiveRemaining.compareTo(BigDecimal.TEN) >= 0) {
+                throw BusinessException.badRequest(
+                    "UNPAID_LEAVE_ANNUAL_BALANCE_NOT_ELIGIBLE",
+                    "무급휴가는 결재 중 휴가를 반영한 잔여연차가 10일 미만일 때만 신청할 수 있습니다. 현재 "
+                        + formatDay(effectiveRemaining) + "일"
+                );
+            }
+        }
+        if (selectedTypes.contains("병가")) {
+            assertContinuousSickLeave(selections);
         }
         if ((selectedTypes.contains("배우자 출산휴가") || selectedTypes.contains("출산전후휴가"))
             && fields.path("expectedBirthDate").asText("").isBlank()
@@ -181,6 +219,53 @@ public class ApprovalLeaveUsageService {
                 ));
             if (BigDecimal.valueOf(dates.size()).compareTo(bereavement.getAllowedDays()) > 0) {
                 throw BusinessException.badRequest("BEREAVEMENT_DAYS_EXCEEDED", "경조휴가는 기준표상 최대 " + formatDay(bereavement.getAllowedDays()) + "일입니다.");
+            }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void assertRequiredEvidence(ApprovalDocument document, String formDataJson) {
+        List<LeaveUsageSelectionResponse> selections = selectionsFrom(formDataJson, null, null);
+        JsonNode fields = formFields(formDataJson);
+        boolean required = selections.stream().anyMatch(selection -> {
+            if (Set.of("병가", "난임치료휴가").contains(selection.type())) return true;
+            LeavePolicy policy = leavePolicyService.resolve(selection.type(), parseDate(selection.date()));
+            return policy != null && policy.isEvidenceRequired();
+        });
+        if (!required && selections.stream().anyMatch(selection -> "경조".equals(selection.type()))) {
+            String event = fields.path("familyEventType").asText("").trim();
+            String relation = fields.path("familyRelation").asText("").trim();
+            LocalDate date = selections.stream().filter(selection -> "경조".equals(selection.type()))
+                .map(selection -> parseDate(selection.date())).min(LocalDate::compareTo).orElse(LocalDate.now());
+            if (!event.isBlank() && !relation.isBlank()) {
+                required = bereavementPolicyRepository.findEffective(
+                    BereavementCatalog.normalizeEvent(event), BereavementCatalog.normalizeRelation(relation), date
+                ).stream().findFirst().map(BereavementPolicy::isEvidenceRequired).orElse(false);
+            }
+        }
+        if (required && !attachFileRepository.existsByTargetTypeAndTargetIdAndDeletedYn(
+            "APPROVAL_DOCUMENT", document.getApprovalId(), "N"
+        )) {
+            throw BusinessException.badRequest(
+                "LEAVE_EVIDENCE_ATTACHMENT_REQUIRED",
+                "선택한 휴가에 필요한 증빙서류를 첨부파일에 1개 이상 등록해 주세요. 첨부 여부만 확인합니다."
+            );
+        }
+    }
+
+    private void assertContinuousSickLeave(List<LeaveUsageSelectionResponse> selections) {
+        List<LocalDate> sickDates = selections.stream().filter(item -> "병가".equals(item.type()))
+            .map(item -> parseDate(item.date())).distinct().sorted().toList();
+        if (sickDates.isEmpty()) return;
+        LocalDate first = sickDates.getFirst();
+        LocalDate last = sickDates.getLast();
+        if (ChronoUnit.DAYS.between(first, last) + 1 < 14) {
+            throw BusinessException.badRequest("SICK_LEAVE_MINIMUM_PERIOD", "병가는 달력 기준 연속 14일 이상 신청해야 합니다.");
+        }
+        Set<LocalDate> selected = new HashSet<>(sickDates);
+        for (LocalDate date = first; !date.isAfter(last); date = date.plusDays(1)) {
+            if (!isNonWorkingDay(date) && !selected.contains(date)) {
+                throw BusinessException.badRequest("SICK_LEAVE_NOT_CONTINUOUS", "병가 기간 안의 모든 근무일을 연속으로 선택해 주세요.");
             }
         }
     }
@@ -381,7 +466,9 @@ public class ApprovalLeaveUsageService {
             .map(selection -> parseDate(selection.date()))
             .filter(date -> !date.isBefore(eventEarliest) && !date.isAfter(latest))
             .toList();
+        boolean multipleBirth = "Y".equalsIgnoreCase(fields.path("multipleBirthYn").asText("N"));
         BigDecimal maxDays = policyOverride != null ? policyOverride.getOverrideMaxDays()
+            : multipleBirth ? new BigDecimal("25")
             : policy != null && policy.getMaxDays() != null ? policy.getMaxDays() : new BigDecimal("20");
         if (BigDecimal.valueOf(occupiedDates.size() + requested.size()).compareTo(maxDays) > 0) {
             throw BusinessException.badRequest(

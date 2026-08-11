@@ -53,7 +53,7 @@ export function AppRouteContent({ route, user, isAdmin, canViewPreview, approval
         {route === "equipment" && (canViewPreview ? <EquipmentManagementPage user={user} isAdmin={isAdmin} /> : <AccessDenied />)}
         {route === "notifications" && <NotificationPage go={navigate} target={globalSearch.target} />}
         {route === "organization" && <OrganizationPage target={globalSearch.target} />}
-        {route === "employees" && (user.permissions.includes("EMPLOYEE_ADMIN") ? <EmployeeManagementPage user={user} /> : <AccessDenied />)}
+        {route === "employees" && ((user.permissions.includes("EMPLOYEE_ADMIN") || user.permissions.includes("WORK_CATEGORY_ADMIN")) ? <EmployeeManagementPage user={user} /> : <AccessDenied />)}
         {route === "audit" && (isAdmin ? <AuditLogPage target={globalSearch.target} /> : <AccessDenied />)}
       </Suspense>
     </main>

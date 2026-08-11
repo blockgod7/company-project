@@ -16,7 +16,6 @@ import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -64,9 +63,7 @@ public class CompTimeLedgerService {
         if (creditRepository.existsByEmpEmpIdAndWorkDate(emp.getEmpId(), request.workDate())) {
             throw BusinessException.badRequest("COMP_TIME_WORK_DATE_DUPLICATED", "같은 근무일에는 대체휴무를 한 번만 적립할 수 있습니다.");
         }
-        LocalDate expiresOn = request.expiresOn() == null
-            ? YearMonth.from(request.workDate()).plusMonths(1).atEndOfMonth()
-            : request.expiresOn();
+        LocalDate expiresOn = LocalDate.of(request.workDate().getYear(), 12, 31);
         if (expiresOn.isBefore(today) || expiresOn.isBefore(request.workDate())) {
             throw BusinessException.badRequest("COMP_TIME_EXPIRY_INVALID", "만료일은 근무일과 오늘보다 빠를 수 없습니다.");
         }
@@ -88,6 +85,10 @@ public class CompTimeLedgerService {
             .orElseThrow(() -> BusinessException.notFound("COMP_TIME_CREDIT_NOT_FOUND", "대체휴무 적립 내역을 찾을 수 없습니다."));
         if (!request.expiresOn().isAfter(credit.getExpiresOn())) {
             throw BusinessException.badRequest("COMP_TIME_EXPIRY_NOT_EXTENDED", "새 만료일은 기존 만료일보다 늦어야 합니다.");
+        }
+        LocalDate yearEnd = LocalDate.of(credit.getWorkDate().getYear(), 12, 31);
+        if (request.expiresOn().isAfter(yearEnd)) {
+            throw BusinessException.badRequest("COMP_TIME_EXPIRY_YEAR_END", "대체휴무 만료일은 발생 연도 12월 31일을 넘길 수 없습니다.");
         }
         LocalDate before = credit.getExpiresOn();
         credit.extendExpiry(request.expiresOn());

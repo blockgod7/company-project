@@ -749,6 +749,8 @@ public class ApprovalPdfService {
         if(!text(fields,"accidentReceiptInfo").isBlank()) values.add("산재 접수: "+text(fields,"accidentReceiptInfo"));
         if(!text(fields,"expectedBirthDate").isBlank()) values.add("출산 예정일: "+text(fields,"expectedBirthDate"));
         if(!text(fields,"actualBirthDate").isBlank()) values.add("실제 출산일: "+text(fields,"actualBirthDate"));
+        if(!text(fields,"earlyLeaveStartTime").isBlank()) values.add("조퇴 시작: "+text(fields,"earlyLeaveStartTime")+" / "+text(fields,"earlyLeavePayType"));
+        if("Y".equalsIgnoreCase(text(fields,"multipleBirthYn"))) values.add("배우자 출산: 다태아(25일 한도)");
         return values.isEmpty()?"-":String.join("\n",values);
     }
 

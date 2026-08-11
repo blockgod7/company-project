@@ -53,6 +53,9 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
   const [error, setError] = useState("");
   const [temporary, setTemporary] = useState<TemporaryPassword | null>(null);
   const canManageAccounts = user.permissions.includes("ACCOUNT_ADMIN");
+  const canManageEmployees = user.permissions.includes("EMPLOYEE_ADMIN");
+  const canManageWorkCategory = user.permissions.includes("WORK_CATEGORY_ADMIN");
+  const canGrantPermissions = user.permissions.includes("FULL_ADMIN") || user.roleCode === "ADMIN";
 
   async function load() {
     setError("");
@@ -112,7 +115,7 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
     } catch (err) { setError(err instanceof Error ? err.message : "계정을 처리하지 못했습니다."); }
   }
 
-  async function togglePermission(employee: ManagedEmployee, permissionCode: "LEAVE_ADMIN" | "EMPLOYEE_ADMIN") {
+  async function togglePermission(employee: ManagedEmployee, permissionCode: "FULL_ADMIN" | "LEAVE_ADMIN" | "LEAVE_POLICY_ADMIN" | "EMPLOYEE_ADMIN" | "WORK_CATEGORY_ADMIN" | "ACCOUNT_ADMIN") {
     const active = !employee.permissions.includes(permissionCode);
     try {
       await api(`/employee-management/permissions/${employee.empId}`, {
@@ -120,6 +123,15 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
       });
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : "권한을 변경하지 못했습니다."); }
+  }
+
+  async function changeWorkCategory(employee: ManagedEmployee, workCategory: "MANAGEMENT" | "FIELD") {
+    try {
+      await api(`/employee-management/${employee.empId}/work-category`, {
+        method: "PUT", body: jsonBody({ workCategory })
+      });
+      await load();
+    } catch (err) { setError(err instanceof Error ? err.message : "직군을 변경하지 못했습니다."); }
   }
 
   async function retire(employee: ManagedEmployee) {
@@ -159,25 +171,29 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
     <section className="panel employee-management">
       <div className="toolbar">
         <div><h3>직원 관리</h3><p className="muted">재직 정보와 계정은 분리해 안전하게 관리합니다.</p></div>
-        <div className="toolbar-actions"><button className="ghost" onClick={() => void load()}><RefreshCw size={16} /> 새로고침</button><button onClick={openCreate}><Plus size={16} /> 신규 직원</button></div>
+        <div className="toolbar-actions"><button className="ghost" onClick={() => void load()}><RefreshCw size={16} /> 새로고침</button>{canManageEmployees && <button onClick={openCreate}><Plus size={16} /> 신규 직원</button>}</div>
       </div>
       <div className="employee-filter">
         <label><Search size={16} /><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="이름, 사번, 아이디, 부서 검색" /></label>
         <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option><option value="ACTIVE">재직</option><option value="LEAVE">휴직</option><option value="RETIRED">퇴사</option></select>
       </div>
       {(message || error) && <p className={error ? "error" : "success"}>{error || message}</p>}
-      <div className="table-scroll"><table><thead><tr><th>직원</th><th>부서 / 직급</th><th>고용</th><th>재직 상태</th><th>계정</th><th>관리 권한</th><th></th></tr></thead>
+      <div className="table-scroll"><table><thead><tr><th>직원</th><th>부서 / 직급</th><th>고용 / 직군</th><th>재직 상태</th><th>계정</th><th>관리 권한</th><th></th></tr></thead>
         <tbody>{filtered.map((employee) => <tr key={employee.empId}>
           <td><strong>{employee.empName}</strong>{employee.rehired && <em className="status-chip accent">재입사</em>}<small>{employee.empNo} · {employee.genderCode === "FEMALE" ? "여성" : "남성"}</small></td>
           <td>{employee.deptName ?? "미지정"}<small>{employee.positionName ?? employee.jobTitle ?? "-"}</small></td>
-          <td>{employee.employmentType === "CONTRACT" ? "계약직" : "정규직"}<small>{employee.employmentStartDate} 입사</small></td>
+          <td>{employee.employmentType === "CONTRACT" ? "계약직" : "정규직"}<small>{employee.employmentStartDate} 입사</small>{canManageWorkCategory ? <select value={employee.workCategory} onChange={(event) => void changeWorkCategory(employee, event.target.value as "MANAGEMENT" | "FIELD")}><option value="MANAGEMENT">관리직</option><option value="FIELD">현장직</option></select> : <small>{employee.workCategory === "MANAGEMENT" ? "관리직" : "현장직"}</small>}</td>
           <td><span className={`status-chip ${employee.status.toLowerCase()}`}>{employee.status === "ACTIVE" ? "재직" : employee.status === "LEAVE" ? "휴직" : "퇴사"}</span></td>
           <td>{employee.loginId ?? "미발급"}<small>{employee.accountStatus}</small></td>
           <td><div className="permission-chips">
-            <button disabled={!canManageAccounts} className={employee.permissions.includes("LEAVE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "LEAVE_ADMIN")}>휴가관리</button>
-            <button disabled={!canManageAccounts} className={employee.permissions.includes("EMPLOYEE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "EMPLOYEE_ADMIN")}>직원관리</button>
+            <button disabled={!canGrantPermissions || employee.roleCode === "ADMIN"} className={employee.permissions.includes("FULL_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "FULL_ADMIN")}>전권</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("LEAVE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "LEAVE_ADMIN")}>휴가관리</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("LEAVE_POLICY_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "LEAVE_POLICY_ADMIN")}>휴가정책</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("EMPLOYEE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "EMPLOYEE_ADMIN")}>직원관리</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("WORK_CATEGORY_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "WORK_CATEGORY_ADMIN")}>직군관리</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("ACCOUNT_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "ACCOUNT_ADMIN")}>계정관리</button>
           </div></td>
-          <td><div className="row-actions"><button title="정보 수정" onClick={() => openEdit(employee)}><Pencil size={15} /></button>{employee.status === "ACTIVE" && <><button title="휴직" onClick={() => void startLeave(employee)}>휴직</button><button title="퇴직" onClick={() => void retire(employee)}>퇴직</button></>}{employee.status === "LEAVE" && <button title="복직" onClick={() => void returnFromLeave(employee)}>복직</button>}{employee.status === "RETIRED" && <button title="재입사" onClick={() => void rehire(employee)}>재입사</button>}{canManageAccounts && <button title={employee.loginId ? "비밀번호 초기화" : "계정 발급"} onClick={() => void issueAccount(employee)}>{employee.loginId ? <KeyRound size={15} /> : <UserCheck size={15} />}</button>}</div></td>
+          <td><div className="row-actions">{canManageEmployees && <button title="정보 수정" onClick={() => openEdit(employee)}><Pencil size={15} /></button>}{canManageEmployees && employee.status === "ACTIVE" && <><button title="휴직" onClick={() => void startLeave(employee)}>휴직</button><button title="퇴직" onClick={() => void retire(employee)}>퇴직</button></>}{canManageEmployees && employee.status === "LEAVE" && <button title="복직" onClick={() => void returnFromLeave(employee)}>복직</button>}{canManageEmployees && employee.status === "RETIRED" && <button title="재입사" onClick={() => void rehire(employee)}>재입사</button>}{canManageAccounts && <button title={employee.loginId ? "비밀번호 초기화" : "계정 발급"} onClick={() => void issueAccount(employee)}>{employee.loginId ? <KeyRound size={15} /> : <UserCheck size={15} />}</button>}</div></td>
         </tr>)}</tbody></table></div>
       {!filtered.length && <p className="empty-state">조건에 맞는 직원이 없습니다.</p>}
 

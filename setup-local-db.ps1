@@ -124,6 +124,7 @@ $currentPatchFiles = @(
     ,"annual_leave_management_patch.sql"
     ,"approval_holiday_management_patch.sql"
     ,"leave_management_expansion_patch.sql"
+    ,"leave_authority_policy_202608_patch.sql"
     ,"approval_leave_cancel_source_backfill_patch.sql"
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 

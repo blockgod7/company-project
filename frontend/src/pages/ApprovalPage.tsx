@@ -236,6 +236,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const [approvalSearch, setApprovalSearch] = useState<ApprovalSearchForm>(DEFAULT_APPROVAL_SEARCH);
   const isApprovalAdmin = user.roleCode === "ADMIN" || user.roleCode === "APPROVAL_ADMIN";
   const isHolidayManager = user.permissions.includes("LEAVE_ADMIN");
+  const isLeavePolicyManager = user.permissions.includes("LEAVE_POLICY_ADMIN");
   const canViewPreview = canViewPreviewFeatures(user);
   const visibleTemplates = canViewPreview
     ? templates
@@ -1555,7 +1556,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
           {isApprovalAdmin && <button type="button" className={mode === "operationSettings" ? "active" : ""} onClick={() => void openOperationSettings()}>운영설정</button>}
           {isHolidayManager && <button type="button" className={mode === "holidays" ? "active" : ""} onClick={openHolidayManagement}>휴일관리</button>}
           {isHolidayManager && <button type="button" className={mode === "annualLeaves" ? "active" : ""} onClick={() => setMode("annualLeaves")}>연차관리</button>}
-          {isHolidayManager && <button type="button" className={mode === "leavePolicies" ? "active" : ""} onClick={() => setMode("leavePolicies")}>휴가정책</button>}
+          {isLeavePolicyManager && <button type="button" className={mode === "leavePolicies" ? "active" : ""} onClick={() => setMode("leavePolicies")}>휴가정책</button>}
           {isApprovalAdmin && <button type="button" className={mode === "deleted" ? "active" : ""} onClick={() => void openDeletedApprovals()}>보존삭제함</button>}
         </div>
       </div>}
@@ -1797,7 +1798,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       )}
       {mode === "holidays" && isHolidayManager && <ApprovalHolidayPanel onChanged={loadHolidays} />}
       {mode === "annualLeaves" && isHolidayManager && <AnnualLeaveAdminPanel />}
-      {mode === "leavePolicies" && isHolidayManager && <LeavePolicyAdminPanel employees={employees} />}
+      {mode === "leavePolicies" && isLeavePolicyManager && <LeavePolicyAdminPanel employees={employees} />}
       {mode === "compTime" && isHolidayManager && <CompTimeAdminPanel user={user} employees={employees} isManager />}
       {mode === "deleted" && isApprovalAdmin && (
         <div className="approval-template-editor">

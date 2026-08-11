@@ -268,7 +268,8 @@ class ApprovalServiceWorkflowTest {
             lifecycleCancellationRepository,
             mock(LeavePolicyService.class),
             mock(LeavePolicyOverrideService.class),
-            mock(BereavementPolicyRepository.class)
+            mock(BereavementPolicyRepository.class),
+            mock(com.kjh.groupware.domain.file.AttachFileRepository.class)
         );
         draftService = new ApprovalDraftService(
             documentRepository,

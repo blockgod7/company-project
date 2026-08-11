@@ -77,6 +77,9 @@ public class Emp extends BaseEntity {
     @Column(name = "employment_type", nullable = false, length = 20)
     private String employmentType;
 
+    @Column(name = "work_category", nullable = false, length = 20)
+    private String workCategory;
+
     @Column(name = "contract_start_date")
     private LocalDate contractStartDate;
 
@@ -172,6 +175,7 @@ public class Emp extends BaseEntity {
         emp.roleCode = "USER";
         emp.hireDate = hireDate;
         emp.employmentType = employmentType;
+        emp.workCategory = "FIELD";
         emp.contractStartDate = contractStartDate;
         emp.contractEndDate = contractEndDate;
         emp.status = "ACTIVE";
@@ -209,6 +213,10 @@ public class Emp extends BaseEntity {
         this.employmentType = employmentType;
         this.contractStartDate = contractStartDate;
         this.contractEndDate = contractEndDate;
+    }
+
+    public void updateWorkCategory(String workCategory) {
+        this.workCategory = workCategory;
     }
 
     public void markLeave() {

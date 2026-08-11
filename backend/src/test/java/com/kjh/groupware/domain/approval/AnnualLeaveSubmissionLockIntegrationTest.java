@@ -87,6 +87,7 @@ class AnnualLeaveSubmissionLockIntegrationTest {
                     retire_date date,
                     gender_code varchar(10) not null,
                     employment_type varchar(20) not null,
+                    work_category varchar(20) not null,
                     contract_start_date date,
                     contract_end_date date,
                     rehire_date date,
@@ -146,9 +147,9 @@ class AnnualLeaveSubmissionLockIntegrationTest {
                 """).executeUpdate();
             sharedEntityManager.createNativeQuery("""
                 insert into emp (
-                    emp_id, emp_no, emp_name, role_code, hire_date, gender_code, employment_type,
+                    emp_id, emp_no, emp_name, role_code, hire_date, gender_code, employment_type, work_category,
                     status, login_fail_count, account_locked_yn, account_status, must_change_password_yn, use_yn
-                ) values (1, 'LOCK-TEST', 'Lock Test', 'USER', date '2020-01-01', 'MALE', 'REGULAR',
+                ) values (1, 'LOCK-TEST', 'Lock Test', 'USER', date '2020-01-01', 'MALE', 'REGULAR', 'FIELD',
                     'ACTIVE', 0, 'N', 'ACTIVE', 'N', 'Y')
                 """).executeUpdate();
             sharedEntityManager.createNativeQuery("""

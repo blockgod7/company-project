@@ -13,6 +13,7 @@ import com.kjh.groupware.domain.emp.dto.EmployeeManagementResponse;
 import com.kjh.groupware.domain.emp.dto.EmployeeRehireRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeRetireRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeUpdateRequest;
+import com.kjh.groupware.domain.emp.dto.EmployeeWorkCategoryRequest;
 import com.kjh.groupware.domain.emp.dto.TemporaryPasswordResponse;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
@@ -44,13 +45,13 @@ public class EmployeeManagementService {
 
     @Transactional(readOnly = true)
     public List<EmployeeManagementResponse> findAll() {
-        permissionService.requireEmployeeAdmin();
+        permissionService.requireEmployeeOrWorkCategoryAdmin();
         return empRepository.findAllByOrderByEmpNameAsc().stream().map(this::response).toList();
     }
 
     @Transactional(readOnly = true)
     public EmployeeManagementResponse findOne(Long empId) {
-        permissionService.requireEmployeeAdmin();
+        permissionService.requireEmployeeOrWorkCategoryAdmin();
         return response(find(empId));
     }
 
@@ -100,6 +101,17 @@ public class EmployeeManagementService {
     }
 
     @Transactional
+    public EmployeeManagementResponse updateWorkCategory(Long empId, EmployeeWorkCategoryRequest request) {
+        permissionService.requireWorkCategoryAdmin();
+        Emp emp = find(empId);
+        if ("ADMIN".equals(emp.getRoleCode()) && !"ADMIN".equals(currentEmpProvider.getCurrentEmp().getRoleCode())) {
+            throw BusinessException.forbidden("SYSTEM_ADMIN_PROTECTED", "시스템관리자 계정은 변경할 수 없습니다.");
+        }
+        emp.updateWorkCategory(request.workCategory());
+        return response(emp);
+    }
+
+    @Transactional
     public EmployeeManagementResponse retire(Long empId, EmployeeRetireRequest request) {
         Emp actor = currentEmpProvider.getCurrentEmp();
         Emp emp = find(empId);
@@ -110,6 +122,7 @@ public class EmployeeManagementService {
         employmentHistoryRepository.findFirstByEmpEmpIdAndEndDateIsNullOrderByStartDateDesc(empId)
             .ifPresent(history -> history.close(request.retireDate()));
         emp.retire(request.retireDate());
+        permissionService.revokeAllForRetirement(emp, actor);
         leaveLifecycleService.cancelForRetirement(emp, request.retireDate());
         emp.deactivateAccount();
         refreshTokenRepository.deleteByEmp(emp);

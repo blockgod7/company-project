@@ -55,7 +55,7 @@ export function AppShell({
               </button>
             );
           })}
-          {user.permissions.includes("EMPLOYEE_ADMIN") && (
+          {(user.permissions.includes("EMPLOYEE_ADMIN") || user.permissions.includes("WORK_CATEGORY_ADMIN")) && (
             <button className={route === "employees" ? "side active" : "side"} onClick={() => onNavigate("employees")}>
               <UserCog size={19} /> 직원 관리
             </button>

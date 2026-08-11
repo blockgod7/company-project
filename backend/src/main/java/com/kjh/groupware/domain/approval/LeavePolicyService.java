@@ -30,8 +30,8 @@ public class LeavePolicyService {
     private static final Set<String> REMOVED_LEAVE_TYPES = Set.of("자녀돌봄휴가", "특별유급휴가", "가족돌봄휴가");
     private static final LocalDate DEFAULT_FROM = LocalDate.of(2000, 1, 1);
     private static final List<String> SELECTABLE_ORDER = List.of(
-        "연차", "오전반차", "오후반차", "하계휴가", "공가", "공가(오전)", "공가(오후)",
-        "경조", "대체휴무", "병가", "산재요양", "무급휴가", "배우자 출산휴가",
+        "연차", "오전반차", "오후반차", "조퇴", "하계휴가", "공가", "공가(오전)", "공가(오후)",
+        "경조", "대체휴무", "병가", "공상", "산재요양", "무급휴가", "배우자 출산휴가",
         "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "육아휴직"
     );
 
@@ -139,28 +139,29 @@ public class LeavePolicyService {
         BigDecimal deduction = Set.of("연차", "하계휴가").contains(type)
             ? BigDecimal.ONE
             : Set.of("오전반차", "오후반차").contains(type) ? new BigDecimal("0.5") : BigDecimal.ZERO;
-        String unit = Set.of("오전반차", "오후반차", "공가(오전)", "공가(오후)").contains(type)
-            ? "HALF_DAY" : "FULL_DAY";
+        String unit = "조퇴".equals(type) ? "BOTH"
+            : Set.of("오전반차", "오후반차", "공가(오전)", "공가(오후)").contains(type)
+                ? "HALF_DAY" : "FULL_DAY";
         String payType = Set.of("병가", "무급휴가").contains(type) ? "UNPAID"
-            : "산재요양".equals(type) ? "SEPARATE" : "PAID";
+            : Set.of("산재요양", "조퇴").contains(type) ? "SEPARATE" : "PAID";
         String gender = Set.of("여성휴가", "출산전후휴가", "유산·사산휴가").contains(type) ? "FEMALE" : "ALL";
         boolean known = Set.of(
             "연차", "하계휴가", "오전반차", "오후반차", "공가", "공가(오전)", "공가(오후)",
             "경조", "대체휴무", "병가", "산재요양", "무급휴가", "배우자 출산휴가",
-            "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "육아휴직"
+            "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "육아휴직", "조퇴", "공상"
         ).contains(type);
         return new LeavePolicy(
             type, type, known, payType, deduction, unit,
             "배우자 출산휴가".equals(type) ? new BigDecimal("20") : null,
             null, "배우자 출산휴가".equals(type) ? 120 : null,
-            gender, false, "배우자 출산휴가".equals(type) ? 4 : null,
+            gender, Set.of("병가", "난임치료휴가").contains(type), "배우자 출산휴가".equals(type) ? 4 : null,
             true, DEFAULT_FROM, null, "시스템 기본 정책", null
         );
     }
 
     private Emp requireManager() {
         Emp editor = currentEmpProvider.getCurrentEmp();
-        if (!employeePermissionService.hasPermission(editor, EmployeePermissionService.LEAVE_ADMIN)) {
+        if (!employeePermissionService.hasPermission(editor, EmployeePermissionService.LEAVE_POLICY_ADMIN)) {
             throw BusinessException.forbidden("LEAVE_POLICY_MANAGE_FORBIDDEN", "휴가 정책 관리 권한이 없습니다.");
         }
         return editor;

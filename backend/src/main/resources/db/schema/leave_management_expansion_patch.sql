@@ -39,12 +39,8 @@ CREATE TABLE IF NOT EXISTS emp_permission (
 
 CREATE INDEX IF NOT EXISTS idx_emp_permission_active ON emp_permission(permission_code, active_yn, emp_id);
 
-INSERT INTO emp_permission (emp_id, permission_code, active_yn, reason)
-SELECT emp_id, permission_code, 'Y', '기본 권한자'
-FROM emp
-CROSS JOIN (VALUES ('LEAVE_ADMIN'), ('EMPLOYEE_ADMIN')) AS permissions(permission_code)
-WHERE login_id IN ('e0015', 'e7016')
-ON CONFLICT (emp_id, permission_code) DO UPDATE SET active_yn = 'Y', revoked_at = NULL, revoked_by = NULL;
+-- Initial and delegated authorities are assigned by leave_authority_policy_202608_patch.sql.
+-- Do not re-grant person-specific permissions whenever this historical patch is rerun.
 
 CREATE TABLE IF NOT EXISTS emp_employment_history (
     employment_history_id BIGSERIAL PRIMARY KEY,

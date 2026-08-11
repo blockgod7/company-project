@@ -75,6 +75,10 @@ public class ApprovalDraftService {
             .requester(requester)
             .build());
 
+        if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            leaveUsageService.assertRequiredEvidence(document, request.formDataJson());
+        }
+
         if (draft) {
             document.saveAsDraft();
             linePolicyService.createLines(document, request, false);
@@ -160,9 +164,10 @@ public class ApprovalDraftService {
             validateLeaveReceiver(request);
         }
         if (ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
-            leaveUsageService.assertSelectableLeaveDates(request.formDataJson());
+            leaveUsageService.assertSelectableLeaveDates(request.formDataJson(), requester);
             leaveUsageService.assertNoCompletedLeaveOverlap(requester, document.getApprovalId(), request.formDataJson());
             leaveUsageService.assertSufficientAnnualLeave(requester, document.getApprovalId(), request.formDataJson());
+            leaveUsageService.assertRequiredEvidence(document, request.formDataJson());
         }
         if (ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode())) {
             leaveUsageService.assertLeaveCancelTargetsApproved(requester, document.getApprovalId(), request.formDataJson());

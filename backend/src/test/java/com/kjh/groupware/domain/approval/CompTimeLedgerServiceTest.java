@@ -20,7 +20,6 @@ import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -58,14 +57,14 @@ class CompTimeLedgerServiceTest {
     }
 
     @Test
-    void grantDefaultsExpiryToEndOfNextMonthAndNotifiesEmployee() {
+    void grantDefaultsExpiryToEndOfWorkYearAndNotifiesEmployee() {
         LocalDate workDate = LocalDate.now();
         CompTimeCreditResponse response = service.grant(
             new CompTimeGrantRequest(employee.getEmpId(), workDate, BigDecimal.ONE, "휴일 근무", null),
             "127.0.0.1", "test"
         );
 
-        assertThat(response.expiresOn()).isEqualTo(YearMonth.from(workDate).plusMonths(1).atEndOfMonth());
+        assertThat(response.expiresOn()).isEqualTo(LocalDate.of(workDate.getYear(), 12, 31));
         assertThat(response.availableDays()).isEqualByComparingTo("1.0");
         verify(notificationService).notifyEmp(eq(employee.getEmpId()), eq("대체휴무 적립"), anyString(), eq("COMP_TIME"), eq(10L));
     }

@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AttachFileRepository extends JpaRepository<AttachFile, Long> {
 
     List<AttachFile> findByTargetTypeAndTargetIdAndDeletedYnOrderByFileIdAsc(String targetType, Long targetId, String deletedYn);
+    boolean existsByTargetTypeAndTargetIdAndDeletedYn(String targetType, Long targetId, String deletedYn);
 }

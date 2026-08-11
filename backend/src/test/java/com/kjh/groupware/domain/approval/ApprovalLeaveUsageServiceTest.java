@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.file.AttachFileRepository;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.math.BigDecimal;
@@ -30,6 +31,7 @@ class ApprovalLeaveUsageServiceTest {
     private final LeavePolicyService leavePolicyService = mock(LeavePolicyService.class);
     private final LeavePolicyOverrideService leavePolicyOverrideService = mock(LeavePolicyOverrideService.class);
     private final BereavementPolicyRepository bereavementPolicyRepository = mock(BereavementPolicyRepository.class);
+    private final AttachFileRepository attachFileRepository = mock(AttachFileRepository.class);
 
     private ApprovalLeaveUsageService service;
     private Emp requester;
@@ -64,7 +66,8 @@ class ApprovalLeaveUsageServiceTest {
             lifecycleCancellationRepository,
             leavePolicyService,
             leavePolicyOverrideService,
-            bereavementPolicyRepository
+            bereavementPolicyRepository,
+            attachFileRepository
         );
     }
 
@@ -106,6 +109,36 @@ class ApprovalLeaveUsageServiceTest {
     void weekendCannotBeSelected() {
         assertThatThrownBy(() -> service.assertSelectableLeaveDates(formData("2026-08-01", "연차")))
             .isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getCode()).isEqualTo("LEAVE_WEEKEND_NOT_ALLOWED"));
+    }
+
+    @Test
+    void sickLeaveRequiresAtLeastFourteenCalendarDays() {
+        assertThatThrownBy(() -> service.assertSelectableLeaveDates(formData("2026-08-03", "병가")))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("SICK_LEAVE_MINIMUM_PERIOD"));
+    }
+
+    @Test
+    void unpaidLeaveIsBlockedWhenEffectiveAnnualBalanceIsTenOrMore() {
+        assertThatThrownBy(() -> service.assertSelectableLeaveDates(formData("2026-08-03", "무급휴가"), requester))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("LEAVE_REASON_REQUIRED"));
+
+        String withReason = "{\"fields\":{\"leaveReason\":\"개인 사정\",\"leaveSelectionsJson\":"
+            + new ObjectMapper().valueToTree("[{\"date\":\"2026-08-03\",\"type\":\"무급휴가\",\"days\":0}]") + "}}";
+        assertThatThrownBy(() -> service.assertSelectableLeaveDates(withReason, requester))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("UNPAID_LEAVE_ANNUAL_BALANCE_NOT_ELIGIBLE"));
+    }
+
+    @Test
+    void requiredLeaveEvidenceChecksAttachmentPresenceOnly() {
+        ApprovalDocument draft = document(301L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_DRAFT, formData("2026-08-03", "병가"));
+
+        assertThatThrownBy(() -> service.assertRequiredEvidence(draft, draft.getFormDataJson()))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("LEAVE_EVIDENCE_ATTACHMENT_REQUIRED"));
     }
 
     @Test

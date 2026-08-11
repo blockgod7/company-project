@@ -13,6 +13,7 @@ public record EmpResponse(
     String deptName,
     String positionName,
     String jobTitle,
+    String workCategory,
     String roleCode,
     String status
 ) {
@@ -29,6 +30,7 @@ public record EmpResponse(
             emp.getDept() == null ? null : emp.getDept().getDeptName(),
             emp.getPositionName(),
             emp.getJobTitle(),
+            emp.getWorkCategory(),
             emp.getRoleCode(),
             emp.getStatus()
         );

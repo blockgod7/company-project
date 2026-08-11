@@ -53,6 +53,7 @@ export type ManagedEmployee = {
   rehireDate: string | null;
   employmentStartDate: string;
   employmentType: "REGULAR" | "CONTRACT";
+  workCategory: "MANAGEMENT" | "FIELD";
   contractStartDate: string | null;
   contractEndDate: string | null;
   status: "ACTIVE" | "LEAVE" | "RETIRED";
@@ -138,6 +139,7 @@ export type Employee = {
   deptName: string | null;
   positionName: string | null;
   jobTitle: string | null;
+  workCategory: "MANAGEMENT" | "FIELD";
   roleCode: string;
   status: string;
 };

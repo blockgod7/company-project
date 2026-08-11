@@ -147,6 +147,7 @@ $requiredColumns = @(
     @{ Table = "approval_delegation"; Column = "source_approval_id" },
     @{ Table = "emp"; Column = "gender_code" },
     @{ Table = "emp"; Column = "employment_type" },
+    @{ Table = "emp"; Column = "work_category" },
     @{ Table = "emp"; Column = "account_status" },
     @{ Table = "emp_annual_leave"; Column = "auto_calculated_days" },
     @{ Table = "emp_annual_leave"; Column = "final_days" },
@@ -182,6 +183,45 @@ foreach ($item in $requiredColumns) {
     $sql = "SELECT CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '$($item.Table)' AND column_name = '$($item.Column)') THEN 'ok' ELSE 'missing' END;"
     Assert-Equals "column $($item.Table).$($item.Column) exists" (Invoke-Scalar $sql) "ok"
 }
+
+Assert-Equals "managed permission codes are valid" (Invoke-Scalar @"
+SELECT COUNT(*)
+FROM emp_permission
+WHERE permission_code NOT IN (
+    'FULL_ADMIN', 'LEAVE_ADMIN', 'LEAVE_POLICY_ADMIN',
+    'EMPLOYEE_ADMIN', 'WORK_CATEGORY_ADMIN', 'ACCOUNT_ADMIN'
+);
+"@) "0"
+
+Assert-Equals "removed leave types are inactive" (Invoke-Scalar @"
+SELECT COUNT(*) FROM leave_policy
+WHERE encode(convert_to(leave_type, 'UTF8'), 'hex') IN (
+    'ec9e90eb8580eb8f8cebb484ed9cb4eab080',
+    'ed8ab9ebb384ec9ca0eab889ed9cb4eab080',
+    'eab080eca1b1eb8f8cebb484ed9cb4eab080'
+) AND active_yn = 'Y';
+"@) "0"
+
+Assert-Equals "required leave evidence policies are enabled" (Invoke-Scalar @"
+SELECT COUNT(*) FROM leave_policy
+WHERE encode(convert_to(leave_type, 'UTF8'), 'hex') IN (
+    'ebb391eab080', 'eb829cec9e84ecb998eba38ced9cb4eab080'
+) AND evidence_required_yn <> 'Y';
+"@) "0"
+
+Assert-Equals "new early-leave and occupational-accident policies exist" (Invoke-Scalar @"
+SELECT COUNT(DISTINCT leave_type) FROM leave_policy
+WHERE encode(convert_to(leave_type, 'UTF8'), 'hex') IN ('eca1b0ed87b4', 'eab3b5ec8381') AND active_yn = 'Y';
+"@) "2"
+
+Assert-Equals "compensatory-time credits expire at occurrence-year end" (Invoke-Scalar @"
+SELECT COUNT(*) FROM comp_time_credit
+WHERE expires_on <> make_date(EXTRACT(YEAR FROM work_date)::int, 12, 31);
+"@) "0"
+
+Assert-Equals "bereavement childbirth options are inactive" (Invoke-Scalar @"
+SELECT COUNT(*) FROM bereavement_policy WHERE event_type = 'BIRTH' AND active_yn = 'Y';
+"@) "0"
 
 $unlinkedLeaveCancelSql = @"
 WITH cancel_selections AS (

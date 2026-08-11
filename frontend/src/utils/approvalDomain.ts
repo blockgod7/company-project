@@ -135,6 +135,7 @@ export const LEAVE_TYPE_OPTIONS = [
   "연차",
   "오전반차",
   "오후반차",
+  "조퇴",
   "하계휴가",
   "공가",
   "공가(오전)",
@@ -142,6 +143,7 @@ export const LEAVE_TYPE_OPTIONS = [
   "경조",
   "대체휴무",
   "병가",
+  "공상",
   "산재요양",
   "무급휴가",
   "배우자 출산휴가",
@@ -758,7 +760,10 @@ export function leaveRequestContent(values: Record<string, string>) {
     `신청기간: ${leaveDateRangeText(values)}`,
     `신청구분: ${values.leaveType ?? "-"}`,
     `연차 사용일수: ${formatDayValue(values.annualLeaveDays ?? values.days)}일`,
-    `신청 후 잔여 연차일수: ${formatDayValue(values.remainingAnnualDays)}일`
+    `신청 후 잔여 연차일수: ${formatDayValue(values.remainingAnnualDays)}일`,
+    values.leaveReason ? `신청 사유: ${values.leaveReason}` : "",
+    values.earlyLeaveStartTime ? `조퇴 시작: ${values.earlyLeaveStartTime} (${values.earlyLeavePayType ?? ""})` : "",
+    values.multipleBirthYn === "Y" ? "배우자 출산: 다태아" : ""
   ].filter(Boolean).join("\n");
 }
 

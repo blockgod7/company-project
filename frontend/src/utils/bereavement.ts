@@ -12,7 +12,6 @@ export type BereavementOption = {
 
 export const BEREAVEMENT_EVENT_TYPES: BereavementCatalogItem[] = [
   { code: "MARRIAGE", label: "결혼" },
-  { code: "BIRTH", label: "출산" },
   { code: "DEATH", label: "사망" }
 ];
 

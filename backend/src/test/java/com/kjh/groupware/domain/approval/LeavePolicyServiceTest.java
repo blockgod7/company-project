@@ -52,7 +52,7 @@ class LeavePolicyServiceTest {
     void removedLeaveTypeCannotBeReactivated() {
         Emp manager = mock(Emp.class);
         when(current.getCurrentEmp()).thenReturn(manager);
-        when(permissions.hasPermission(manager, EmployeePermissionService.LEAVE_ADMIN)).thenReturn(true);
+        when(permissions.hasPermission(manager, EmployeePermissionService.LEAVE_POLICY_ADMIN)).thenReturn(true);
         LeavePolicyRequest request = new LeavePolicyRequest(
             "특별유급휴가", "특별유급휴가", true, "PAID", BigDecimal.ZERO, "FULL_DAY",
             null, null, null, "ALL", false, null, true,
