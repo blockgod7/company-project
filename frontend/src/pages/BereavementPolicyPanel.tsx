@@ -31,6 +31,7 @@ export function BereavementPolicyPanel() {
   const [to, setTo] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
   async function load() {
     try {
@@ -38,6 +39,8 @@ export function BereavementPolicyPanel() {
       setError("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "경조 기준표를 불러오지 못했습니다.");
+    } finally {
+      setLoaded(true);
     }
   }
 
@@ -83,6 +86,7 @@ export function BereavementPolicyPanel() {
         <label className="wide">변경 사유<input required value={reason} onChange={(event) => setReason(event.target.value)} /></label>
         <div className="actions wide"><button type="submit">기준 등록</button></div>
       </form>
+      {loaded && !items.length && !error && <p className="error">등록된 경조 기준이 없습니다. 회사 규정에 따라 유형·관계별 허용일수와 시행일을 등록해야 경조휴가를 신청할 수 있습니다.</p>}
       <div className="table-wrap"><table><thead><tr><th>유형</th><th>관계</th><th>일수/급여</th><th>증빙</th><th>시행기간</th><th>상태/사유</th></tr></thead><tbody>{items.map((policy) => <tr key={policy.policyId}><td>{bereavementLabel(BEREAVEMENT_EVENT_TYPES, policy.eventType)}</td><td>{bereavementLabel(BEREAVEMENT_RELATIONS, policy.familyRelation)}</td><td>{policy.allowedDays}일 · {policy.payType === "PAID" ? "유급" : "무급"}</td><td>{policy.evidenceRequired ? "필수" : "선택"}</td><td>{policy.effectiveFrom} ~ {policy.effectiveTo ?? "계속"}</td><td>{policy.active ? "사용" : "중지"} · {policy.changeReason}</td></tr>)}</tbody></table></div>
     </section>
   );

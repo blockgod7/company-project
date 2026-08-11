@@ -33,6 +33,7 @@ import { Empty, EmptyDetail } from "../components/Empty";
 import { DetailPage, ListSummary, Toolbar, TwoPane } from "../components/PageLayout";
 import { uploadAttachments } from "../utils/attachments";
 import type { DraftAttachment } from "../utils/attachments";
+import { BEREAVEMENT_EVENT_TYPES } from "../utils/bereavement";
 import type { BereavementOption } from "../utils/bereavement";
 import {
   approvalProgress,
@@ -494,24 +495,34 @@ function LeaveConditionalDetails({ selections, values, compTimeSummary, onChange
   const needsReason = ["무급휴가", "특별유급휴가", "공가", "공가(오전)", "공가(오후)"].some((type) => types.has(type));
   const [bereavementOptions, setBereavementOptions] = useState<BereavementOption[]>([]);
   const [bereavementError, setBereavementError] = useState("");
-  const eventOptions = Array.from(new Map(bereavementOptions.map((item) => [item.eventType, item.eventTypeLabel])).entries());
   const relationOptions = bereavementOptions.filter((item) => item.eventType === values.familyEventType);
   useEffect(() => {
-    if (!types.has("경조")) return;
+    if (!types.has("경조")) {
+      setBereavementOptions([]);
+      setBereavementError("");
+      return;
+    }
     const firstDate = selections.filter((item) => item.type === "경조").map((item) => item.date).sort()[0];
     if (!firstDate) return;
+    let active = true;
     void api<BereavementOption[]>(`/bereavement-policies/options?date=${firstDate}`)
       .then((options) => {
+        if (!active) return;
         setBereavementOptions(options);
-        setBereavementError(options.length ? "" : "해당 날짜에 적용되는 경조휴가 기준이 없습니다. 휴가관리자에게 문의해 주세요.");
+        setBereavementError(options.length ? "" : "해당 날짜에 적용되는 경조휴가 기준이 없습니다. 휴가관리자가 ‘휴가정책 > 경조 유형·관계별 기준표’에서 허용일수와 시행일을 등록해야 합니다.");
       })
-      .catch((caught) => setBereavementError(caught instanceof Error ? caught.message : "경조휴가 기준을 불러오지 못했습니다."));
+      .catch((caught) => {
+        if (!active) return;
+        setBereavementOptions([]);
+        setBereavementError(caught instanceof Error ? caught.message : "경조휴가 기준을 불러오지 못했습니다.");
+      });
+    return () => { active = false; };
   }, [selections.map((item) => `${item.date}:${item.type}`).join("|")]);
   if (!selections.length || (!needsReason && !["병가", "산재요양", "배우자 출산휴가", "출산전후휴가", "여성휴가", "대체휴무", "경조"].some((type) => types.has(type)))) return null;
   return <section className="leave-web-card leave-details"><div className="leave-section-title"><div><FileText size={20} /><div><h3>선택 날짜 상세</h3><p>선택한 휴가에 필요한 항목만 표시됩니다.</p></div></div></div><div className="leave-policy-badges">{(types.has("병가") || types.has("무급휴가")) && <span className="unpaid">무급 · 연차 미차감</span>}{["특별유급휴가", "공가", "공가(오전)", "공가(오후)", "경조", "여성휴가", "대체휴무", "배우자 출산휴가", "출산전후휴가"].some((type) => types.has(type)) && <span>유급 · 연차 미차감</span>}{types.has("여성휴가") && <span>월 1회 · 종일 사용</span>}{types.has("산재요양") && <span>연차 미차감 · 산재 처리 별도 확인</span>}</div><div className="leave-details-grid">
     {needsReason && <label className="wide">구체적인 신청 사유 <b>필수</b><textarea required value={values.leaveReason ?? ""} onChange={(event) => onChange({ leaveReason: event.target.value })} /></label>}
     {types.has("병가") && <label className="wide">병가 증빙 <small>선택사항 · 상단 첨부파일에서 등록</small><input readOnly value="증빙 없이도 상신할 수 있습니다." /></label>}
-    {types.has("경조") && <><label>경조 유형<select required value={values.familyEventType ?? ""} onChange={(event) => onChange({ familyEventType: event.target.value, familyRelation: "" })}><option value="">선택</option>{eventOptions.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label><label>대상 관계<select required disabled={!values.familyEventType} value={values.familyRelation ?? ""} onChange={(event) => onChange({ familyRelation: event.target.value })}><option value="">선택</option>{relationOptions.map((item) => <option key={`${item.eventType}-${item.familyRelation}`} value={item.familyRelation}>{item.familyRelationLabel} · {item.allowedDays}일 · {item.payType === "PAID" ? "유급" : "무급"}{item.evidenceRequired ? " · 증빙필수" : ""}</option>)}</select></label>{bereavementError && <p className="wide error">{bereavementError}</p>}</>}
+    {types.has("경조") && <><label>경조 유형<select required value={values.familyEventType ?? ""} onChange={(event) => onChange({ familyEventType: event.target.value, familyRelation: "" })}><option value="">선택</option>{BEREAVEMENT_EVENT_TYPES.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label><label>대상 관계<select required disabled={!values.familyEventType || !relationOptions.length} value={values.familyRelation ?? ""} onChange={(event) => onChange({ familyRelation: event.target.value })}><option value="">{values.familyEventType && !relationOptions.length ? "등록된 기준 없음" : "선택"}</option>{relationOptions.map((item) => <option key={`${item.eventType}-${item.familyRelation}`} value={item.familyRelation}>{item.familyRelationLabel} · {item.allowedDays}일 · {item.payType === "PAID" ? "유급" : "무급"}{item.evidenceRequired ? " · 증빙필수" : ""}</option>)}</select></label>{bereavementError && <p className="wide error">{bereavementError}</p>}</>}
     {types.has("산재요양") && <><label>예상 휴업 시작일<input type="date" value={values.accidentExpectedStartDate ?? ""} onChange={(event) => onChange({ accidentExpectedStartDate: event.target.value })} /></label><label>예상 휴업 종료일<input type="date" value={values.accidentExpectedEndDate ?? ""} onChange={(event) => onChange({ accidentExpectedEndDate: event.target.value })} /></label><label className="wide">산재 접수정보<input value={values.accidentReceiptInfo ?? ""} onChange={(event) => onChange({ accidentReceiptInfo: event.target.value })} /></label></>}
     {(types.has("배우자 출산휴가") || types.has("출산전후휴가")) && <><label>출산 예정일<input type="date" value={values.expectedBirthDate ?? ""} onChange={(event) => onChange({ expectedBirthDate: event.target.value })} /></label><label>실제 출산일 <small>출산 후 확정 가능</small><input type="date" value={values.actualBirthDate ?? ""} onChange={(event) => onChange({ actualBirthDate: event.target.value })} /></label>{types.has("배우자 출산휴가") && <div className="wide leave-comp-time-note"><strong>법정 한도 자동 확인</strong><span>유급 20일 · 기존 사용/결재 중 포함 · 3회 분할(총 4번) · 법정 사용기간을 상신 시 다시 검사합니다.</span></div>}</>}
     {types.has("대체휴무") && <div className="wide leave-comp-time-note"><strong>대체휴무 사용 가능 {formatDayValue(compTimeSummary?.availableDays ?? 0)}일</strong><span>주말·공휴일 대체근무 적립분 중 만료일이 가까운 건부터 자동 사용합니다.</span></div>}
