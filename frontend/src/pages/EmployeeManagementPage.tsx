@@ -8,13 +8,13 @@ type DeptOption = { deptId: number; deptName: string };
 type TemporaryPassword = { loginId: string; temporaryPassword: string; expiresAt: string };
 type LeaveImpact = { affectedDateCount: number; items: { approvalId: number; documentNo: string | null; status: string; date: string; leaveType: string }[] };
 type EmployeeForm = {
-  empNo: string; empName: string; genderCode: "MALE" | "FEMALE"; email: string; phone: string;
+  empNo: string; empName: string; genderCode: "MALE" | "FEMALE"; email: string; phone: string; extensionNumber: string;
   deptId: string; positionName: string; jobTitle: string; managerEmpId: string; hireDate: string;
   employmentType: "REGULAR" | "CONTRACT"; contractStartDate: string; contractEndDate: string;
 };
 
 const EMPTY_FORM: EmployeeForm = {
-  empNo: "", empName: "", genderCode: "MALE", email: "", phone: "", deptId: "",
+  empNo: "", empName: "", genderCode: "MALE", email: "", phone: "", extensionNumber: "", deptId: "",
   positionName: "", jobTitle: "", managerEmpId: "", hireDate: new Date().toISOString().slice(0, 10),
   employmentType: "REGULAR", contractStartDate: "", contractEndDate: ""
 };
@@ -30,7 +30,7 @@ function requestBody(form: EmployeeForm, includeEmpNo: boolean) {
   return {
     ...(includeEmpNo ? { empNo: form.empNo.trim() } : {}),
     empName: form.empName.trim(), genderCode: form.genderCode,
-    email: form.email.trim() || null, phone: form.phone.trim() || null,
+    email: form.email.trim() || null, phone: form.phone.trim() || null, extensionNumber: form.extensionNumber.trim() || null,
     deptId: form.deptId ? Number(form.deptId) : null,
     positionName: form.positionName.trim() || null, jobTitle: form.jobTitle.trim() || null,
     managerEmpId: form.managerEmpId ? Number(form.managerEmpId) : null,
@@ -81,7 +81,7 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
     setEditing(employee);
     setForm({
       empNo: employee.empNo, empName: employee.empName, genderCode: employee.genderCode,
-      email: employee.email ?? "", phone: employee.phone ?? "", deptId: employee.deptId ? String(employee.deptId) : "",
+      email: employee.email ?? "", phone: employee.phone ?? "", extensionNumber: employee.extensionNumber ?? "", deptId: employee.deptId ? String(employee.deptId) : "",
       positionName: employee.positionName ?? "", jobTitle: employee.jobTitle ?? "",
       managerEmpId: employee.managerEmpId ? String(employee.managerEmpId) : "", hireDate: employee.hireDate,
       employmentType: employee.employmentType, contractStartDate: employee.contractStartDate ?? "",
@@ -242,7 +242,8 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
           <label>직무<input value={form.jobTitle} onChange={(event) => setForm({ ...form, jobTitle: event.target.value })} /></label>
           <label>상급자<select value={form.managerEmpId} onChange={(event) => setForm({ ...form, managerEmpId: event.target.value })}><option value="">미지정</option>{employees.filter((item) => item.status === "ACTIVE" && item.empId !== editing?.empId).map((item) => <option key={item.empId} value={item.empId}>{item.empName} · {item.deptName ?? "-"}</option>)}</select></label>
           <label>이메일<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-          <label>연락처<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
+          <label>휴대폰 번호<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
+          <label>내선번호<input value={form.extensionNumber} onChange={(event) => setForm({ ...form, extensionNumber: event.target.value })} /></label>
           <label>고용 형태<select value={form.employmentType} onChange={(event) => setForm({ ...form, employmentType: event.target.value as EmployeeForm["employmentType"] })}><option value="REGULAR">정규직</option><option value="CONTRACT">계약직</option></select></label>
           {form.employmentType === "CONTRACT" && <><label>계약 시작일<input type="date" value={form.contractStartDate} onChange={(event) => setForm({ ...form, contractStartDate: event.target.value })} /></label><label>계약 종료일<input type="date" value={form.contractEndDate} onChange={(event) => setForm({ ...form, contractEndDate: event.target.value })} /></label></>}
         </div>

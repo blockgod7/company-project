@@ -16,6 +16,9 @@ public class AuditLogGlobalSearchProvider implements GlobalSearchProvider {
     private final AuditLogRepository auditLogRepository;
 
     @Override
+    public String code() { return "audit"; }
+
+    @Override
     public int order() {
         return 90;
     }
@@ -23,7 +26,7 @@ public class AuditLogGlobalSearchProvider implements GlobalSearchProvider {
     @Override
     public GlobalSearchGroupResponse search(String keyword, int limit, Emp currentEmp) {
         if (!"ADMIN".equals(currentEmp.getRoleCode())) {
-            return new GlobalSearchGroupResponse("admin", "관리자", 0, List.of());
+            return new GlobalSearchGroupResponse("audit", "감사 로그", 0, List.of());
         }
         Page<AuditLog> page = auditLogRepository.searchGlobal(keyword, PageRequest.of(0, limit));
         List<GlobalSearchItemResponse> items = page.getContent().stream()
@@ -39,6 +42,6 @@ public class AuditLogGlobalSearchProvider implements GlobalSearchProvider {
                 log.getCreatedAt()
             ))
             .toList();
-        return new GlobalSearchGroupResponse("admin", "관리자", page.getTotalElements(), items);
+        return new GlobalSearchGroupResponse("audit", "감사 로그", page.getTotalElements(), items);
     }
 }

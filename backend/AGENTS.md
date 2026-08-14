@@ -17,13 +17,17 @@
 
 ## Work Guidance
 - `auth` owns login, login options, current-user lookup, token refresh, and logout API behavior.
+- Concurrent attempts for the same login ID are serialized with the PostgreSQL transaction advisory lock in `EmpRepository.acquireLoginLock`; preserve this ordering before employee state and refresh-token writes.
 - `approval` owns electronic approval documents, lines, templates, delegations, operation settings, leave balances, managed holidays, post-approval leave exclusions, retention/audit flows, PDFs, and related workflow APIs.
 - `board` and `notice` own board and notice APIs.
 - `file` owns upload/download metadata and file access behavior.
 - `pdm` owns drawing-management folders, documents, revisions, and related actions.
 - `equipment` owns equipment masters, abnormal reports, assignment, completion-approval links, and equipment history APIs.
 - `search` owns global search APIs.
+- `menu` owns effective portal menus and per-employee menu preferences; menu visibility must be decided server-side before responses are returned.
 - `emp`, `dept`, `role`, `code`, `notification`, and `log` own organization, role/code, notification, and audit-support APIs.
+- `ApprovalPdfCanvas` owns reusable PDFBox drawing primitives; `ApprovalPdfService` owns PDF lifecycle, `ApprovalPdfRenderer` selects document renderers, and the standard/equipment renderers plus `ApprovalPdfRenderSupport` own layout generation.
+- `PdmPermissionPolicy` owns PDM access and delegated department-manager scope checks; `PdmService` owns drawing/revision/download workflows while `PdmFolderService` owns folder-path persistence and ordering.
 - Keep backend DTO and frontend type changes coordinated when API shapes change.
 
 ## Verification

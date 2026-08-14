@@ -184,15 +184,29 @@ AND NOT EXISTS (
       AND er.use_yn = 'Y'
 );
 
-INSERT INTO menu (menu_name, menu_path, parent_menu_id, sort_order)
+INSERT INTO menu (menu_code, menu_name, menu_path, parent_menu_id, sort_order, portal_code, icon_key, implementation_status, required_permission_code, searchable_yn, use_yn)
 VALUES
-    ('대시보드', '/', NULL, 1),
-    ('공지사항', '/notices', NULL, 2),
-    ('게시판', '/boards', NULL, 3),
-    ('조직도', '/organization', NULL, 4),
-    ('알림', '/notifications', NULL, 5),
-    ('감사 로그', '/admin/audit-logs', NULL, 99)
-ON CONFLICT DO NOTHING;
+    ('EMPLOYEE_HOME', '홈', '/portal/employee/home', NULL, 1, 'EMPLOYEE', 'home', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('NOTICES', '공지사항', '/portal/employee/notices', NULL, 2, 'EMPLOYEE', 'book-open', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('BOARDS', '게시판', '/portal/employee/boards', NULL, 3, 'EMPLOYEE', 'message-square', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('APPROVALS', '전자결재', '/portal/employee/approvals', NULL, 4, 'EMPLOYEE', 'clipboard-check', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('PDM', '도면관리', '/planned-features/PDM', NULL, 5, 'EMPLOYEE', 'folder-kanban', 'PLANNED', NULL, 'Y', 'Y'),
+    ('EQUIPMENT', '설비관리', '/planned-features/EQUIPMENT', NULL, 6, 'EMPLOYEE', 'wrench', 'PLANNED', NULL, 'Y', 'Y'),
+    ('ORGANIZATION', '조직도', '/portal/employee/organization', NULL, 7, 'EMPLOYEE', 'building-2', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('NOTIFICATIONS', '알림', '/portal/employee/notifications', NULL, 8, 'EMPLOYEE', 'bell', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('ADMIN_HOME', '관리 홈', '/portal/admin/home', NULL, 1, 'ADMIN', 'shield', 'IMPLEMENTED', 'ADMIN_PORTAL', 'Y', 'Y'),
+    ('EMPLOYEES', '직원 관리', '/portal/admin/employees', NULL, 2, 'ADMIN', 'user-cog', 'IMPLEMENTED', 'EMPLOYEE_MANAGE', 'Y', 'Y'),
+    ('AUDIT_LOGS', '감사 로그', '/portal/admin/audit-logs', NULL, 3, 'ADMIN', 'scroll-text', 'IMPLEMENTED', 'SYSTEM_ADMIN', 'Y', 'Y')
+ON CONFLICT (menu_code) DO UPDATE SET
+    menu_name = EXCLUDED.menu_name,
+    menu_path = EXCLUDED.menu_path,
+    sort_order = EXCLUDED.sort_order,
+    portal_code = EXCLUDED.portal_code,
+    icon_key = EXCLUDED.icon_key,
+    implementation_status = EXCLUDED.implementation_status,
+    required_permission_code = EXCLUDED.required_permission_code,
+    searchable_yn = EXCLUDED.searchable_yn,
+    use_yn = EXCLUDED.use_yn;
 
 INSERT INTO board (board_code, board_name, dept_id, use_yn, created_by)
 VALUES

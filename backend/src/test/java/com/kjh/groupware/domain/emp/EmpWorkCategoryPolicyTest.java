@@ -21,7 +21,7 @@ class EmpWorkCategoryPolicyTest {
         emp.updateWorkCategory("MANAGEMENT");
 
         emp.updateProfile(
-            "테스트", "MALE", null, null, null, "사원", null, null,
+            "테스트", "MALE", null, null, null, null, "사원", null, null,
             LocalDate.of(2024, 1, 1), "REGULAR", null, null
         );
 
@@ -30,7 +30,7 @@ class EmpWorkCategoryPolicyTest {
 
     private Emp employee(String positionName) {
         return Emp.pending(
-            "TEST-" + positionName, "테스트", "MALE", null, null, null,
+            "TEST-" + positionName, "테스트", "MALE", null, null, null, null,
             positionName, null, null, LocalDate.of(2024, 1, 1), "REGULAR", null, null
         );
     }

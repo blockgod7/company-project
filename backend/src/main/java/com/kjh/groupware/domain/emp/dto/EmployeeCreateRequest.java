@@ -13,6 +13,7 @@ public record EmployeeCreateRequest(
     @NotBlank @Pattern(regexp = "MALE|FEMALE") String genderCode,
     @Email @Size(max = 150) String email,
     @Size(max = 50) String phone,
+    @Size(max = 20) String extensionNumber,
     Long deptId,
     @Size(max = 50) String positionName,
     @Size(max = 50) String jobTitle,

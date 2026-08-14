@@ -1,19 +1,57 @@
-import { LogOut, Search, Shield, UserCog, UserRound } from "lucide-react";
-import type { FormEvent, ReactNode } from "react";
+import {
+  Bell,
+  BookOpen,
+  Building2,
+  ChevronDown,
+  Circle,
+  ClipboardCheck,
+  FolderKanban,
+  Home,
+  LogOut,
+  MessageSquare,
+  ScrollText,
+  Search,
+  Settings2,
+  Shield,
+  UserCog,
+  UserRound,
+  Wrench,
+  type LucideIcon
+} from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import schunkLogo from "../assets/schunk-carbon-logo.png";
+import { useEffectiveMenus } from "../hooks/useEffectiveMenus";
+import type { PortalMode } from "../navigation";
 import type { User } from "../types";
-import { menu, routeLabels, type Route } from "../utils/approvalDomain";
+import { routeLabels, type Route } from "../utils/approvalDomain";
+import { MenuSettingsDialog } from "./MenuSettingsDialog";
+
+const menuIcons: Record<string, LucideIcon> = {
+  home: Home,
+  "book-open": BookOpen,
+  "message-square": MessageSquare,
+  "clipboard-check": ClipboardCheck,
+  "folder-kanban": FolderKanban,
+  wrench: Wrench,
+  "building-2": Building2,
+  bell: Bell,
+  shield: Shield,
+  "user-cog": UserCog,
+  "scroll-text": ScrollText
+};
 
 type AppShellProps = {
   user: User;
   route: Route;
-  isAdmin: boolean;
-  canViewPreview: boolean;
+  portal: PortalMode;
+  currentPath: string;
+  canUseAdminPortal: boolean;
   searchKeyword: string;
   searchLoading: boolean;
   onSearchKeywordChange: (keyword: string) => void;
   onSearchSubmit: (event?: FormEvent) => void;
   onNavigate: (route: Route) => void;
+  onNavigatePath: (path: string) => void;
   onLogout: () => void;
   children: ReactNode;
 };
@@ -21,16 +59,45 @@ type AppShellProps = {
 export function AppShell({
   user,
   route,
-  isAdmin,
-  canViewPreview,
+  portal,
+  currentPath,
+  canUseAdminPortal,
   searchKeyword,
   searchLoading,
   onSearchKeywordChange,
   onSearchSubmit,
   onNavigate,
+  onNavigatePath,
   onLogout,
   children
 }: AppShellProps) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [portalSwitcherOpen, setPortalSwitcherOpen] = useState(false);
+  const portalSwitcherRef = useRef<HTMLDivElement>(null);
+  const effectiveMenus = useEffectiveMenus(user.empId, portal);
+  const visibleMenus = effectiveMenus.menus.filter((item) => !item.hidden);
+
+  useEffect(() => {
+    if (!portalSwitcherOpen) return;
+    function closePortalSwitcher(event: MouseEvent) {
+      if (!portalSwitcherRef.current?.contains(event.target as Node)) setPortalSwitcherOpen(false);
+    }
+    function closePortalSwitcherOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setPortalSwitcherOpen(false);
+    }
+    document.addEventListener("mousedown", closePortalSwitcher);
+    document.addEventListener("keydown", closePortalSwitcherOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closePortalSwitcher);
+      document.removeEventListener("keydown", closePortalSwitcherOnEscape);
+    };
+  }, [portalSwitcherOpen]);
+
+  function switchPortal(nextPortal: PortalMode) {
+    setPortalSwitcherOpen(false);
+    onNavigate(nextPortal === "employee" ? "dashboard" : "adminDashboard");
+  }
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -46,23 +113,33 @@ export function AppShell({
           <strong>{user.empName}</strong>
           <span>{user.deptName ?? "소속 미정"} · {user.roleCode}</span>
         </div>
-        <nav className="side-nav">
-          {menu.filter((item) => canViewPreview || (item.route !== "pdm" && item.route !== "equipment")).map((item) => {
-            const Icon = item.icon;
+        <nav className="side-nav" aria-label="주요 메뉴">
+          {effectiveMenus.loading && <span className="side-nav-status">메뉴 불러오는 중</span>}
+          {!effectiveMenus.loading && visibleMenus.map((item) => {
+            const Icon = menuIcons[item.iconKey ?? ""] ?? Circle;
+            const active = item.menuPath != null && (currentPath === item.menuPath || currentPath.startsWith(`${item.menuPath}/`));
             return (
-              <button key={item.route} className={route === item.route ? "side active" : "side"} onClick={() => onNavigate(item.route)}>
-                <Icon size={19} /> {item.label}
+              <button
+                key={item.menuCode}
+                className={active ? "side active" : "side"}
+                onClick={() => item.menuPath && onNavigatePath(item.menuPath)}
+                disabled={!item.menuPath}
+              >
+                <Icon size={19} />
+                <span>{item.menuName}</span>
+                {item.implementationStatus === "PLANNED" && <small>예정</small>}
               </button>
             );
           })}
-          {(user.permissions.includes("EMPLOYEE_ADMIN") || user.permissions.includes("WORK_CATEGORY_ADMIN")) && (
-            <button className={route === "employees" ? "side active" : "side"} onClick={() => onNavigate("employees")}>
-              <UserCog size={19} /> 직원 관리
-            </button>
+          {!effectiveMenus.loading && !effectiveMenus.error && visibleMenus.length === 0 && (
+            <span className="side-nav-status">표시할 메뉴가 없습니다. 메뉴 설정에서 숨김을 해제해 주세요.</span>
           )}
-          {isAdmin && (
-            <button className={route === "audit" ? "side active" : "side"} onClick={() => onNavigate("audit")}>
-              <Shield size={19} /> 감사 로그
+          {effectiveMenus.error && (
+            <span className="side-nav-error">메뉴를 불러오지 못했습니다.<small>{effectiveMenus.error}</small></span>
+          )}
+          {!effectiveMenus.loading && effectiveMenus.menus.length > 0 && (
+            <button type="button" className="side menu-settings-trigger" onClick={() => setSettingsOpen(true)}>
+              <Settings2 size={19} /> 메뉴 설정
             </button>
           )}
         </nav>
@@ -89,6 +166,43 @@ export function AppShell({
           </div>
           <div className="userbar">
             <Search size={17} />
+            {canUseAdminPortal && (
+              <div className="portal-switcher" ref={portalSwitcherRef}>
+                <button
+                  type="button"
+                  className="portal-current"
+                  aria-haspopup="menu"
+                  aria-expanded={portalSwitcherOpen}
+                  onClick={() => setPortalSwitcherOpen((open) => !open)}
+                >
+                  {portal === "admin" ? <Shield size={15} /> : <UserRound size={15} />}
+                  <span>{portal === "admin" ? "관리자 포털" : "임직원 포털"}</span>
+                  <ChevronDown size={14} className={portalSwitcherOpen ? "open" : ""} />
+                </button>
+                {portalSwitcherOpen && (
+                  <div className="portal-dropdown" role="menu" aria-label="포털 선택">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={portal === "employee" ? "active" : ""}
+                      onClick={() => switchPortal("employee")}
+                    >
+                      <UserRound size={16} />
+                      <span><strong>임직원 포털</strong><small>업무 및 사내 서비스</small></span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={portal === "admin" ? "active" : ""}
+                      onClick={() => switchPortal("admin")}
+                    >
+                      <Shield size={16} />
+                      <span><strong>관리자 포털</strong><small>권한별 관리 기능</small></span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <span>{user.empName}</span>
             <span className="role">{user.roleCode}</span>
             <button className="icon-button" onClick={onLogout} title="로그아웃">
@@ -98,6 +212,15 @@ export function AppShell({
         </header>
         {children}
       </div>
+      <MenuSettingsDialog
+        open={settingsOpen}
+        menus={effectiveMenus.menus}
+        saving={effectiveMenus.saving}
+        error={effectiveMenus.error}
+        onClose={() => setSettingsOpen(false)}
+        onSave={effectiveMenus.updatePreferences}
+        onReset={effectiveMenus.resetPreferences}
+      />
     </div>
   );
 }

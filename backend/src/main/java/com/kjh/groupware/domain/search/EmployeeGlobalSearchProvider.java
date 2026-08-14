@@ -15,6 +15,9 @@ public class EmployeeGlobalSearchProvider implements GlobalSearchProvider {
     private final EmpRepository empRepository;
 
     @Override
+    public String code() { return "employees"; }
+
+    @Override
     public int order() {
         return 50;
     }
@@ -30,8 +33,8 @@ public class EmployeeGlobalSearchProvider implements GlobalSearchProvider {
                 "organization",
                 emp.getEmpName(),
                 GlobalSearchText.join(emp.getDept() == null ? null : emp.getDept().getDeptName(), emp.getPositionName(), emp.getJobTitle()),
-                GlobalSearchText.join(emp.getEmpNo(), emp.getLoginId(), emp.getEmail()),
-                List.of("부서", emp.getRoleCode()),
+                GlobalSearchText.join(emp.getEmpNo(), emp.getEmail(), emp.getPhone(), emp.getExtensionNumber()),
+                List.of("ACTIVE"),
                 emp.getCreatedAt()
             ))
             .toList();

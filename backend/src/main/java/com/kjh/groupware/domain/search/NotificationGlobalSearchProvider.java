@@ -16,6 +16,9 @@ public class NotificationGlobalSearchProvider implements GlobalSearchProvider {
     private final NotificationRepository notificationRepository;
 
     @Override
+    public String code() { return "notifications"; }
+
+    @Override
     public int order() {
         return 60;
     }

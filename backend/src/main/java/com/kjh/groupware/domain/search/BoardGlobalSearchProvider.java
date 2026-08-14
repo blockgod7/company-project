@@ -16,6 +16,9 @@ public class BoardGlobalSearchProvider implements GlobalSearchProvider {
     private final BoardPostRepository boardPostRepository;
 
     @Override
+    public String code() { return "boards"; }
+
+    @Override
     public int order() {
         return 20;
     }

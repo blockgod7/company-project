@@ -41,6 +41,7 @@ public class AuthService {
     @Transactional
     public AuthenticatedLogin login(LoginRequest request, String ipAddress, String userAgent) {
         loginRateLimiter.assertAllowed(request.loginId(), ipAddress);
+        empRepository.acquireLoginLock(request.loginId());
         Emp emp = empRepository.findByLoginId(request.loginId())
             .orElseThrow(() -> {
                 loginRateLimiter.recordFailure(request.loginId(), ipAddress);

@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.emp;
 
 import com.kjh.groupware.domain.emp.dto.EmpResponse;
+import com.kjh.groupware.domain.emp.dto.EmployeeDirectoryResponse;
 import com.kjh.groupware.global.response.ApiResponse;
 import com.kjh.groupware.global.response.PageResponse;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,17 @@ public class EmpController {
         @RequestParam(required = false, defaultValue = "20") int size
     ) {
         return ApiResponse.ok(empQueryService.search(keyword, deptId, status, page, size));
+    }
+
+    @GetMapping("/directory")
+    public ApiResponse<PageResponse<EmployeeDirectoryResponse>> searchDirectory(
+        @RequestParam(required = false) String keyword,
+        @RequestParam(required = false) Long deptId,
+        @RequestParam(required = false, defaultValue = "ACTIVE") String status,
+        @RequestParam(required = false, defaultValue = "0") int page,
+        @RequestParam(required = false, defaultValue = "20") int size
+    ) {
+        return ApiResponse.ok(empQueryService.searchDirectory(keyword, deptId, status, page, size));
     }
 
     @GetMapping("/{empId}")

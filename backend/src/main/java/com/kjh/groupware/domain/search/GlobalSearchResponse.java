@@ -4,6 +4,7 @@ import java.util.List;
 
 public record GlobalSearchResponse(
     String keyword,
-    List<GlobalSearchGroupResponse> groups
+    List<GlobalSearchGroupResponse> groups,
+    List<String> failedProviders
 ) {
 }

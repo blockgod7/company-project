@@ -21,7 +21,8 @@
 - Update the closest owning AGENTS.md only when structure, contracts, commands, or durable workflow guidance changes.
 - Add child AGENTS.md files only at durable responsibility boundaries with distinct rules, commands, or ownership.
 - Use Windows/PowerShell commands for this repository unless the task states otherwise.
-- `.\start-web.ps1` starts the backend and frontend and opens a browser; run it only when runtime verification is intended.
+- `.\start-web.ps1` starts the current backend on port 8080 and frontend on `127.0.0.1:5174`; port 5173 remains available for the remote comparison project.
+- `.\stop-web.ps1` stops only the current-project process trees recorded by `start-web.ps1`; run startup scripts only when runtime verification is intended.
 - `graphify-out/GRAPH_REPORT.md` exists, but it was built from an older commit during this review; verify against current HEAD before relying on it.
 
 ## Verification

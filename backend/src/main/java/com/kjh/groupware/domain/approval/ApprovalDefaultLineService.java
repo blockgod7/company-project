@@ -235,6 +235,9 @@ public class ApprovalDefaultLineService {
             throw BusinessException.badRequest("DEFAULT_LINE_EMPTY", "At least one default approval line step is required");
         }
         Set<String> unique = new HashSet<>();
+        Set<Long> decisionIds = new HashSet<>();
+        Set<Long> receiverIds = new HashSet<>();
+        Set<Long> referenceIds = new HashSet<>();
         boolean hasApprover = false;
         for (ApprovalDefaultLineStepRequest step : steps) {
             if (step.approverEmpId() == null) {
@@ -244,6 +247,13 @@ public class ApprovalDefaultLineService {
             if (ApprovalLine.TYPE_APPROVAL.equals(lineType)) {
                 hasApprover = true;
             }
+            if (ApprovalLine.TYPE_AGREEMENT.equals(lineType) || ApprovalLine.TYPE_APPROVAL.equals(lineType)) {
+                decisionIds.add(step.approverEmpId());
+            } else if (ApprovalLine.TYPE_RECEIVER.equals(lineType)) {
+                receiverIds.add(step.approverEmpId());
+            } else if (ApprovalLine.TYPE_REFERENCE.equals(lineType)) {
+                referenceIds.add(step.approverEmpId());
+            }
             String key = lineType + ":" + step.approverEmpId();
             if (!unique.add(key)) {
                 throw BusinessException.badRequest("DEFAULT_LINE_DUPLICATED", "Default approval line contains duplicated assignees");
@@ -251,6 +261,9 @@ public class ApprovalDefaultLineService {
         }
         if (!hasApprover) {
             throw BusinessException.badRequest("DEFAULT_LINE_NO_APPROVER", "Default approval line must include at least one approver");
+        }
+        if (receiverIds.stream().anyMatch(empId -> decisionIds.contains(empId) || referenceIds.contains(empId))) {
+            throw BusinessException.badRequest("DEFAULT_LINE_RECEIVER_OVERLAP", "Receiver cannot also be an agreement, approval, or reference assignee");
         }
     }
 

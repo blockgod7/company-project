@@ -27,6 +27,30 @@ export type User = {
   mustChangePassword?: boolean;
 };
 
+export type EffectiveMenu = {
+  menuId: number;
+  menuCode: string;
+  menuName: string;
+  menuPath: string | null;
+  parentMenuCode: string | null;
+  portalCode: "EMPLOYEE" | "ADMIN";
+  iconKey: string | null;
+  implementationStatus: "IMPLEMENTED" | "PLANNED" | "DISABLED";
+  requiredPermissionCode: string | null;
+  defaultSortOrder: number;
+  effectiveSortOrder: number;
+  pinned: boolean;
+  hidden: boolean;
+  searchable: boolean;
+};
+
+export type MenuPreferenceItem = {
+  menuCode: string;
+  sortOrder: number;
+  pinned: boolean;
+  hidden: boolean;
+};
+
 export type LoginResponse = User & {
   accessToken: string;
   refreshToken: string | null;
@@ -41,6 +65,7 @@ export type ManagedEmployee = {
   genderCode: "MALE" | "FEMALE";
   email: string | null;
   phone: string | null;
+  extensionNumber: string | null;
   deptId: number | null;
   deptName: string | null;
   positionName: string | null;
@@ -135,6 +160,7 @@ export type Employee = {
   empName: string;
   email: string | null;
   phone: string | null;
+  extensionNumber: string | null;
   deptId: number | null;
   deptName: string | null;
   positionName: string | null;
@@ -142,6 +168,19 @@ export type Employee = {
   workCategory: "MANAGEMENT" | "FIELD";
   roleCode: string;
   status: string;
+};
+
+export type DirectoryEmployee = {
+  empId: number;
+  empNo: string;
+  empName: string;
+  email: string | null;
+  phone: string | null;
+  extensionNumber: string | null;
+  deptId: number | null;
+  deptName: string | null;
+  positionName: string | null;
+  jobTitle: string | null;
 };
 
 export type AuditLog = {
@@ -158,15 +197,16 @@ export type AuditLog = {
 };
 
 export type GlobalSearchItem = {
-  type: "APPROVAL" | "BOARD_POST" | "NOTICE" | "PDM_DRAWING" | "EMPLOYEE" | "NOTIFICATION" | "AUDIT_LOG";
+  type: "APPROVAL" | "BOARD_POST" | "NOTICE" | "PDM_DRAWING" | "EMPLOYEE" | "DEPARTMENT" | "MENU" | "NOTIFICATION" | "AUDIT_LOG";
   targetId: number;
   parentId: number | null;
-  route: "approvals" | "boards" | "notices" | "pdm" | "organization" | "notifications" | "audit";
+  route: "approvals" | "boards" | "notices" | "pdm" | "organization" | "menu" | "notifications" | "audit";
   title: string;
   summary: string | null;
   meta: string | null;
   badges: string[];
   occurredAt: string | null;
+  destinationPath: string | null;
 };
 
 export type GlobalSearchGroup = {
@@ -179,6 +219,7 @@ export type GlobalSearchGroup = {
 export type GlobalSearchResponse = {
   keyword: string;
   groups: GlobalSearchGroup[];
+  failedProviders: string[];
 };
 
 export type AttachFile = {

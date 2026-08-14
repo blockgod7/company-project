@@ -127,6 +127,8 @@ $requiredTables = @(
     "bereavement_policy",
     "scheduled_job_run",
     "board",
+    "menu",
+    "user_menu_preference",
     "equipment",
     "equipment_report",
     "equipment_migration_run",
@@ -149,6 +151,15 @@ $requiredColumns = @(
     @{ Table = "emp"; Column = "employment_type" },
     @{ Table = "emp"; Column = "work_category" },
     @{ Table = "emp"; Column = "account_status" },
+    @{ Table = "emp"; Column = "extension_number" },
+    @{ Table = "menu"; Column = "menu_code" },
+    @{ Table = "menu"; Column = "portal_code" },
+    @{ Table = "menu"; Column = "icon_key" },
+    @{ Table = "menu"; Column = "implementation_status" },
+    @{ Table = "menu"; Column = "required_permission_code" },
+    @{ Table = "menu"; Column = "searchable_yn" },
+    @{ Table = "user_menu_preference"; Column = "pinned_yn" },
+    @{ Table = "user_menu_preference"; Column = "hidden_yn" },
     @{ Table = "emp_annual_leave"; Column = "auto_calculated_days" },
     @{ Table = "emp_annual_leave"; Column = "final_days" },
     @{ Table = "approval_holiday"; Column = "source_type" },
@@ -183,6 +194,59 @@ foreach ($item in $requiredColumns) {
     $sql = "SELECT CASE WHEN EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '$($item.Table)' AND column_name = '$($item.Column)') THEN 'ok' ELSE 'missing' END;"
     Assert-Equals "column $($item.Table).$($item.Column) exists" (Invoke-Scalar $sql) "ok"
 }
+
+Assert-Equals "required portal menus are active" (Invoke-Scalar @"
+SELECT count(DISTINCT menu_code)
+FROM menu
+WHERE menu_code IN (
+    'EMPLOYEE_HOME', 'NOTICES', 'BOARDS', 'APPROVALS', 'PDM', 'EQUIPMENT',
+    'ORGANIZATION', 'NOTIFICATIONS', 'ADMIN_HOME', 'EMPLOYEES', 'AUDIT_LOGS'
+)
+AND use_yn = 'Y';
+"@) "11"
+
+Assert-Equals "portal menu metadata values are valid" (Invoke-Scalar @"
+SELECT count(*)
+FROM menu
+WHERE portal_code NOT IN ('EMPLOYEE', 'ADMIN')
+   OR implementation_status NOT IN ('IMPLEMENTED', 'PLANNED', 'DISABLED')
+   OR searchable_yn NOT IN ('Y', 'N');
+"@) "0"
+
+Assert-Equals "planned menus remain restricted metadata" (Invoke-Scalar @"
+SELECT count(*)
+FROM menu
+WHERE menu_code IN ('PDM', 'EQUIPMENT')
+  AND implementation_status = 'PLANNED'
+  AND portal_code = 'EMPLOYEE'
+  AND use_yn = 'Y';
+"@) "2"
+
+Assert-Equals "admin menus retain permission metadata" (Invoke-Scalar @"
+SELECT count(*)
+FROM menu
+WHERE (menu_code = 'ADMIN_HOME' AND required_permission_code = 'ADMIN_PORTAL')
+   OR (menu_code = 'EMPLOYEES' AND required_permission_code = 'EMPLOYEE_MANAGE')
+   OR (menu_code = 'AUDIT_LOGS' AND required_permission_code = 'SYSTEM_ADMIN');
+"@) "3"
+
+Assert-Equals "menu preferences have valid flags" (Invoke-Scalar @"
+SELECT count(*)
+FROM user_menu_preference
+WHERE pinned_yn NOT IN ('Y', 'N') OR hidden_yn NOT IN ('Y', 'N');
+"@) "0"
+
+$contactCoverage = Invoke-Scalar @"
+SELECT concat(
+    'employees=', count(*),
+    ', email=', count(*) FILTER (WHERE nullif(trim(email), '') IS NOT NULL),
+    ', phone=', count(*) FILTER (WHERE nullif(trim(phone), '') IS NOT NULL),
+    ', extension=', count(*) FILTER (WHERE nullif(trim(extension_number), '') IS NOT NULL)
+)
+FROM emp
+WHERE use_yn = 'Y';
+"@
+Write-Host "[INFO] active employee contact coverage: $contactCoverage"
 
 Assert-Equals "managed permission codes are valid" (Invoke-Scalar @"
 SELECT COUNT(*)

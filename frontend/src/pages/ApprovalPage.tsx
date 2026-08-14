@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowDown,
   ArrowUp,
   CalendarDays,
@@ -160,7 +160,7 @@ import type {
   PurchaseRequestItem
 } from "../utils/approvalDomain";
 import { formatDate } from "../utils/date";
-import { canViewPreviewFeatures } from "../utils/featureVisibility";
+import { canViewPlannedFeatures } from "../navigation";
 import type { GlobalSearchTarget } from "../utils/search";
 import type {
   Approval,
@@ -192,1320 +192,167 @@ import { ApprovalDetailView } from "./ApprovalParts";
 import { EquipmentProposalEditor, equipmentProposalContent, LeaveRequestEditor, PurchaseRequestEditor, TemplateFieldInputs, TrainingReportEditor, TrainingRequestEditor } from "./ApprovalFormParts";
 import { APPROVAL_BOXES, isApprovalBox, TemplateSelectModalV2 } from "./ApprovalTemplateParts";
 import { SchedulerStatusPanel } from "./SchedulerStatusPanel";
+import { useApprovalPageController } from "./useApprovalPageController";
+import { createApprovalDocumentActions } from "./createApprovalDocumentActions";
+
 export function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLaunch | null; target: GlobalSearchTarget | null }) {
-  const [box, setBox] = useState<ApprovalBox>(launch?.box ?? "pending");
-  const [dashboardFilter, setDashboardFilter] = useState<ApprovalLaunch | null>(launch);
-  const [approvalCategory, setApprovalCategory] = useState<ApprovalCategory>("active");
-  const [items, setItems] = useState<ApprovalSummary[]>([]);
-  const [retentionAudits, setRetentionAudits] = useState<AuditLog[]>([]);
-  const [approvalBoxes, setApprovalBoxes] = useState<{ box: ApprovalBox; label: string }[]>(APPROVAL_BOXES);
-  const [selected, setSelected] = useState<Approval | null>(null);
-  const [equipmentProposal, setEquipmentProposal] = useState<EquipmentProposal | null>(null);
-  const [equipmentProposalLoading, setEquipmentProposalLoading] = useState(false);
-  const [equipmentCompletionReport, setEquipmentCompletionReport] = useState<EquipmentReport | null>(null);
-  const [mode, setMode] = useState<ContentMode>("list");
-  const [templates, setTemplates] = useState<ApprovalTemplateOption[]>(DEFAULT_APPROVAL_TEMPLATES);
-  const [adminTemplates, setAdminTemplates] = useState<ApprovalTemplateOption[]>([]);
-  const [templateFallbackActive, setTemplateFallbackActive] = useState(false);
-  const [templateModalOpen, setTemplateModalOpen] = useState(false);
-  const [previewTemplate, setPreviewTemplate] = useState<ApprovalTemplateOption>(DEFAULT_APPROVAL_TEMPLATES[0]);
-  const [form, setForm] = useState<ApprovalForm>(() => defaultApprovalForm());
-  const [leaveUsage, setLeaveUsage] = useState<LeaveUsage | null>(null);
-  const [compTimeSummary, setCompTimeSummary] = useState<CompTimeSummary | null>(null);
-  const [holidays, setHolidays] = useState<ApprovalHoliday[]>([]);
-  const [leaveTypeOptions, setLeaveTypeOptions] = useState<string[]>(LEAVE_TYPE_OPTIONS);
-  const [leaveExclusions, setLeaveExclusions] = useState<LeaveExclusion[]>([]);
-  const [leavePreviewOpen, setLeavePreviewOpen] = useState(false);
-  const [templateAdminForm, setTemplateAdminForm] = useState<ApprovalTemplateAdminForm>(() => templateAdminFormFromOption());
-  const [templateLineForm, setTemplateLineForm] = useState<ApprovalForm>(() => defaultApprovalForm());
-  const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [approvalError, setApprovalError] = useState("");
-  const [defaultLineMessage, setDefaultLineMessage] = useState("");
-  const [savedApprovalLines, setSavedApprovalLines] = useState<ApprovalDefaultLineApi[]>([]);
-  const [selectedSavedLineId, setSelectedSavedLineId] = useState("");
-  const [approvalInfoOpen, setApprovalInfoOpen] = useState(false);
-  const [templateAdminMessage, setTemplateAdminMessage] = useState("");
-  const [delegation, setDelegation] = useState<ApprovalDelegationApi | null>(null);
-  const [delegationForm, setDelegationForm] = useState<ApprovalDelegationForm>(() => defaultDelegationForm());
-  const [delegationMessage, setDelegationMessage] = useState("");
-  const [operationSettingsForm, setOperationSettingsForm] = useState<ApprovalOperationSettingsForm>(() => defaultOperationSettingsForm());
-  const [operationSettings, setOperationSettings] = useState<ApprovalOperationSettings | null>(null);
-  const [operationSettingsMessage, setOperationSettingsMessage] = useState("");
-  const [approvalActionComment, setApprovalActionComment] = useState("");
-  const [approvalSearch, setApprovalSearch] = useState<ApprovalSearchForm>(DEFAULT_APPROVAL_SEARCH);
-  const isApprovalAdmin = user.roleCode === "ADMIN" || user.roleCode === "APPROVAL_ADMIN";
-  const isHolidayManager = user.permissions.includes("LEAVE_ADMIN");
-  const isLeavePolicyManager = user.permissions.includes("LEAVE_POLICY_ADMIN");
-  const canViewPreview = canViewPreviewFeatures(user);
-  const visibleTemplates = canViewPreview
-    ? templates
-    : templates.filter((template) => isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code));
-
-  async function load(
-    targetBox: ApprovalBox,
-    targetFilter: ApprovalDashboardFilter | null | undefined = dashboardFilter?.dashboardFilter,
-    search: ApprovalSearchForm | null = approvalCategory === "completed" ? approvalSearch : null
-  ) {
-    const params = new URLSearchParams({ box: targetBox, size: "30" });
-    if (targetFilter) params.set("dashboardFilter", targetFilter);
-    if (search) {
-      Object.entries(search).forEach(([key, value]) => {
-        const trimmed = value.trim();
-        if (trimmed) params.set(key, trimmed);
-      });
-    }
-    const page = await api<PageResponse<ApprovalSummary>>(`/approvals?${params.toString()}`);
-    setItems(page.content);
-  }
-
-  async function loadDeletedApprovals() {
-    const page = await api<PageResponse<ApprovalSummary>>("/approvals/deleted?size=30");
-    setItems(page.content);
-  }
-
-  async function loadRetentionAudits() {
-    const page = await api<PageResponse<AuditLog>>("/approvals/retention-audits?size=100");
-    setRetentionAudits(page.content);
-  }
-
-  async function downloadRetentionAuditCsv() {
-    try {
-      const response = await authenticatedFetch("/approvals/retention-audits/export");
-      if (!response.ok) throw new Error("보존삭제 감사 리포트 다운로드 중 오류가 발생했습니다.");
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `approval-retention-audits-${todayDate()}.csv`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "보존삭제 감사 리포트 다운로드 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function loadApprovalBoxes() {
-    try {
-      const boxes = await api<ApprovalBoxApi[]>("/approvals/boxes");
-      const next = boxes
-        .filter((item): item is ApprovalBoxApi & { code: ApprovalBox } => isApprovalBox(item.code))
-        .map((item) => ({ box: item.code, label: item.label }));
-      if (next.length) setApprovalBoxes(next);
-    } catch {
-      setApprovalBoxes(APPROVAL_BOXES);
-    }
-  }
-
-  async function loadEmployees() {
-    const firstPage = await api<PageResponse<Employee>>("/emps?size=100&page=0&status=ACTIVE");
-    const allEmployees = [...firstPage.content];
-    for (let pageIndex = 1; pageIndex < firstPage.totalPages; pageIndex += 1) {
-      const nextPage = await api<PageResponse<Employee>>(`/emps?size=100&page=${pageIndex}&status=ACTIVE`);
-      allEmployees.push(...nextPage.content);
-    }
-    setEmployees(allEmployees);
-  }
-
-  async function loadLeaveUsage(year?: number) {
-    try {
-      const usage = await api<LeaveUsage>(`/approvals/leave-usage/me${year ? `?year=${year}` : ""}`);
-      setLeaveUsage(usage);
-      return usage;
-    } catch {
-      setLeaveUsage(null);
-      return null;
-    }
-  }
-
-  async function changeLeaveBalanceYear(year: number) {
-    if (!Number.isInteger(year) || year < 1900 || year > 2100 || leaveUsage?.balanceYear === year) return;
-    const usage = await loadLeaveUsage(year);
-    if (!usage) return;
-    setForm((current) => isLeaveCancelTemplateCode(current.templateCode)
-      ? { ...current, fieldValues: { ...current.fieldValues, ...leaveUsageFieldValues(usage) } }
-      : current
-    );
-  }
-
-  async function loadCompTimeSummary() {
-    try {
-      const summary = await api<CompTimeSummary>("/comp-time/me");
-      setCompTimeSummary(summary);
-      return summary;
-    } catch {
-      setCompTimeSummary(null);
-      return null;
-    }
-  }
-
-  async function loadHolidays() {
-    try {
-      setHolidays(await api<ApprovalHoliday[]>("/approval-holidays"));
-    } catch {
-      setHolidays([]);
-    }
-  }
-
-  async function loadLeavePolicies() {
-    try {
-      const policies = await api<{ leaveType: string }[]>("/leave-policies");
-      setLeaveTypeOptions(policies.length ? selectableLeaveTypeOptions(policies.map((policy) => policy.leaveType)) : LEAVE_TYPE_OPTIONS);
-    } catch {
-      setLeaveTypeOptions(LEAVE_TYPE_OPTIONS);
-    }
-  }
-
-  async function loadActiveTemplates() {
-    let nextTemplates: ApprovalTemplateOption[] = [];
-    try {
-      const items = await api<ApprovalTemplateApi[]>("/approval-templates");
-      nextTemplates = items.map(templateOptionFromApi);
-    } catch {
-      nextTemplates = [];
-    }
-    const shouldFallback = !nextTemplates.length && ENABLE_TEMPLATE_FALLBACK;
-    const merged = withLeaveCancelTemplate(nextTemplates.length ? nextTemplates : shouldFallback ? DEFAULT_APPROVAL_TEMPLATES : []);
-    setTemplateFallbackActive(shouldFallback);
-    setTemplates(merged);
-    if (merged.length) setPreviewTemplate(firstSelectableApprovalTemplate(merged));
-    setForm((current) => current.templateCode ? current : defaultApprovalForm([firstSelectableApprovalTemplate(merged)]));
-    return merged;
-  }
-
-  async function loadSavedApprovalLines() {
-    try {
-      const lines = await api<ApprovalDefaultLineApi[]>("/approval-default-lines/me");
-      setSavedApprovalLines(lines);
-      setSelectedSavedLineId((current) => current && lines.some((line) => String(line.defaultLineId) === current) ? current : (lines[0]?.defaultLineId ? String(lines[0].defaultLineId) : ""));
-    } catch {
-      setSavedApprovalLines([]);
-      setSelectedSavedLineId("");
-    }
-  }
-
-  async function loadAdminTemplates(preferredCode?: string) {
-    if (!isApprovalAdmin) return [];
-    const items = await api<ApprovalTemplateApi[]>("/approval-templates/manage");
-    const nextTemplates = items.map(templateOptionFromApi);
-    setAdminTemplates(nextTemplates);
-    if (nextTemplates.length) {
-      const selectedCode = preferredCode ?? templateAdminForm.templateCode;
-      const selectedTemplate = nextTemplates.find((template) => template.code === selectedCode) ?? nextTemplates[0];
-      setTemplateAdminForm(templateAdminFormFromOption(selectedTemplate));
-      setTemplateLineForm(defaultApprovalForm([selectedTemplate]));
-      void loadTemplateDefaultLine(selectedTemplate.code);
-    }
-    return nextTemplates;
-  }
-
-  async function loadTemplateDefaultLine(templateCode: string) {
-    if (!templateCode) return;
-    try {
-      const defaultLine = await api<ApprovalDefaultLineApi>(`/approval-default-lines/templates/${encodeURIComponent(templateCode)}`);
-      setTemplateLineForm((current) => ({
-        ...current,
-        templateCode,
-        agreementEmpIds: defaultLineIds(defaultLine.steps, "AGREEMENT"),
-        approverEmpIds: defaultLineIds(defaultLine.steps, "APPROVAL"),
-        receiverEmpIds: defaultLineIds(defaultLine.steps, "RECEIVER"),
-        referenceEmpIds: defaultLineIds(defaultLine.steps, "REFERENCE"),
-        readerEmpIds: defaultLineIds(defaultLine.steps, "READER")
-      }));
-    } catch {
-      setTemplateLineForm((current) => ({
-        ...current,
-        templateCode,
-        agreementEmpIds: [],
-        approverEmpIds: [],
-        receiverEmpIds: [],
-        referenceEmpIds: [],
-        readerEmpIds: []
-      }));
-    }
-  }
-
-  async function applyDefaultLine(templateCode: string) {
-    const isEquipmentProposal = isEquipmentProposalTemplateCode(templateCode);
-    const isLeaveRequest = isLeaveTemplateCode(templateCode);
-    const isLeaveCancel = isLeaveCancelTemplateCode(templateCode);
-    const isLeaveFlow = isLeaveRequest || isLeaveCancel;
-    const isPurchaseRequest = isPurchaseTemplateCode(templateCode);
-    const isTrainingRequest = isTrainingRequestTemplateCode(templateCode);
-    const isTrainingTemplate = isTrainingTemplateCode(templateCode);
-    const peManagerId = productionEngineeringManagerId(employees);
-    const purchaseReceiverEmpId = purchaseReceiverId(employees);
-    const trainingReceiverEmpId = trainingReceiverId(employees);
-    const leaveReceiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
-    try {
-      const defaultLine = await api<ApprovalDefaultLineApi>(`/approval-default-lines/effective?templateCode=${encodeURIComponent(templateCode)}`);
-      if (!defaultLine.steps.length) {
-        if (isLeaveFlow) {
-          setForm((current) => ({ ...current, receiverEmpIds: leaveReceiverEmpId ? [leaveReceiverEmpId] : [] }));
-          setDefaultLineMessage(leaveReceiverEmpId ? "운영 설정의 휴가 기본 수신자를 지정했으며, 결재 정보에서 수정할 수 있습니다." : "휴가 기본 수신자 설정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
-          return;
-        }
-        if (isPurchaseRequest) {
-          setForm((current) => ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
-          setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
-          return;
-        }
-        if (isTrainingTemplate) {
-          setForm((current) => ({ ...current, receiverEmpIds: trainingReceiverEmpId ? [trainingReceiverEmpId] : [] }));
-          setDefaultLineMessage(trainingReceiverEmpId ? "교육 문서 수신자는 인사총무 홍길동으로 자동 지정됩니다." : "인사총무 홍길동 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
-          return;
-        }
-        if (isEquipmentProposal) {
-          setForm((current) => ({ ...current, receiverEmpIds: peManagerId ? [peManagerId] : [] }));
-          setDefaultLineMessage(peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요.");
-          return;
-        }
-        setDefaultLineMessage("");
-        return;
-      }
-      setForm((current) => {
-        return {
-          ...current,
-          agreementEmpIds: defaultLineIds(defaultLine.steps, "AGREEMENT"),
-          approverEmpIds: defaultLineIds(defaultLine.steps, "APPROVAL"),
-          receiverEmpIds: isLeaveFlow ? (leaveReceiverEmpId ? [leaveReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isPurchaseRequest ? (purchaseReceiverEmpId ? [purchaseReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER")) : isTrainingTemplate ? (trainingReceiverEmpId ? [trainingReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isEquipmentProposal ? (peManagerId ? [peManagerId] : []) : defaultLineIds(defaultLine.steps, "RECEIVER"),
-          referenceEmpIds: defaultLineIds(defaultLine.steps, "REFERENCE"),
-          readerEmpIds: defaultLineIds(defaultLine.steps, "READER")
-        };
-      });
-      setDefaultLineMessage(isLeaveFlow
-        ? leaveReceiverEmpId ? "운영 설정의 휴가 기본 수신자를 지정했으며, 결재 정보에서 수정할 수 있습니다." : "휴가 기본 수신자 설정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
-        : isPurchaseRequest
-        ? purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
-        : isTrainingTemplate
-        ? trainingReceiverEmpId ? "교육 문서 수신자는 인사총무 홍길동으로 자동 지정됩니다." : "인사총무 홍길동 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
-        : isEquipmentProposal
-        ? peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요."
-        : defaultLine.source === "TEMPLATE" ? "양식별 기본 결재선을 적용했습니다." : "개인 기본 결재선을 적용했습니다.");
-    } catch {
-      if (isLeaveFlow) {
-        setForm((current) => ({ ...current, receiverEmpIds: leaveReceiverEmpId ? [leaveReceiverEmpId] : [] }));
-        setDefaultLineMessage(leaveReceiverEmpId ? "운영 설정의 휴가 기본 수신자를 지정했으며, 결재 정보에서 수정할 수 있습니다." : "휴가 기본 수신자 설정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
-        return;
-      }
-      if (isPurchaseRequest) {
-        setForm((current) => ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
-        setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
-        return;
-      }
-      if (isTrainingTemplate) {
-        setForm((current) => ({ ...current, receiverEmpIds: trainingReceiverEmpId ? [trainingReceiverEmpId] : [] }));
-        setDefaultLineMessage(trainingReceiverEmpId ? "교육 문서 수신자는 인사총무 홍길동으로 자동 지정됩니다." : "인사총무 홍길동 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
-        return;
-      }
-      if (isEquipmentProposal) {
-        setForm((current) => ({ ...current, receiverEmpIds: peManagerId ? [peManagerId] : [] }));
-        setDefaultLineMessage(peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요.");
-        return;
-      }
-      setDefaultLineMessage("");
-    }
-  }
-
-  async function savePersonalDefaultLine() {
-    setApprovalError("");
-    if (!form.approverEmpIds.length) {
-      setApprovalError("개인 기본 결재선에는 결재자를 1명 이상 포함해야 합니다.");
-      return;
-    }
-    try {
-      await api<ApprovalDefaultLineApi>("/approval-default-lines/me", {
-        method: "PUT",
-        body: jsonBody(defaultLinePayload(form))
-      });
-      setDefaultLineMessage("개인 기본 결재선을 저장했습니다.");
-      await loadSavedApprovalLines();
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "개인 기본 결재선 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function saveNamedApprovalLine() {
-    setApprovalError("");
-    if (!form.approverEmpIds.length) {
-      setApprovalError("저장할 결재라인에는 결재자를 1명 이상 포함해야 합니다.");
-      return;
-    }
-    const lineName = window.prompt("저장할 결재라인 이름", "팀장 최종 결재") ?? "";
-    if (!lineName.trim()) return;
-    try {
-      const saved = await api<ApprovalDefaultLineApi>("/approval-default-lines/me", {
-        method: "PUT",
-        body: jsonBody(defaultLinePayload(form, lineName.trim()))
-      });
-      await loadSavedApprovalLines();
-      if (saved.defaultLineId) setSelectedSavedLineId(String(saved.defaultLineId));
-      setDefaultLineMessage(`${lineName.trim()} 결재라인을 저장했습니다.`);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "결재라인 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  function applySavedApprovalLine() {
-    const savedLine = savedApprovalLines.find((line) => String(line.defaultLineId) === selectedSavedLineId);
-    if (!savedLine) {
-      setApprovalError("불러올 결재라인을 선택해 주세요.");
-      return;
-    }
-    setForm((current) => ({
-      ...current,
-      agreementEmpIds: defaultLineIds(savedLine.steps, "AGREEMENT"),
-      approverEmpIds: defaultLineIds(savedLine.steps, "APPROVAL"),
-      receiverEmpIds: defaultLineIds(savedLine.steps, "RECEIVER"),
-      referenceEmpIds: defaultLineIds(savedLine.steps, "REFERENCE"),
-      readerEmpIds: defaultLineIds(savedLine.steps, "READER")
-    }));
-    setDefaultLineMessage(`${savedLine.lineName ?? "저장된 결재라인"}을 적용했습니다.`);
-  }
-
-  async function renameSavedApprovalLine() {
-    const savedLine = savedApprovalLines.find((line) => String(line.defaultLineId) === selectedSavedLineId);
-    if (!savedLine?.defaultLineId) {
-      setApprovalError("이름을 변경할 결재라인을 선택해 주세요.");
-      return;
-    }
-    const lineName = window.prompt("결재라인 이름 변경", savedLine.lineName ?? "") ?? "";
-    if (!lineName.trim()) return;
-    try {
-      await api<ApprovalDefaultLineApi>(`/approval-default-lines/me/${savedLine.defaultLineId}`, {
-        method: "PATCH",
-        body: jsonBody({ lineName: lineName.trim() })
-      });
-      await loadSavedApprovalLines();
-      setSelectedSavedLineId(String(savedLine.defaultLineId));
-      setDefaultLineMessage(`${lineName.trim()}으로 이름을 변경했습니다.`);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "결재라인 이름 변경 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function deleteSavedApprovalLine() {
-    const savedLine = savedApprovalLines.find((line) => String(line.defaultLineId) === selectedSavedLineId);
-    if (!savedLine?.defaultLineId) {
-      setApprovalError("삭제할 결재라인을 선택해 주세요.");
-      return;
-    }
-    if (!window.confirm(`${savedLine.lineName ?? "선택한 결재라인"}을 삭제할까요?`)) return;
-    try {
-      await api<void>(`/approval-default-lines/me/${savedLine.defaultLineId}`, { method: "DELETE" });
-      await loadSavedApprovalLines();
-      setDefaultLineMessage(`${savedLine.lineName ?? "결재라인"}을 삭제했습니다.`);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "결재라인 삭제 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function rememberSubmittedApprovalLine(submittedForm: ApprovalForm) {
-    if (!submittedForm.approverEmpIds.length) return;
-    try {
-      await api<ApprovalDefaultLineApi>("/approval-default-lines/me", {
-        method: "PUT",
-        body: jsonBody(defaultLinePayload(submittedForm, "최근 사용 결재선", false))
-      });
-    } catch {
-      // Recent-line persistence is a convenience; document submission already succeeded.
-    }
-  }
-
-  function selectAdminTemplate(template: ApprovalTemplateOption) {
-    setTemplateAdminForm(templateAdminFormFromOption(template));
-    setTemplateLineForm(defaultApprovalForm([template]));
-    setTemplateAdminMessage("");
-    setApprovalError("");
-    void loadTemplateDefaultLine(template.code);
-  }
-
-  function newAdminTemplate() {
-    setTemplateAdminForm(templateAdminFormFromOption());
-    setTemplateLineForm(defaultApprovalForm(templates));
-    setTemplateAdminMessage("");
-    setApprovalError("");
-  }
-
-  async function saveTemplateVersion() {
-    setApprovalError("");
-    setTemplateAdminMessage("");
-    if (!templateAdminForm.templateCode.trim() || !templateAdminForm.templateName.trim()) {
-      setApprovalError("양식 코드와 양식명을 입력해 주세요.");
-      return;
-    }
-    try {
-      const saved = await api<ApprovalTemplateApi>("/approval-templates", {
-        method: "POST",
-        body: jsonBody({
-          templateCode: templateAdminForm.templateCode,
-          templateName: templateAdminForm.templateName,
-          description: templateAdminForm.description,
-          fieldsJson: templateAdminForm.fieldsJson,
-          printLayoutJson: templateAdminForm.printLayoutJson,
-          sortOrder: templateAdminForm.sortOrder,
-          active: templateAdminForm.active
-        })
-      });
-      const savedOption = templateOptionFromApi(saved);
-      setTemplateAdminForm(templateAdminFormFromOption(savedOption));
-      setTemplateLineForm(defaultApprovalForm([savedOption]));
-      await loadActiveTemplates();
-      await loadAdminTemplates(saved.templateCode);
-      setTemplateAdminMessage(`${saved.templateName} v${saved.version} 저장 완료`);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "양식 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function toggleTemplateActive(template: ApprovalTemplateOption, active: boolean) {
-    setApprovalError("");
-    setTemplateAdminMessage("");
-    try {
-      const saved = await api<ApprovalTemplateApi>(`/approval-templates/${encodeURIComponent(template.code)}/status?active=${active}`, { method: "PATCH" });
-      const savedOption = templateOptionFromApi(saved);
-      setTemplateAdminForm(templateAdminFormFromOption(savedOption));
-      await loadActiveTemplates();
-      await loadAdminTemplates(saved.templateCode);
-      setTemplateAdminMessage(active ? "양식을 활성화했습니다." : "양식을 비활성화했습니다.");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "양식 상태 변경 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function saveTemplateDefaultLine() {
-    setApprovalError("");
-    setTemplateAdminMessage("");
-    if (!templateAdminForm.templateCode.trim()) {
-      setApprovalError("먼저 양식을 선택하거나 저장해 주세요.");
-      return;
-    }
-    if (!templateLineForm.approverEmpIds.length) {
-      setApprovalError("양식별 기본 결재선에는 결재자를 1명 이상 포함해야 합니다.");
-      return;
-    }
-    try {
-      await api<ApprovalDefaultLineApi>(`/approval-default-lines/templates/${encodeURIComponent(templateAdminForm.templateCode)}`, {
-        method: "PUT",
-        body: jsonBody(defaultLinePayload(templateLineForm, `${templateAdminForm.templateName || templateAdminForm.templateCode} 기본 결재선`))
-      });
-      setTemplateAdminMessage("양식별 기본 결재선을 저장했습니다.");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "양식별 기본 결재선 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function loadDelegation() {
-    try {
-      const current = await api<ApprovalDelegationApi | null>("/approval-delegations/me");
-      setDelegation(current);
-      setDelegationForm(current ? {
-        delegateEmpId: current.delegateEmpId,
-        startDate: current.startDate,
-        endDate: current.endDate ?? "",
-        reason: current.reason ?? "",
-        active: current.activeYn === "Y"
-      } : defaultDelegationForm());
-      setDelegationMessage("");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "대리결재 설정 조회 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function openDelegationSettings() {
-    setApprovalError("");
-    setApprovalCategory("active");
-    setDashboardFilter(null);
-    setSelected(null);
-    setMode("delegation");
-    await loadDelegation();
-  }
-
-  async function saveDelegation() {
-    setApprovalError("");
-    setDelegationMessage("");
-    if (!delegationForm.delegateEmpId) {
-      setApprovalError("대리자를 선택해 주세요.");
-      return;
-    }
-    try {
-      const saved = await api<ApprovalDelegationApi>("/approval-delegations/me", {
-        method: "PUT",
-        body: jsonBody({
-          delegateEmpId: delegationForm.delegateEmpId,
-          startDate: delegationForm.startDate,
-          endDate: delegationForm.endDate || null,
-          reason: delegationForm.reason,
-          active: delegationForm.active
-        })
-      });
-      setDelegation(saved);
-      setDelegationForm({
-        delegateEmpId: saved.delegateEmpId,
-        startDate: saved.startDate,
-        endDate: saved.endDate ?? "",
-        reason: saved.reason ?? "",
-        active: saved.activeYn === "Y"
-      });
-      setDelegationMessage("대리결재 설정을 저장했습니다.");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "대리결재 설정 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function deleteDelegation() {
-    setApprovalError("");
-    setDelegationMessage("");
-    try {
-      await api<void>("/approval-delegations/me", { method: "DELETE" });
-      setDelegation(null);
-      setDelegationForm(defaultDelegationForm());
-      setDelegationMessage("대리결재 설정을 해제했습니다.");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "대리결재 설정 해제 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function loadDetail(id: number) {
-    try {
-      const detail = await api<Approval>(`/approvals/${id}`);
-      if (isEquipmentProposalTemplateCode(detail.templateCode)) {
-        setEquipmentProposalLoading(true);
-        const proposal = await api<EquipmentProposal>(`/approvals/${id}/equipment-proposal`);
-        setEquipmentProposal(proposal);
-      } else {
-        setEquipmentProposal(null);
-      }
-      const completionReportId = equipmentCompletionReportId(detail);
-      setEquipmentCompletionReport(completionReportId ? await api<EquipmentReport>(`/equipment/reports/${completionReportId}`) : null);
-      if (isLeaveTemplateCode(detail.templateCode) || isLeaveCancelTemplateCode(detail.templateCode)) {
-        try {
-          setLeaveExclusions(await api<LeaveExclusion[]>(`/approval-holidays/approvals/${id}/exclusions`));
-        } catch {
-          setLeaveExclusions([]);
-        }
-      } else {
-        setLeaveExclusions([]);
-      }
-      setSelected(detail);
-      setMode("detail");
-      setApprovalError("");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "문서 조회 권한이 없습니다.");
-    } finally {
-      setEquipmentProposalLoading(false);
-    }
-  }
-
-  async function refreshEquipmentProposal(approval: Approval | null = selected) {
-    if (approval && isEquipmentProposalTemplateCode(approval.templateCode)) {
-      setEquipmentProposalLoading(true);
-      try {
-        setEquipmentProposal(await api<EquipmentProposal>(`/approvals/${approval.approvalId}/equipment-proposal`));
-      } finally {
-        setEquipmentProposalLoading(false);
-      }
-    } else {
-      setEquipmentProposal(null);
-      setEquipmentProposalLoading(false);
-    }
-  }
-
-  async function loadOperationSettings() {
-    setApprovalError("");
-    try {
-      const settings = await api<ApprovalOperationSettings>("/approval-operation-settings");
-      setOperationSettings(settings);
-      setOperationSettingsForm({
-        decisionDueHours: settings.decisionDueHours,
-        reminderFixedDelayMs: settings.reminderFixedDelayMs,
-        deletedDocumentRetentionDays: settings.deletedDocumentRetentionDays,
-        permanentDeleteEnabled: settings.permanentDeleteEnabled,
-        leaveDefaultReceiverEmpId: settings.leaveDefaultReceiverEmpId
-      });
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "운영 설정 조회 중 오류가 발생했습니다.");
-    }
-  }
-
-  function openOperationSettings() {
-    setMode("operationSettings");
-    setDashboardFilter(null);
-    setSelected(null);
-    setApprovalError("");
-    setOperationSettingsMessage("");
-    void loadOperationSettings();
-  }
-
-  function openHolidayManagement() {
-    setMode("holidays");
-    setDashboardFilter(null);
-    setSelected(null);
-    setApprovalError("");
-  }
-
-  async function openDeletedApprovals() {
-    setApprovalError("");
-    setDashboardFilter(null);
-    setSelected(null);
-    setMode("deleted");
-    setItems([]);
-    void loadOperationSettings();
-    void loadRetentionAudits();
-    await loadDeletedApprovals();
-  }
-
-  async function restoreApproval(approvalId: number) {
-    const comment = window.prompt("복구 사유", "보존삭제 문서 복구") ?? "";
-    try {
-      await api<Approval>(`/approvals/${approvalId}/restore`, {
-        method: "POST",
-        body: jsonBody({ comment })
-      });
-      setApprovalError("");
-      await loadDeletedApprovals();
-      await loadRetentionAudits();
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "문서 복구 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function saveOperationSettings() {
-    setApprovalError("");
-    setOperationSettingsMessage("");
-    if (operationSettingsForm.decisionDueHours < 1 || operationSettingsForm.decisionDueHours > 720) {
-      setApprovalError("처리 기한은 1시간 이상 720시간 이하로 입력해 주세요.");
-      return;
-    }
-    if (operationSettingsForm.reminderFixedDelayMs < 60000 || operationSettingsForm.reminderFixedDelayMs > 86400000) {
-      setApprovalError("지연 알림 간격은 60,000ms 이상 86,400,000ms 이하로 입력해 주세요.");
-      return;
-    }
-    if (operationSettingsForm.deletedDocumentRetentionDays < 30 || operationSettingsForm.deletedDocumentRetentionDays > 3650) {
-      setApprovalError("보존삭제 문서 보관일수는 30일 이상 3650일 이하로 입력해 주세요.");
-      return;
-    }
-    if (!operationSettingsForm.leaveDefaultReceiverEmpId) {
-      setApprovalError("휴가 기본 수신자를 선택해 주세요.");
-      return;
-    }
-    try {
-      const saved = await api<ApprovalOperationSettings>("/approval-operation-settings", {
-        method: "PUT",
-        body: jsonBody(operationSettingsForm)
-      });
-      setOperationSettings(saved);
-      setOperationSettingsForm({
-        decisionDueHours: saved.decisionDueHours,
-        reminderFixedDelayMs: saved.reminderFixedDelayMs,
-        deletedDocumentRetentionDays: saved.deletedDocumentRetentionDays,
-        permanentDeleteEnabled: saved.permanentDeleteEnabled,
-        leaveDefaultReceiverEmpId: saved.leaveDefaultReceiverEmpId
-      });
-      setOperationSettingsMessage("전자결재 운영 설정을 저장했습니다.");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "운영 설정 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  useEffect(() => {
-    setItems([]);
-    void load(box);
-  }, [box]);
-
-  useEffect(() => {
-    if (!launch) {
-      setDashboardFilter(null);
-      return;
-    }
-    setDashboardFilter(launch);
-    setApprovalCategory("active");
-    setBox(launch.box);
-    setSelected(null);
-    setMode("list");
-    setItems([]);
-    void load(launch.box, launch.dashboardFilter);
-  }, [launch]);
-
-  useEffect(() => {
-    if (target?.type === "APPROVAL") {
-      setDashboardFilter(null);
-      setApprovalCategory("active");
-      setBox("requested");
-      setItems([]);
-      void loadDetail(target.targetId);
-    }
-  }, [target?.nonce]);
-
-  useEffect(() => {
-    void loadEmployees();
-    void loadApprovalBoxes();
-    void loadActiveTemplates().catch(() => undefined);
-    void loadSavedApprovalLines();
-    void loadHolidays();
-    void loadLeavePolicies();
-    void loadCompTimeSummary();
-    void loadOperationSettings();
-  }, []);
-
-  useEffect(() => {
-    if (mode !== "create" || (!isLeaveTemplateCode(form.templateCode) && !isLeaveCancelTemplateCode(form.templateCode))) return;
-    const receiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
-    if (!receiverEmpId) return;
-    setForm((current) => current.receiverEmpIds.length ? current : { ...current, receiverEmpIds: [receiverEmpId] });
-  }, [employees, form.templateCode, mode, operationSettings?.leaveDefaultReceiverEmpId]);
-
-  useEffect(() => {
-    setApprovalActionComment("");
-  }, [selected?.approvalId]);
-
-  async function changeBox(nextBox: ApprovalBox) {
-    setApprovalError("");
-    setDashboardFilter(null);
-    setBox(nextBox);
-    setSelected(null);
-    setMode("list");
-    setItems([]);
-    await load(nextBox, null, null);
-  }
-
-  async function openApprovalWorkView(view: { box: ApprovalBox; label: string; dashboardFilter?: ApprovalDashboardFilter }) {
-    setApprovalError("");
-    setApprovalCategory("active");
-    const nextFilter = view.dashboardFilter ? { box: view.box, dashboardFilter: view.dashboardFilter, label: view.label } : null;
-    setDashboardFilter(nextFilter);
-    setBox(view.box);
-    setSelected(null);
-    setMode("list");
-    setItems([]);
-    await load(view.box, view.dashboardFilter ?? null, null);
-  }
-
-  async function applyApprovalSearch(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    await applyApprovalSearchValues(approvalSearch);
-  }
-
-  async function applyApprovalSearchValues(search: ApprovalSearchForm) {
-    setApprovalError("");
-    const nextFilter = approvalCategory === "completed" ? { box: "processed" as ApprovalBox, dashboardFilter: "completedInvolved" as ApprovalDashboardFilter, label: "결재 완료문서" } : null;
-    setDashboardFilter(nextFilter);
-    setSelected(null);
-    setMode("list");
-    setItems([]);
-    await load(approvalCategory === "completed" ? "processed" : box, nextFilter?.dashboardFilter ?? null, search);
-  }
-
-  async function changeApprovalCategory(nextCategory: ApprovalCategory) {
-    setApprovalError("");
-    setApprovalCategory(nextCategory);
-    setSelected(null);
-    setMode("list");
-    setItems([]);
-    if (nextCategory === "completed") {
-      const nextFilter = { box: "processed" as ApprovalBox, dashboardFilter: "completedInvolved" as ApprovalDashboardFilter, label: "결재 완료문서" };
-      setDashboardFilter(nextFilter);
-      setBox("processed");
-      await load("processed", "completedInvolved", approvalSearch);
-      return;
-    }
-    const nextFilter = { box: "pending" as ApprovalBox, dashboardFilter: "actionRequired" as ApprovalDashboardFilter, label: "결재할 문서" };
-    setDashboardFilter(nextFilter);
-    setBox("pending");
-    await load("pending", "actionRequired", null);
-  }
-
-  async function resetApprovalSearch() {
-    const nextSearch = DEFAULT_APPROVAL_SEARCH;
-    setApprovalSearch(nextSearch);
-    await applyApprovalSearchValues(nextSearch);
-  }
-
-  async function updateApprovalSearchFilter(nextSearch: ApprovalSearchForm) {
-    setApprovalSearch(nextSearch);
-    await applyApprovalSearchValues(nextSearch);
-  }
-
-  async function openTemplateAdmin() {
-    setApprovalError("");
-    setDashboardFilter(null);
-    setSelected(null);
-    setMode("templates");
-    await loadAdminTemplates();
-  }
-
-  function startCreate() {
-    const selectableTemplates = selectableApprovalTemplates(visibleTemplates);
-    if (!selectableTemplates.length) {
-      setApprovalError("사용 가능한 결재 양식이 없습니다. 관리자에게 양식 활성화를 요청해 주세요.");
-      return;
-    }
-    setDashboardFilter(null);
-    setSelected(null);
-    setPendingFiles([]);
-    setApprovalError("");
-    setPreviewTemplate(selectableTemplates[0]);
-    setTemplateModalOpen(true);
-  }
-
-  function confirmTemplate() {
-    const peManagerId = productionEngineeringManagerId(employees);
-    const requesterDeptName = currentUserDeptName(user, employees);
-    const isLeaveRequest = isLeaveTemplateCode(previewTemplate.code);
-    const isLeaveCancel = isLeaveCancelTemplateCode(previewTemplate.code);
-    const isPurchaseRequest = isPurchaseTemplateCode(previewTemplate.code);
-    const isTrainingRequest = isTrainingRequestTemplateCode(previewTemplate.code);
-    const isTrainingReport = isTrainingReportTemplateCode(previewTemplate.code);
-    const isTrainingTemplate = isTrainingTemplateCode(previewTemplate.code);
-    const isEquipmentProposal = isEquipmentProposalTemplateCode(previewTemplate.code);
-    const leaveReceiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
-    const purchaseReceiverEmpId = purchaseReceiverId(employees);
-    const trainingReceiverEmpId = trainingReceiverId(employees);
-    setForm({
-      ...defaultApprovalForm([previewTemplate]),
-      title: isPurchaseRequest || isTrainingTemplate || isEquipmentProposal ? "" : previewTemplate.name,
-      fieldValues: isEquipmentProposal
-        ? { requestDeptName: requesterDeptName }
-        : isPurchaseRequest
-          ? purchaseDefaultFieldValues(user, employees)
-        : isTrainingRequest
-          ? trainingRequestDefaultFieldValues(user, employees)
-        : isTrainingReport
-          ? trainingReportDefaultFieldValues(user, employees)
-        : isLeaveRequest || isLeaveCancel
-          ? leaveUsageFieldValues(leaveUsage)
-          : {},
-      receiverEmpIds: (isLeaveRequest || isLeaveCancel) && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
-    });
-    setDefaultLineMessage("");
-    setTemplateModalOpen(false);
-    setMode("create");
-    void applyDefaultLine(previewTemplate.code);
-    if (isLeaveRequest || isLeaveCancel) {
-      void loadCompTimeSummary();
-      void loadLeaveUsage().then((usage) => {
-        setForm((current) => isLeaveTemplateCode(current.templateCode) || isLeaveCancelTemplateCode(current.templateCode)
-          ? { ...current, fieldValues: { ...current.fieldValues, ...leaveUsageFieldValues(usage) } }
-          : current
-        );
-      });
-    }
-  }
-
-  function editDraft() {
-    if (!selected || !selected.permissions?.canEditDraft) return;
-    const draftData = approvalDraftData(selected);
-    const template = approvalTemplateByCode(templates, selected.templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
-    setForm({
-      title: selected.title,
-      content: draftData.content,
-      fieldValues: draftData.fieldValues,
-      templateCode: selected.templateCode ?? template.code,
-      templateVersion: selected.templateVersion ?? template.version ?? null,
-      priority: selected.priority,
-      agreementEmpIds: selected.lines.filter((line) => line.lineType === "AGREEMENT").map((line) => line.assignedEmpId ?? line.approverEmpId),
-      approverEmpIds: selected.lines.filter((line) => line.lineType === "APPROVAL").map((line) => line.assignedEmpId ?? line.approverEmpId),
-      receiverEmpIds: selected.lines.filter((line) => line.lineType === "RECEIVER").map((line) => line.assignedEmpId ?? line.approverEmpId),
-      referenceEmpIds: selected.lines.filter((line) => line.lineType === "REFERENCE").map((line) => line.assignedEmpId ?? line.approverEmpId),
-      readerEmpIds: selected.lines.filter((line) => line.lineType === "READER").map((line) => line.assignedEmpId ?? line.approverEmpId)
-    });
-    setPendingFiles([]);
-    setApprovalError("");
-    setMode("edit");
-    if (isLeaveTemplateCode(selected.templateCode) || isLeaveCancelTemplateCode(selected.templateCode)) {
-      const selectedYear = Number(parseLeaveSelections(draftData.fieldValues)[0]?.date.slice(0, 4));
-      void loadLeaveUsage(Number.isInteger(selectedYear) ? selectedYear : undefined);
-      void loadCompTimeSummary();
-    }
-  }
-
-  function validateDraftLine(receiverEmpIds = form.receiverEmpIds) {
-    const restricted = [...form.agreementEmpIds, ...form.approverEmpIds, ...receiverEmpIds];
-    if (form.agreementEmpIds.includes(user.empId) || form.approverEmpIds.includes(user.empId)) {
-      return "기안자 본인은 합의자 또는 결재자로 지정할 수 없습니다.";
-    }
-    if (new Set(restricted).size !== restricted.length) {
-      return "합의자, 결재자, 수신자는 중복 지정할 수 없습니다.";
-    }
-    if (!form.approverEmpIds.length) {
-      return "상신 전 결재자를 1명 이상 선택해 주세요.";
-    }
-    return "";
-  }
-
-  function validateTemplateFieldValues(template: ApprovalTemplateOption, values: Record<string, string> = form.fieldValues) {
-    const requiredField = parseTemplateFields(template.fieldsJson)
-      .find((field) => isRequiredTemplateField(field) && !values[field.name]?.trim());
-    return requiredField ? `${requiredField.label} 필수값을 입력해 주세요.` : "";
-  }
-
-  async function save(submit = true) {
-    setApprovalError("");
-    const template = approvalTemplateByCode(templates, form.templateCode);
-    if (!template) {
-      setApprovalError("선택한 결재 양식을 찾을 수 없습니다. 양식을 다시 선택해 주세요.");
-      return;
-    }
-    const isEquipmentProposal = isEquipmentProposalTemplateCode(template.code);
-    const isLeaveRequest = isLeaveTemplateCode(template.code);
-    const isLeaveCancel = isLeaveCancelTemplateCode(template.code);
-    const isPurchaseRequest = isPurchaseTemplateCode(template.code);
-    const isTrainingRequest = isTrainingRequestTemplateCode(template.code);
-    const isTrainingReport = isTrainingReportTemplateCode(template.code);
-    const isTrainingTemplate = isTrainingTemplateCode(template.code);
-    const isLeaveFlow = isLeaveRequest || isLeaveCancel;
-    const isDelegationEligible = isLeaveRequest || isTrainingRequest || isTrainingReport;
-    const peManagerId = productionEngineeringManagerId(employees);
-    const purchaseReceiverEmpId = purchaseReceiverId(employees);
-    const trainingReceiverEmpId = trainingReceiverId(employees);
-    const receiverEmpIds = isLeaveFlow ? form.receiverEmpIds : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
-    const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
-    const baseFieldValues = isEquipmentProposalTemplateCode(template.code)
-      ? { ...form.fieldValues, requestDeptName: requesterDeptName }
-      : isPurchaseRequest
-        ? purchaseDefaultFieldValues(user, employees, form.fieldValues)
-      : isTrainingRequest
-        ? trainingRequestDefaultFieldValues(user, employees, form.fieldValues)
-      : isTrainingReport
-        ? trainingReportDefaultFieldValues(user, employees, form.fieldValues)
-      : form.fieldValues;
-    const fieldValues = isDelegationEligible
-      ? { ...baseFieldValues, approvalDelegationEnabled: baseFieldValues.approvalDelegationEnabled ?? "N" }
-      : baseFieldValues;
-    const content = isEquipmentProposalTemplateCode(template.code)
-      ? equipmentProposalContent(fieldValues, template.code)
-      : isLeaveRequest
-        ? leaveRequestContent(fieldValues)
-        : isLeaveCancel
-          ? leaveCancelContent(fieldValues)
-          : isPurchaseRequest
-            ? purchaseRequestContent(fieldValues)
-          : isTrainingRequest
-            ? trainingRequestContent(fieldValues)
-          : isTrainingReport
-            ? trainingReportContent(fieldValues)
-        : form.content;
-    if (submit) {
-      if (isLeaveFlow && receiverEmpIds.length !== 1) {
-        setApprovalError("휴가 문서 수신자를 1명 지정해 주세요.");
-        return;
-      }
-      if (isLeaveRequest) {
-        const requestedCompTimeDays = parseLeaveSelections(fieldValues)
-          .filter((selection) => selection.type === "대체휴무")
-          .length;
-        if (requestedCompTimeDays > Number(compTimeSummary?.availableDays ?? 0)) {
-          setApprovalError(`대체휴무 잔여가 부족합니다. 사용 가능 ${formatDayValue(compTimeSummary?.availableDays ?? 0)}일`);
-          return;
-        }
-      }
-      if ((isEquipmentProposalTemplateCode(template.code) || isPurchaseRequest || isTrainingTemplate) && !form.title.trim()) {
-        setApprovalError("문서 제목 필수값을 입력해 주세요.");
-        return;
-      }
-      if (isPurchaseRequest) {
-        const purchaseValidation = validatePurchaseRequest(fieldValues, form.title);
-        if (purchaseValidation) {
-          setApprovalError(purchaseValidation);
-          return;
-        }
-      }
-      if (isTrainingRequest) {
-        const trainingValidation = validateTrainingRequest(fieldValues, form.title, receiverEmpIds);
-        if (trainingValidation) {
-          setApprovalError(trainingValidation);
-          return;
-        }
-      }
-      if (isTrainingReport) {
-        const trainingReportValidation = validateTrainingReport(fieldValues, form.title, receiverEmpIds);
-        if (trainingReportValidation) {
-          setApprovalError(trainingReportValidation);
-          return;
-        }
-      }
-      const validation = validateDraftLine(receiverEmpIds);
-      if (validation) {
-        setApprovalError(validation);
-        return;
-      }
-      const fieldValidation = validateTemplateFieldValues(template, fieldValues);
-      if (fieldValidation) {
-        setApprovalError(fieldValidation);
-        return;
-      }
-    }
-    try {
-      const payload = {
-        title: form.title.trim() || template.name,
-        content,
-        templateCode: template.code,
-        templateVersion: template.version ?? form.templateVersion,
-        formDataJson: JSON.stringify({
-          content,
-          fields: fieldValues,
-          agreementEmpIds: form.agreementEmpIds,
-          approverEmpIds: form.approverEmpIds,
-          receiverEmpIds,
-          referenceEmpIds: form.referenceEmpIds,
-          readerEmpIds: form.readerEmpIds
-        }),
-        priority: form.priority,
-        agreementEmpIds: form.agreementEmpIds,
-        approverEmpIds: form.approverEmpIds,
-        receiverEmpIds,
-        referenceEmpIds: form.referenceEmpIds,
-        readerEmpIds: form.readerEmpIds,
-        draft: !submit
-      };
-      const editing = mode === "edit" && selected && selected.permissions?.canEditDraft;
-      let saved: Approval;
-      if (editing) {
-        if (submit) {
-          await uploadAttachments("APPROVAL_DOCUMENT", selected.approvalId, pendingFiles);
-          saved = await api<Approval>(`/approvals/${selected.approvalId}/submit`, { method: "POST", body: jsonBody({ ...payload, draft: false }) });
-        } else {
-          saved = await api<Approval>(`/approvals/${selected.approvalId}/draft`, { method: "PUT", body: jsonBody({ ...payload, draft: true }) });
-          await uploadAttachments("APPROVAL_DOCUMENT", saved.approvalId, pendingFiles);
-        }
-      } else if (submit) {
-        const draft = await api<Approval>("/approvals/drafts", { method: "POST", body: jsonBody({ ...payload, draft: true }) });
-        await uploadAttachments("APPROVAL_DOCUMENT", draft.approvalId, pendingFiles);
-        saved = await api<Approval>(`/approvals/${draft.approvalId}/submit`, { method: "POST", body: jsonBody({ ...payload, draft: false }) });
-      } else {
-        saved = await api<Approval>("/approvals/drafts", { method: "POST", body: jsonBody({ ...payload, draft: true }) });
-        await uploadAttachments("APPROVAL_DOCUMENT", saved.approvalId, pendingFiles);
-      }
-      if (submit) {
-        await rememberSubmittedApprovalLine(form);
-      }
-      setPendingFiles([]);
-      setForm(defaultApprovalForm(templates));
-      await refreshEquipmentProposal(saved);
-      setSelected(saved);
-      setMode("detail");
-      setBox("requested");
-      if (isLeaveRequest || isLeaveCancel) {
-        await loadCompTimeSummary();
-      }
-      await load("requested");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "결재 문서 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function withdraw() {
-    if (!selected || !window.confirm("아직 합의/결재 처리되지 않은 문서를 회수합니다.")) return;
-    const reason = window.prompt("회수 사유", "수정 후 재상신") ?? "";
-    const updated = await api<Approval>(`/approvals/${selected.approvalId}/actions/withdraw`, { method: "POST", body: jsonBody({ comment: reason }) });
-    setSelected(updated);
-    await load(box);
-  }
-
-  async function redraft() {
-    if (!selected) return;
-    const draft = await api<Approval>(`/approvals/${selected.approvalId}/actions/redraft`, { method: "POST" });
-    setSelected(draft);
-    setMode("detail");
-    setBox("requested");
-    await load("requested");
-  }
-
-  async function action(type: "approve" | "reject" | "receive" | "complete-receipt" | "cancel") {
-    if (!selected) return;
-    let comment = "";
-    if (type === "approve") {
-      comment = approvalActionComment.trim();
-    }
-    if (type === "reject") {
-      comment = window.prompt("반려 사유를 입력해 주세요.") ?? "";
-      if (!comment.trim()) {
-        setApprovalError("반려 사유를 입력해 주세요.");
-        return;
-      }
-    }
-    if (type === "complete-receipt") {
-      comment = window.prompt("접수완료 의견", "접수완료") ?? "";
-    }
-    try {
-      const updated = await api<Approval>(`/approvals/${selected.approvalId}/actions/${type}`, {
-        method: "POST",
-        body: comment ? jsonBody({ comment }) : undefined
-      });
-      setSelected(updated);
-      if (type === "approve") {
-        setApprovalActionComment("");
-      }
-      if (type === "approve" && (isLeaveTemplateCode(updated.templateCode) || isLeaveCancelTemplateCode(updated.templateCode)) && updated.status === "APPROVED") {
-        await loadLeaveUsage();
-        await loadCompTimeSummary();
-      }
-      await refreshEquipmentProposal(updated);
-      setApprovalError("");
-      await load(box);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "결재 처리 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function savePurchaseDeliveryDate(deliveryDate: string) {
-    if (!selected) return;
-    try {
-      const updated = await api<Approval>(`/approvals/${selected.approvalId}/purchase-request`, {
-        method: "PATCH",
-        body: jsonBody({ deliveryDate })
-      });
-      setSelected(updated);
-      setApprovalError("");
-      await load(box);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "구매요구서 입고일 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function submitPurchaseApprovalLine(agreementEmpIds: number[], approverEmpIds: number[]) {
-    if (!selected) return;
-    if (!approverEmpIds.length) {
-      setApprovalError("구매팀 결재자를 1명 이상 선택해 주세요.");
-      return;
-    }
-    try {
-      const updated = await api<Approval>(`/approvals/${selected.approvalId}/purchase-request/submit-approval`, {
-        method: "POST",
-        body: jsonBody({ agreementEmpIds, approverEmpIds })
-      });
-      setSelected(updated);
-      setApprovalError("");
-      await load(box);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "구매팀 결재 상신 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function saveEquipmentProposalDraft(next: Partial<EquipmentProposal>) {
-    if (!selected || !equipmentProposal) return;
-    try {
-      const saved = await api<EquipmentProposal>(`/approvals/${selected.approvalId}/equipment-proposal`, {
-        method: "PATCH",
-        body: jsonBody({ ...equipmentProposal, ...next })
-      });
-      setEquipmentProposal(saved);
-      setApprovalError("");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "설비 품의서 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function submitEquipmentStage(stage: "pe" | "purchase", next: Partial<EquipmentProposal>) {
-    if (!selected || !equipmentProposal) return;
-    try {
-      const saved = await api<EquipmentProposal>(`/approvals/${selected.approvalId}/equipment-proposal/submit-${stage}`, {
-        method: "POST",
-        body: jsonBody({ ...equipmentProposal, ...next })
-      });
-      setEquipmentProposal(saved);
-      setApprovalError("");
-      await load(box);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "설비 품의서 단계 제출 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function assignEquipmentAssignee(type: "pe" | "purchase", empId: number) {
-    if (!selected || !equipmentProposal) return;
-    try {
-      const saved = await api<EquipmentProposal>(`/approvals/${selected.approvalId}/equipment-proposal/assign-${type}`, {
-        method: "POST",
-        body: jsonBody(type === "pe" ? { peAssigneeEmpId: empId } : { purchaseAssigneeEmpId: empId })
-      });
-      setEquipmentProposal(saved);
-      setApprovalError("");
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "담당자 변경 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function correctStatus() {
-    if (!selected) return;
-    const comment = window.prompt("상태 보정 사유", "운영자 상태 보정") ?? "";
-    try {
-      const updated = await api<Approval>(`/approvals/${selected.approvalId}/actions/status-correction`, {
-        method: "POST",
-        body: jsonBody({ comment })
-      });
-      setSelected(updated);
-      setApprovalError("");
-      await load(box);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "상태 보정 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function deleteForRetention() {
-    if (!selected) return;
-    if (!window.confirm("문서를 물리 삭제하지 않고 보존삭제 처리합니다. 진행/승인 문서는 서버 정책상 차단됩니다.")) return;
-    const comment = window.prompt("보존삭제 사유", "운영자 보존삭제") ?? "";
-    try {
-      await api<void>(`/approvals/${selected.approvalId}`, {
-        method: "DELETE",
-        body: jsonBody({ comment })
-      });
-      setSelected(null);
-      setMode("list");
-      setApprovalError("");
-      await load(box);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "문서 보존삭제 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function managementCancelLeave() {
-    if (!selected) return;
-    const comment = window.prompt("승인 휴가 관리 취소 사유를 입력하세요.", "휴가관리자 관리 취소")?.trim();
-    if (!comment) return;
-    if (!window.confirm("승인 문서를 관리 취소하고 해당 휴가 사용량을 복원할까요? 과거 날짜도 취소할 수 있으며 원본과 감사 이력은 보존됩니다.")) return;
-    try {
-      const updated = await api<Approval>(`/approvals/${selected.approvalId}/management-cancel-leave`, { method: "POST", body: jsonBody({ comment }) });
-      setSelected(updated); setApprovalError(""); await loadLeaveUsage(); await load(box);
-    } catch (err) { setApprovalError(err instanceof Error ? err.message : "승인 휴가를 관리 취소하지 못했습니다."); }
-  }
-
-  function changeTemplate(templateCode: string) {
-    const nextTemplate = approvalTemplateByCode(templates, templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
-    const currentTemplate = approvalTemplateByCode(templates, form.templateCode);
-    const shouldUseTemplateTitle = !form.title.trim() || form.title === currentTemplate?.name;
-    const isEquipmentProposal = isEquipmentProposalTemplateCode(templateCode);
-    const isLeaveRequest = isLeaveTemplateCode(templateCode);
-    const isLeaveCancel = isLeaveCancelTemplateCode(templateCode);
-    const isPurchaseRequest = isPurchaseTemplateCode(templateCode);
-    const isTrainingRequest = isTrainingRequestTemplateCode(templateCode);
-    const isTrainingReport = isTrainingReportTemplateCode(templateCode);
-    const isTrainingTemplate = isTrainingTemplateCode(templateCode);
-    const peManagerId = productionEngineeringManagerId(employees);
-    const leaveReceiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
-    const purchaseReceiverEmpId = purchaseReceiverId(employees);
-    const trainingReceiverEmpId = trainingReceiverId(employees);
-    const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
-    setForm({
-      ...form,
-      templateCode,
-      templateVersion: nextTemplate.version ?? null,
-      title: isPurchaseRequest || isTrainingTemplate || isEquipmentProposal ? "" : shouldUseTemplateTitle ? nextTemplate.name : form.title,
-      fieldValues: isEquipmentProposal ? { requestDeptName: requesterDeptName } : isPurchaseRequest ? purchaseDefaultFieldValues(user, employees) : isTrainingRequest ? trainingRequestDefaultFieldValues(user, employees) : isTrainingReport ? trainingReportDefaultFieldValues(user, employees) : isLeaveRequest || isLeaveCancel ? leaveUsageFieldValues(leaveUsage) : {},
-      receiverEmpIds: (isLeaveRequest || isLeaveCancel) && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
-    });
-    setDefaultLineMessage("");
-    void applyDefaultLine(templateCode);
-    if (isLeaveRequest || isLeaveCancel) {
-      void loadLeaveUsage().then((usage) => {
-        setForm((current) => current.templateCode === templateCode
-          ? { ...current, fieldValues: { ...current.fieldValues, ...leaveUsageFieldValues(usage) } }
-          : current
-        );
-      });
-    }
-  }
-
+  const controller = useApprovalPageController({ user, launch, target });
+  const {
+    box,
+    setBox,
+    dashboardFilter,
+    setDashboardFilter,
+    approvalCategory,
+    setApprovalCategory,
+    items,
+    setItems,
+    retentionAudits,
+    setRetentionAudits,
+    approvalBoxes,
+    setApprovalBoxes,
+    selected,
+    setSelected,
+    equipmentProposal,
+    setEquipmentProposal,
+    equipmentProposalLoading,
+    setEquipmentProposalLoading,
+    equipmentCompletionReport,
+    setEquipmentCompletionReport,
+    mode,
+    setMode,
+    templates,
+    setTemplates,
+    adminTemplates,
+    setAdminTemplates,
+    templateFallbackActive,
+    setTemplateFallbackActive,
+    templateModalOpen,
+    setTemplateModalOpen,
+    previewTemplate,
+    setPreviewTemplate,
+    form,
+    setForm,
+    leaveUsage,
+    setLeaveUsage,
+    compTimeSummary,
+    setCompTimeSummary,
+    holidays,
+    setHolidays,
+    leaveTypeOptions,
+    setLeaveTypeOptions,
+    leaveExclusions,
+    setLeaveExclusions,
+    leavePreviewOpen,
+    setLeavePreviewOpen,
+    templateAdminForm,
+    setTemplateAdminForm,
+    templateLineForm,
+    setTemplateLineForm,
+    pendingFiles,
+    setPendingFiles,
+    employees,
+    setEmployees,
+    approvalError,
+    setApprovalError,
+    defaultLineMessage,
+    setDefaultLineMessage,
+    savedApprovalLines,
+    setSavedApprovalLines,
+    selectedSavedLineId,
+    setSelectedSavedLineId,
+    approvalInfoOpen,
+    setApprovalInfoOpen,
+    templateAdminMessage,
+    setTemplateAdminMessage,
+    delegation,
+    setDelegation,
+    delegationForm,
+    setDelegationForm,
+    delegationMessage,
+    setDelegationMessage,
+    operationSettingsForm,
+    setOperationSettingsForm,
+    operationSettings,
+    setOperationSettings,
+    operationSettingsMessage,
+    setOperationSettingsMessage,
+    approvalActionComment,
+    setApprovalActionComment,
+    approvalSearch,
+    setApprovalSearch,
+    isApprovalAdmin,
+    isHolidayManager,
+    isLeavePolicyManager,
+    canViewPreview,
+    visibleTemplates,
+    load,
+    loadDeletedApprovals,
+    loadRetentionAudits,
+    downloadRetentionAuditCsv,
+    loadApprovalBoxes,
+    loadEmployees,
+    loadLeaveUsage,
+    changeLeaveBalanceYear,
+    loadCompTimeSummary,
+    loadHolidays,
+    loadLeavePolicies,
+    loadActiveTemplates,
+    loadSavedApprovalLines,
+    loadAdminTemplates,
+    loadTemplateDefaultLine,
+    applyDefaultLine,
+    savePersonalDefaultLine,
+    saveNamedApprovalLine,
+    applySavedApprovalLine,
+    renameSavedApprovalLine,
+    deleteSavedApprovalLine,
+    rememberSubmittedApprovalLine,
+    selectAdminTemplate,
+    newAdminTemplate,
+    saveTemplateVersion,
+    toggleTemplateActive,
+    saveTemplateDefaultLine,
+    loadDelegation,
+    openDelegationSettings,
+    saveDelegation,
+    deleteDelegation,
+    loadDetail,
+    refreshEquipmentProposal,
+    loadOperationSettings,
+    openOperationSettings,
+    openHolidayManagement,
+    openDeletedApprovals,
+    restoreApproval,
+    saveOperationSettings,
+    changeBox,
+    openApprovalWorkView,
+    applyApprovalSearch,
+    applyApprovalSearchValues,
+    changeApprovalCategory,
+    resetApprovalSearch,
+    updateApprovalSearchFilter,
+    openTemplateAdmin
+  } = controller;
+  const {
+    startCreate,
+    confirmTemplate,
+    editDraft,
+    validateDraftLine,
+    validateTemplateFieldValues,
+    save,
+    withdraw,
+    redraft,
+    action,
+    savePurchaseDeliveryDate,
+    submitPurchaseApprovalLine,
+    saveEquipmentProposalDraft,
+    submitEquipmentStage,
+    assignEquipmentAssignee,
+    correctStatus,
+    deleteForRetention,
+    managementCancelLeave,
+    changeTemplate
+  } = createApprovalDocumentActions(user, controller);
   const selectedTemplate = approvalTemplateByCode(templates, form.templateCode) ?? DEFAULT_APPROVAL_TEMPLATES[0];
   const selectableTemplates = selectableApprovalTemplates(visibleTemplates);
   const isClassicDraftForm = isDraftTemplateCode(selectedTemplate.code);
@@ -1519,7 +366,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   const leaveOverbooked = isLeaveRequestForm
     && Number(leaveUsage?.reservedAnnualDays ?? 0) + Number(form.fieldValues.days ?? 0) > Number(leaveUsage?.remainingAnnualDays ?? 0);
   const isDelegationEligibleForm = isLeaveRequestForm || isTrainingRequestForm || isTrainingReportForm;
-  const restrictedIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.receiverEmpIds];
+  const receiverConflictEmpIds = [...form.agreementEmpIds, ...form.approverEmpIds, ...form.referenceEmpIds];
   const peManagerEmployee = employees.find((employee) => employee.empId === productionEngineeringManagerId(employees));
   const permissions = selected?.permissions;
   const equipmentInputStage = equipmentProposal?.workflowStage === "PE_INPUT" || equipmentProposal?.workflowStage === "PURCHASE_INPUT";
@@ -1538,6 +385,16 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
   );
   const isPrimaryDashboardFilter = ["actionRequired", "approvedInProgress", "drafts", "completedInvolved"].includes(dashboardFilter?.dashboardFilter ?? "");
   const approvalListLabel = dashboardFilter?.label ?? (box === "requested" ? "임시보관함" : approvalBoxes.find((item) => item.box === box)?.label ?? "문서");
+  const approvalEditorActions = (
+    <div className="actions approval-editor-actions">
+      <button type="button" className="ghost" onClick={() => setApprovalInfoOpen(true)}><Edit3 size={16} /> {isLeaveRequestForm || isLeaveCancelForm ? "결재 정보 수정" : "결재 정보"}</button>
+      <button type="button" className="ghost" title="개인 기본 결재선 저장" onClick={() => void savePersonalDefaultLine()}><Save size={16} /> 기본 결재선 저장</button>
+      <button type="button" className="ghost" onClick={() => void save(false)}><Save size={16} /> 임시저장</button>
+      {(isLeaveRequestForm || isLeaveCancelForm) && <button type="button" className="ghost" onClick={() => setLeavePreviewOpen(true)}><Eye size={16} /> 미리보기</button>}
+      <button type="button" className="approval-submit-action" disabled={leaveOverbooked} title={leaveOverbooked ? "결재 중 휴가를 포함하면 연차를 초과합니다." : undefined} onClick={() => void save(true)}><Check size={16} /> 상신</button>
+      <button type="button" className="ghost" onClick={() => selected ? setMode("detail") : setMode("list")}><X size={16} /> 취소</button>
+    </div>
+  );
 
   return (
     <section className="panel board-screen approval-screen">
@@ -1751,8 +608,8 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
               <div className="line-picker-grid">
                 <EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={templateLineForm.agreementEmpIds} disabledIds={[...templateLineForm.approverEmpIds, ...templateLineForm.receiverEmpIds]} onChange={(agreementEmpIds) => setTemplateLineForm({ ...templateLineForm, agreementEmpIds })} />
                 <EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={templateLineForm.approverEmpIds} disabledIds={[...templateLineForm.agreementEmpIds, ...templateLineForm.receiverEmpIds]} ordered onChange={(approverEmpIds) => setTemplateLineForm({ ...templateLineForm, approverEmpIds })} />
-                <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={templateLineForm.receiverEmpIds} disabledIds={[...templateLineForm.agreementEmpIds, ...templateLineForm.approverEmpIds]} maxSelections={isLeaveTemplateCode(templateLineForm.templateCode) || isLeaveCancelTemplateCode(templateLineForm.templateCode) ? 1 : undefined} onChange={(receiverEmpIds) => setTemplateLineForm({ ...templateLineForm, receiverEmpIds })} />
-                <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={templateLineForm.referenceEmpIds} disabledIds={[]} onChange={(referenceEmpIds) => setTemplateLineForm({ ...templateLineForm, referenceEmpIds })} />
+                <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={templateLineForm.receiverEmpIds} disabledIds={[...templateLineForm.agreementEmpIds, ...templateLineForm.approverEmpIds, ...templateLineForm.referenceEmpIds]} maxSelections={isLeaveTemplateCode(templateLineForm.templateCode) || isLeaveCancelTemplateCode(templateLineForm.templateCode) ? 1 : undefined} onChange={(receiverEmpIds) => setTemplateLineForm({ ...templateLineForm, receiverEmpIds })} />
+                <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={templateLineForm.referenceEmpIds} disabledIds={templateLineForm.receiverEmpIds} onChange={(referenceEmpIds) => setTemplateLineForm({ ...templateLineForm, referenceEmpIds })} />
                 <EmployeeMultiPicker title="연람자" user={user} employees={employees} selectedIds={templateLineForm.readerEmpIds} disabledIds={[]} onChange={(readerEmpIds) => setTemplateLineForm({ ...templateLineForm, readerEmpIds })} />
               </div>
             </div>
@@ -1861,20 +718,15 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       {(mode === "create" || mode === "edit") && (
         <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
           <div className={`editor approval-editor${isLeaveRequestForm || isLeaveCancelForm ? " approval-editor-leave" : ""}`}>
-            <div className="panel-head">
-              <div>
-                <h3>{mode === "edit" ? "전자결재 수정" : "전자결재 작성"}</h3>
-                <p className="muted-text">문서번호는 상신 시 자동 생성됩니다. 예상 형식: {documentPrefix(form.templateCode)}-{new Date().getFullYear()}-자동생성</p>
+            {!(isLeaveRequestForm || isLeaveCancelForm) && (
+              <div className="panel-head">
+                <div>
+                  <h3>{mode === "edit" ? "전자결재 수정" : "전자결재 작성"}</h3>
+                  <p className="muted-text">문서번호는 상신 시 자동 생성됩니다. 예상 형식: {documentPrefix(form.templateCode)}-{new Date().getFullYear()}-자동생성</p>
+                </div>
+                {approvalEditorActions}
               </div>
-              <div className="actions approval-editor-actions">
-                <button type="button" className="ghost" onClick={() => setApprovalInfoOpen(true)}><Edit3 size={16} /> {isLeaveRequestForm || isLeaveCancelForm ? "결재 정보 수정" : "결재 정보"}</button>
-                <button type="button" className="ghost" title="개인 기본 결재선 저장" onClick={() => void savePersonalDefaultLine()}><Save size={16} /> 기본 결재선 저장</button>
-                <button type="button" className="ghost" onClick={() => void save(false)}><Save size={16} /> 임시저장</button>
-                {(isLeaveRequestForm || isLeaveCancelForm) && <button type="button" className="ghost" onClick={() => setLeavePreviewOpen(true)}><Eye size={16} /> 미리보기</button>}
-                <button type="button" className="approval-submit-action" disabled={leaveOverbooked} title={leaveOverbooked ? "결재 중 휴가를 포함하면 연차를 초과합니다." : undefined} onClick={() => void save(true)}><Check size={16} /> 상신</button>
-                <button type="button" className="ghost" onClick={() => selected ? setMode("detail") : setMode("list")}><X size={16} /> 취소</button>
-              </div>
-            </div>
+            )}
             {defaultLineMessage && <p className="template-note"><span>{defaultLineMessage}</span></p>}
             {approvalInfoOpen && (
               <div className="modal-backdrop" role="presentation">
@@ -1899,15 +751,15 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
                   <div className="line-picker-grid">
                     <EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} cardLayout onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} />
                     <EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={form.approverEmpIds} disabledIds={[user.empId, ...form.agreementEmpIds, ...form.receiverEmpIds]} ordered cardLayout prependUser onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} />
-                    <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={[...form.agreementEmpIds, ...form.approverEmpIds]} maxSelections={isLeaveTemplateCode(form.templateCode) || isLeaveCancelTemplateCode(form.templateCode) ? 1 : undefined} cardLayout onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} />
-                    <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={[]} cardLayout onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} />
+                    <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={receiverConflictEmpIds} maxSelections={isLeaveTemplateCode(form.templateCode) || isLeaveCancelTemplateCode(form.templateCode) ? 1 : undefined} cardLayout onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} />
+                    <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={form.receiverEmpIds} cardLayout onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} />
                   </div>
                   <div className="actions"><button type="button" onClick={() => setApprovalInfoOpen(false)}>적용</button></div>
                 </div>
               </div>
             )}
             {isClassicDraftForm && <ClassicDraftEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onBalanceYearChange={isLeaveCancelForm ? (year) => void changeLeaveBalanceYear(year) : undefined} onChange={setForm} />}
+            {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} headerActions={approvalEditorActions} onBalanceYearChange={isLeaveCancelForm ? (year) => void changeLeaveBalanceYear(year) : undefined} onChange={setForm} />}
             {leavePreviewOpen && (isLeaveRequestForm || isLeaveCancelForm) && <div className="modal-backdrop"><div className="leave-form-preview-modal"><div className="modal-head"><div><h3>휴가 신청 미리보기</h3><p className="muted-text">현재 입력값 기준이며 상신 전까지 문서는 변경되지 않습니다.</p></div><button className="icon-button" onClick={() => setLeavePreviewOpen(false)}><X size={18} /></button></div><div className="leave-preview-readonly"><LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={() => undefined} /></div></div></div>}
             {isPurchaseRequestForm && <PurchaseRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isTrainingRequestForm && <TrainingRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
@@ -1960,14 +812,4 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
       )}
     </section>
   );
-}
-
-function equipmentCompletionReportId(approval: Approval): number | null {
-  if (approval.templateCode !== "EQUIPMENT_WORK_COMPLETION" || !approval.formDataJson) return null;
-  try {
-    const reportId = JSON.parse(approval.formDataJson).reportId;
-    return typeof reportId === "number" && Number.isInteger(reportId) ? reportId : null;
-  } catch {
-    return null;
-  }
 }

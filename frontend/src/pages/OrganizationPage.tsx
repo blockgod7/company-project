@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import { Hash, Mail, Phone, Search, UserRound } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { DeptTree } from "../components/DeptTree";
 import { Empty } from "../components/Empty";
 import type { GlobalSearchTarget } from "../utils/search";
-import type { DeptNode, Employee, PageResponse } from "../types";
+import type { DeptNode, DirectoryEmployee, PageResponse } from "../types";
 
 type OrganizationPageProps = {
   target: GlobalSearchTarget | null;
@@ -30,7 +31,7 @@ const PRODUCTION_POSITION_ORDER: Record<string, number> = {
   "사원": 4
 };
 
-function sortEmployees(employees: Employee[]) {
+function sortEmployees(employees: DirectoryEmployee[]) {
   return [...employees].sort((left, right) => {
     const leftIsProduction = left.jobTitle === "PRODUCTION";
     const rightIsProduction = right.jobTitle === "PRODUCTION";
@@ -44,10 +45,15 @@ function sortEmployees(employees: Employee[]) {
 }
 
 export function OrganizationPage({ target }: OrganizationPageProps) {
+  const [searchParams] = useSearchParams();
   const [tree, setTree] = useState<DeptNode[]>([]);
-  const [deptId, setDeptId] = useState<number | null>(null);
+  const [deptId, setDeptId] = useState<number | null>(() => {
+    const value = Number(searchParams.get("deptId"));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  });
   const [keyword, setKeyword] = useState("");
-  const [emps, setEmps] = useState<Employee[]>([]);
+  const [emps, setEmps] = useState<DirectoryEmployee[]>([]);
+  const [selectedEmp, setSelectedEmp] = useState<DirectoryEmployee | null>(null);
 
   useEffect(() => {
     void api<DeptNode[]>("/depts/tree").then(setTree);
@@ -57,8 +63,10 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
     const params = new URLSearchParams({ page: "0", size: "100", status: "ACTIVE" });
     if (keyword) params.set("keyword", keyword);
     if (targetDept) params.set("deptId", String(targetDept));
-    const page = await api<PageResponse<Employee>>(`/emps?${params.toString()}`);
-    setEmps(sortEmployees(page.content));
+    const page = await api<PageResponse<DirectoryEmployee>>(`/emps/directory?${params.toString()}`);
+    const sorted = sortEmployees(page.content);
+    setEmps(sorted);
+    setSelectedEmp((current) => sorted.find((employee) => employee.empId === current?.empId) ?? null);
   }
 
   useEffect(() => {
@@ -66,12 +74,22 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
   }, [deptId]);
 
   useEffect(() => {
+    if (target?.type === "DEPARTMENT") {
+      setDeptId(target.targetId);
+      setKeyword("");
+      setSelectedEmp(null);
+      return;
+    }
     if (target?.type === "EMPLOYEE") {
       setDeptId(target.parentId);
       setKeyword(target.keyword);
       const params = new URLSearchParams({ page: "0", size: "100", status: "ACTIVE", keyword: target.keyword });
       if (target.parentId) params.set("deptId", String(target.parentId));
-      void api<PageResponse<Employee>>(`/emps?${params.toString()}`).then((page) => setEmps(sortEmployees(page.content)));
+      void api<PageResponse<DirectoryEmployee>>(`/emps/directory?${params.toString()}`).then((page) => {
+        const sorted = sortEmployees(page.content);
+        setEmps(sorted);
+        setSelectedEmp(sorted.find((employee) => employee.empId === target.targetId) ?? null);
+      });
     }
   }, [target?.nonce]);
 
@@ -83,27 +101,42 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
       </div>
       <div className="panel">
         <div className="searchbar">
-          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="직원명, 아이디, 사번 검색" />
+          <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="이름, 사번, 이메일, 휴대폰, 내선번호 검색" />
           <button onClick={() => search()}><Search size={16} /> 검색</button>
         </div>
+        {selectedEmp && (
+          <section className="employee-contact-card" aria-label={`${selectedEmp.empName} 연락처 상세`}>
+            <div className="employee-contact-identity">
+              <span><UserRound size={25} /></span>
+              <div><strong>{selectedEmp.empName}</strong><small>{selectedEmp.deptName ?? "소속 미정"} · {selectedEmp.positionName ?? selectedEmp.jobTitle ?? "직책 미정"}</small></div>
+            </div>
+            <dl>
+              <div><dt><Mail size={15} /> 이메일</dt><dd>{selectedEmp.email ?? "-"}</dd></div>
+              <div><dt><Phone size={15} /> 휴대폰</dt><dd>{selectedEmp.phone ?? "-"}</dd></div>
+              <div><dt><Hash size={15} /> 내선번호</dt><dd>{selectedEmp.extensionNumber ?? "-"}</dd></div>
+            </dl>
+          </section>
+        )}
         <table>
           <thead>
             <tr>
               <th>이름</th>
               <th>부서</th>
               <th>직책</th>
-              <th>역할</th>
-              <th>상태</th>
+              <th>이메일</th>
+              <th>휴대폰</th>
+              <th>내선</th>
             </tr>
           </thead>
           <tbody>
             {emps.map((emp) => (
-              <tr key={emp.empId}>
+              <tr key={emp.empId} className={selectedEmp?.empId === emp.empId ? "selected" : ""} onClick={() => setSelectedEmp(emp)}>
                 <td>{emp.empName}</td>
                 <td>{emp.deptName ?? "-"}</td>
                 <td>{emp.positionName ?? emp.jobTitle ?? "-"}</td>
-                <td>{emp.roleCode}</td>
-                <td>{emp.status}</td>
+                <td>{emp.email ?? "-"}</td>
+                <td>{emp.phone ?? "-"}</td>
+                <td>{emp.extensionNumber ?? "-"}</td>
               </tr>
             ))}
           </tbody>

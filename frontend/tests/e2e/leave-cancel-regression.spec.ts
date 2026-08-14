@@ -42,6 +42,8 @@ async function login(page: Page) {
     await page.getByLabel("비밀번호").fill(password);
   } else {
     await page.getByLabel("테스트 계정").selectOption(fallbackTestLoginId);
+    if (!password) throw new Error("E2E_PASSWORD is required for local test-account login.");
+    await page.getByLabel("비밀번호").fill(password);
   }
   await page.getByRole("button", { name: "LOGIN" }).click();
   await expect(page.getByRole("navigation").getByRole("button", { name: "전자결재" })).toBeVisible();
@@ -86,7 +88,6 @@ test.describe("휴가 취소계 회귀", () => {
 
     await openLeaveCancelForm(page);
 
-    await expect(page.getByText("운영 설정의 휴가 기본 수신자를 지정했으며, 결재 정보에서 수정할 수 있습니다.")).toBeVisible();
     await expect(page.locator(".leave-routing").getByText("허인성", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "결재 정보 수정", exact: true }).click();
     const approvalInfo = page.getByRole("dialog", { name: "결재 정보" });

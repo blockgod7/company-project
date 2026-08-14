@@ -72,6 +72,7 @@ CREATE TABLE emp (
     emp_name VARCHAR(100) NOT NULL,
     email VARCHAR(150) NULL,
     phone VARCHAR(50) NULL,
+    extension_number VARCHAR(20) NULL,
 
     dept_id BIGINT NULL,
     position_name VARCHAR(50) NULL,
@@ -230,17 +231,27 @@ EXECUTE FUNCTION fn_update_updated_at();
 
 CREATE TABLE menu (
     menu_id BIGSERIAL PRIMARY KEY,
+    menu_code VARCHAR(60) NOT NULL,
     menu_name VARCHAR(100) NOT NULL,
     menu_path VARCHAR(255) NULL,
     parent_menu_id BIGINT NULL,
     sort_order INT DEFAULT 0,
+    portal_code VARCHAR(20) NOT NULL DEFAULT 'EMPLOYEE',
+    icon_key VARCHAR(60) NULL,
+    implementation_status VARCHAR(20) NOT NULL DEFAULT 'IMPLEMENTED',
+    required_permission_code VARCHAR(60) NULL,
+    searchable_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     use_yn VARCHAR(1) NOT NULL DEFAULT 'Y',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     created_by BIGINT NULL,
     updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL,
 
+    CONSTRAINT uq_menu_code UNIQUE (menu_code),
     CONSTRAINT chk_menu_use_yn CHECK (use_yn IN ('Y', 'N')),
+    CONSTRAINT chk_menu_portal_code CHECK (portal_code IN ('EMPLOYEE', 'ADMIN')),
+    CONSTRAINT chk_menu_implementation_status CHECK (implementation_status IN ('IMPLEMENTED', 'PLANNED', 'DISABLED')),
+    CONSTRAINT chk_menu_searchable_yn CHECK (searchable_yn IN ('Y', 'N')),
     CONSTRAINT fk_menu_parent FOREIGN KEY (parent_menu_id) REFERENCES menu(menu_id),
     CONSTRAINT fk_menu_created_by FOREIGN KEY (created_by) REFERENCES emp(emp_id),
     CONSTRAINT fk_menu_updated_by FOREIGN KEY (updated_by) REFERENCES emp(emp_id)
@@ -286,6 +297,31 @@ CREATE INDEX idx_menu_role_role ON menu_role(role_id);
 
 CREATE TRIGGER trg_menu_role_updated_at
 BEFORE UPDATE ON menu_role
+FOR EACH ROW
+EXECUTE FUNCTION fn_update_updated_at();
+
+
+CREATE TABLE user_menu_preference (
+    user_menu_preference_id BIGSERIAL PRIMARY KEY,
+    emp_id BIGINT NOT NULL,
+    menu_id BIGINT NOT NULL,
+    sort_order INT NULL,
+    pinned_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    hidden_yn VARCHAR(1) NOT NULL DEFAULT 'N',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NULL,
+
+    CONSTRAINT uq_user_menu_preference UNIQUE (emp_id, menu_id),
+    CONSTRAINT chk_user_menu_preference_pinned CHECK (pinned_yn IN ('Y', 'N')),
+    CONSTRAINT chk_user_menu_preference_hidden CHECK (hidden_yn IN ('Y', 'N')),
+    CONSTRAINT fk_user_menu_preference_emp FOREIGN KEY (emp_id) REFERENCES emp(emp_id),
+    CONSTRAINT fk_user_menu_preference_menu FOREIGN KEY (menu_id) REFERENCES menu(menu_id)
+);
+
+CREATE INDEX idx_user_menu_preference_emp ON user_menu_preference(emp_id);
+
+CREATE TRIGGER trg_user_menu_preference_updated_at
+BEFORE UPDATE ON user_menu_preference
 FOR EACH ROW
 EXECUTE FUNCTION fn_update_updated_at();
 
@@ -1140,15 +1176,20 @@ AND NOT EXISTS (
       AND er.use_yn = 'Y'
 );
 
-INSERT INTO menu (menu_name, menu_path, parent_menu_id, sort_order)
+INSERT INTO menu (menu_code, menu_name, menu_path, parent_menu_id, sort_order, portal_code, icon_key, implementation_status, required_permission_code)
 VALUES
-    ('대시보드', '/', NULL, 1),
-    ('공지사항', '/notices', NULL, 2),
-    ('게시판', '/boards', NULL, 3),
-    ('조직도', '/organization', NULL, 4),
-    ('알림', '/notifications', NULL, 5),
-    ('감사 로그', '/admin/audit-logs', NULL, 99)
-ON CONFLICT DO NOTHING;
+    ('EMPLOYEE_HOME', '홈', '/portal/employee/home', NULL, 1, 'EMPLOYEE', 'home', 'IMPLEMENTED', NULL),
+    ('NOTICES', '공지사항', '/portal/employee/notices', NULL, 2, 'EMPLOYEE', 'book-open', 'IMPLEMENTED', NULL),
+    ('BOARDS', '게시판', '/portal/employee/boards', NULL, 3, 'EMPLOYEE', 'message-square', 'IMPLEMENTED', NULL),
+    ('APPROVALS', '전자결재', '/portal/employee/approvals', NULL, 4, 'EMPLOYEE', 'clipboard-check', 'IMPLEMENTED', NULL),
+    ('PDM', '도면관리', '/planned-features/PDM', NULL, 5, 'EMPLOYEE', 'folder-kanban', 'PLANNED', NULL),
+    ('EQUIPMENT', '설비관리', '/planned-features/EQUIPMENT', NULL, 6, 'EMPLOYEE', 'wrench', 'PLANNED', NULL),
+    ('ORGANIZATION', '조직도', '/portal/employee/organization', NULL, 7, 'EMPLOYEE', 'building-2', 'IMPLEMENTED', NULL),
+    ('NOTIFICATIONS', '알림', '/portal/employee/notifications', NULL, 8, 'EMPLOYEE', 'bell', 'IMPLEMENTED', NULL),
+    ('ADMIN_HOME', '관리 홈', '/portal/admin/home', NULL, 1, 'ADMIN', 'shield', 'IMPLEMENTED', 'ADMIN_PORTAL'),
+    ('EMPLOYEES', '직원 관리', '/portal/admin/employees', NULL, 2, 'ADMIN', 'user-cog', 'IMPLEMENTED', 'EMPLOYEE_MANAGE'),
+    ('AUDIT_LOGS', '감사 로그', '/portal/admin/audit-logs', NULL, 3, 'ADMIN', 'scroll-text', 'IMPLEMENTED', 'SYSTEM_ADMIN')
+ON CONFLICT (menu_code) DO NOTHING;
 
 INSERT INTO board (board_code, board_name, dept_id, use_yn, created_by)
 VALUES

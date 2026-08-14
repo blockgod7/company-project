@@ -51,6 +51,9 @@ public class Emp extends BaseEntity {
     @Column(name = "phone", length = 50)
     private String phone;
 
+    @Column(name = "extension_number", length = 20)
+    private String extensionNumber;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_id")
     private Dept dept;
@@ -156,6 +159,7 @@ public class Emp extends BaseEntity {
         String genderCode,
         String email,
         String phone,
+        String extensionNumber,
         Dept dept,
         String positionName,
         String jobTitle,
@@ -171,6 +175,7 @@ public class Emp extends BaseEntity {
         emp.genderCode = genderCode;
         emp.email = email;
         emp.phone = phone;
+        emp.extensionNumber = extensionNumber;
         emp.dept = dept;
         emp.positionName = positionName;
         emp.jobTitle = jobTitle;
@@ -195,6 +200,7 @@ public class Emp extends BaseEntity {
         String genderCode,
         String email,
         String phone,
+        String extensionNumber,
         Dept dept,
         String positionName,
         String jobTitle,
@@ -208,6 +214,7 @@ public class Emp extends BaseEntity {
         this.genderCode = genderCode;
         this.email = email;
         this.phone = phone;
+        this.extensionNumber = extensionNumber;
         this.dept = dept;
         this.positionName = positionName;
         this.workCategory = workCategoryForPosition(positionName, this.workCategory);

@@ -25,25 +25,32 @@ public class ApprovalLinePolicyService {
         List<Long> agreementIds = ids(request.agreementEmpIds());
         List<Long> approverIds = ids(request.approverEmpIds());
         List<Long> receiverIds = ids(request.receiverEmpIds());
+        List<Long> referenceIds = ids(request.referenceEmpIds());
         requireNoDuplicate("AGREEMENT", agreementIds);
         requireNoDuplicate("APPROVAL", approverIds);
         requireNoDuplicate("RECEIVER", receiverIds);
+        requireNoDuplicate("REFERENCE", referenceIds);
         if (requireApprover && approverIds.isEmpty()) {
             throw BusinessException.badRequest("APPROVAL_INVALID_LINE", "At least one approver is required");
         }
         if (agreementIds.contains(requester.getEmpId()) || approverIds.contains(requester.getEmpId())) {
             throw BusinessException.badRequest("APPROVAL_INVALID_LINE", "Requester cannot be an agreement or approval assignee");
         }
-        Set<Long> decisionAndReceiverIds = new HashSet<>();
-        for (Long empId : concat(agreementIds, approverIds, receiverIds)) {
-            if (!decisionAndReceiverIds.add(empId)) {
+        Set<Long> decisionIds = new HashSet<>();
+        for (Long empId : concat(agreementIds, approverIds)) {
+            if (!decisionIds.add(empId)) {
                 throw BusinessException.badRequest("APPROVAL_INVALID_LINE", "Agreement, approval, and receiver assignees cannot overlap");
+            }
+        }
+        for (Long receiverId : receiverIds) {
+            if (decisionIds.contains(receiverId) || referenceIds.contains(receiverId)) {
+                throw BusinessException.badRequest("APPROVAL_INVALID_LINE", "Receiver cannot also be an agreement, approval, or reference assignee");
             }
         }
         requireActiveAssignees("AGREEMENT", agreementIds);
         requireActiveAssignees("APPROVAL", approverIds);
         requireActiveAssignees("RECEIVER", receiverIds);
-        requireActiveAssignees("REFERENCE", ids(request.referenceEmpIds()));
+        requireActiveAssignees("REFERENCE", referenceIds);
         requireActiveAssignees("READER", ids(request.readerEmpIds()));
     }
 
@@ -133,10 +140,9 @@ public class ApprovalLinePolicyService {
         }
     }
 
-    private List<Long> concat(List<Long> first, List<Long> second, List<Long> third) {
+    private List<Long> concat(List<Long> first, List<Long> second) {
         List<Long> result = new ArrayList<>(first);
         result.addAll(second);
-        result.addAll(third);
         return result;
     }
 

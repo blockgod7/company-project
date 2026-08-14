@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.emp;
 
 import com.kjh.groupware.domain.emp.dto.EmpResponse;
+import com.kjh.groupware.domain.emp.dto.EmployeeDirectoryResponse;
 import com.kjh.groupware.global.response.PageResponse;
 import com.kjh.groupware.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,21 @@ public class EmpQueryService {
                 .map(EmpResponse::from));
         }
         return PageResponse.from(empRepository.search(normalizedKeyword, deptId, normalizedStatus, pageable).map(EmpResponse::from));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<EmployeeDirectoryResponse> searchDirectory(String keyword, Long deptId, String status, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        String normalizedStatus = StringUtils.hasText(status) ? status.trim() : null;
+        if (normalizedKeyword == null) {
+            return PageResponse.from(empRepository.searchDirectoryWithoutKeyword(deptId, normalizedStatus, pageable)
+                .map(EmployeeDirectoryResponse::from));
+        }
+        return PageResponse.from(empRepository.searchDirectory(normalizedKeyword, deptId, normalizedStatus, pageable)
+            .map(EmployeeDirectoryResponse::from));
     }
 
     @Transactional(readOnly = true)

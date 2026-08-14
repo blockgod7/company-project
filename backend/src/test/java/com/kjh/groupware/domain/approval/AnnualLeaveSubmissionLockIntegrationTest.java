@@ -78,6 +78,7 @@ class AnnualLeaveSubmissionLockIntegrationTest {
                     emp_name varchar(100) not null,
                     email varchar(150),
                     phone varchar(50),
+                    extension_number varchar(20),
                     dept_id bigint,
                     position_name varchar(50),
                     job_title varchar(50),

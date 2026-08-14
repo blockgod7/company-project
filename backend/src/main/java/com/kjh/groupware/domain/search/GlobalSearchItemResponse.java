@@ -12,6 +12,20 @@ public record GlobalSearchItemResponse(
     String summary,
     String meta,
     List<String> badges,
-    LocalDateTime occurredAt
+    LocalDateTime occurredAt,
+    String destinationPath
 ) {
+    public GlobalSearchItemResponse(
+        String type,
+        Long targetId,
+        Long parentId,
+        String route,
+        String title,
+        String summary,
+        String meta,
+        List<String> badges,
+        LocalDateTime occurredAt
+    ) {
+        this(type, targetId, parentId, route, title, summary, meta, badges, occurredAt, null);
+    }
 }

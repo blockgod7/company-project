@@ -77,7 +77,7 @@ public class EmployeeManagementService {
             throw BusinessException.badRequest("EMP_NO_DUPLICATED", "이미 사용 중인 사번입니다.");
         }
         Emp emp = Emp.pending(
-            request.empNo().trim(), request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()),
+            request.empNo().trim(), request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()), normalize(request.extensionNumber()),
             dept(request.deptId()), normalize(request.positionName()), normalize(request.jobTitle()), manager(request.managerEmpId()),
             request.hireDate(), request.employmentType(), request.contractStartDate(), request.contractEndDate()
         );
@@ -94,7 +94,7 @@ public class EmployeeManagementService {
         permissionService.assertCanEditTarget(actor, emp);
         validateEmployment(request.employmentType(), request.contractStartDate(), request.contractEndDate());
         emp.updateProfile(
-            request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()),
+            request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()), normalize(request.extensionNumber()),
             dept(request.deptId()), normalize(request.positionName()), normalize(request.jobTitle()), manager(request.managerEmpId()),
             request.hireDate(), request.employmentType(), request.contractStartDate(), request.contractEndDate()
         );

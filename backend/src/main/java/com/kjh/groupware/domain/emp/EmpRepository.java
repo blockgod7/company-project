@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface EmpRepository extends JpaRepository<Emp, Long> {
 
+    @Query(value = "select 1 from pg_advisory_xact_lock(hashtextextended(:loginId, 0))", nativeQuery = true)
+    Integer acquireLoginLock(@Param("loginId") String loginId);
+
     Optional<Emp> findByLoginId(String loginId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -31,7 +34,7 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
         select e.*
         from emp e
         where e.use_yn = 'Y' and e.status = 'ACTIVE'
-          and (e.role_code = 'ADMIN' or e.login_id in ('e0015', 'e7016')
+          and (e.role_code = 'ADMIN'
             or exists (
               select 1
               from emp_permission p
@@ -68,6 +71,8 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
             or lower(e.loginId) like lower(concat('%', :keyword, '%'))
             or lower(e.empNo) like lower(concat('%', :keyword, '%'))
             or lower(coalesce(e.email, '')) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(e.phone, '')) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(e.extensionNumber, '')) like lower(concat('%', :keyword, '%'))
           )
         order by e.empId asc
         """)
@@ -86,6 +91,44 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
         order by e.empId asc
         """)
     Page<Emp> searchWithoutKeyword(
+        @Param("deptId") Long deptId,
+        @Param("status") String status,
+        Pageable pageable
+    );
+
+    @Query("""
+        select e from Emp e
+        where e.useYn = 'Y'
+          and e.roleCode <> 'ADMIN'
+          and (:status is null or e.status = :status)
+          and (:deptId is null or e.dept.deptId = :deptId)
+          and (
+            :keyword is null
+            or lower(e.empName) like lower(concat('%', :keyword, '%'))
+            or lower(e.loginId) like lower(concat('%', :keyword, '%'))
+            or lower(e.empNo) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(e.email, '')) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(e.phone, '')) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(e.extensionNumber, '')) like lower(concat('%', :keyword, '%'))
+          )
+        order by e.empId asc
+        """)
+    Page<Emp> searchDirectory(
+        @Param("keyword") String keyword,
+        @Param("deptId") Long deptId,
+        @Param("status") String status,
+        Pageable pageable
+    );
+
+    @Query("""
+        select e from Emp e
+        where e.useYn = 'Y'
+          and e.roleCode <> 'ADMIN'
+          and (:status is null or e.status = :status)
+          and (:deptId is null or e.dept.deptId = :deptId)
+        order by e.empId asc
+        """)
+    Page<Emp> searchDirectoryWithoutKeyword(
         @Param("deptId") Long deptId,
         @Param("status") String status,
         Pageable pageable
