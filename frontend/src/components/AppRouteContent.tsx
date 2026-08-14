@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { AccessDenied } from "./AccessDenied";
 import { DashboardPage } from "../pages/DashboardPage";
 import { AdminPortalPage } from "../pages/AdminPortalPage";
-import { canAccessAdminPortal, canViewPlannedFeatures } from "../navigation";
+import { canAccessAdminPortal, canManageApproval, canViewPlannedFeatures } from "../navigation";
 import type { GlobalSearchItem, GlobalSearchResponse, User } from "../types";
 import type { ApprovalLaunch, Route } from "../utils/approvalDomain";
 import type { GlobalSearchTarget } from "../utils/search";
@@ -57,13 +57,14 @@ export function AppRouteContent({ route, user, isAdmin, canViewPreview, approval
         {route === "adminDashboard" && (canAccessAdminPortal(user) ? <AdminPortalPage user={user} go={navigate} /> : <AccessDenied />)}
         {route === "notices" && <NoticePage user={user} target={globalSearch.target} />}
         {route === "boards" && <BoardPage user={user} target={globalSearch.target} />}
-        {route === "approvals" && <ApprovalPage user={user} launch={approvalLaunch} target={globalSearch.target} />}
+        {route === "approvals" && <ApprovalPage key="employee-approvals" user={user} launch={approvalLaunch} target={globalSearch.target} portal="employee" />}
+        {route === "approvalAdmin" && (canManageApproval(user) ? <ApprovalPage key="admin-approvals" user={user} launch={null} target={globalSearch.target} portal="admin" /> : <AccessDenied />)}
         {route === "pdm" && (canViewPreview ? <DrawingManagementPage user={user} openApprovals={openApprovals} target={globalSearch.target} /> : <AccessDenied />)}
         {route === "equipment" && (canViewPreview ? <EquipmentManagementPage user={user} isAdmin={isAdmin} /> : <AccessDenied />)}
         {route === "plannedFeature" && (canViewPlannedFeatures(user) ? <PlannedFeaturePage featureCode={plannedFeatureCode} onBack={() => navigate("dashboard")} /> : <AccessDenied />)}
         {route === "notifications" && <NotificationPage go={navigate} target={globalSearch.target} />}
         {route === "organization" && <OrganizationPage target={globalSearch.target} />}
-        {route === "employees" && ((user.permissions.includes("EMPLOYEE_ADMIN") || user.permissions.includes("WORK_CATEGORY_ADMIN")) ? <EmployeeManagementPage user={user} /> : <AccessDenied />)}
+        {route === "employees" && ((user.permissions.includes("EMPLOYEE_ADMIN") || user.permissions.includes("WORK_CATEGORY_ADMIN") || user.permissions.includes("ACCOUNT_ADMIN")) ? <EmployeeManagementPage user={user} /> : <AccessDenied />)}
         {route === "audit" && (isAdmin ? <AuditLogPage target={globalSearch.target} /> : <AccessDenied />)}
       </Suspense>
     </main>

@@ -14,6 +14,7 @@ import type { Route } from "./approvalDomainCore";
 export const routeLabels: Record<Route, string> = {
   dashboard: "대시보드",
   adminDashboard: "관리 포털",
+  approvalAdmin: "전자결재 관리",
   search: "전역 검색",
   notices: "공지사항",
   boards: "게시판",

@@ -122,9 +122,10 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   const [operationSettingsMessage, setOperationSettingsMessage] = useState("");
   const [approvalActionComment, setApprovalActionComment] = useState("");
   const [approvalSearch, setApprovalSearch] = useState<ApprovalSearchForm>(DEFAULT_APPROVAL_SEARCH);
-  const isApprovalAdmin = user.roleCode === "ADMIN" || user.roleCode === "APPROVAL_ADMIN";
-  const isHolidayManager = user.permissions.includes("LEAVE_ADMIN");
-  const isLeavePolicyManager = user.permissions.includes("LEAVE_POLICY_ADMIN");
+  const isFullAdmin = user.roleCode === "ADMIN" || user.permissions.includes("FULL_ADMIN");
+  const isApprovalAdmin = isFullAdmin || user.roleCode === "APPROVAL_ADMIN";
+  const isHolidayManager = isFullAdmin || user.permissions.includes("LEAVE_ADMIN");
+  const isLeavePolicyManager = isFullAdmin || user.permissions.includes("LEAVE_POLICY_ADMIN");
   const canViewPreview = canViewPlannedFeatures(user);
   const visibleTemplates = canViewPreview
     ? templates

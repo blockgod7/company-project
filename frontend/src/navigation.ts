@@ -14,6 +14,7 @@ type NavigationMatch = {
 const routePaths: Record<Route, string> = {
   dashboard: "/portal/employee/home",
   adminDashboard: "/portal/admin/home",
+  approvalAdmin: "/portal/admin/approvals",
   search: "/portal/employee/search",
   notices: "/portal/employee/notices",
   boards: "/portal/employee/boards",
@@ -31,6 +32,7 @@ const legacyPaths: Record<string, Route> = {
   "/": "dashboard",
   "/home": "dashboard",
   "/admin": "adminDashboard",
+  "/admin/approvals": "approvalAdmin",
   "/notices": "notices",
   "/boards": "boards",
   "/approvals": "approvals",
@@ -56,12 +58,19 @@ export function pathForRoute(route: Route) {
 }
 
 export function portalForRoute(route: Route): PortalMode {
-  return route === "adminDashboard" || route === "employees" || route === "audit" ? "admin" : "employee";
+  return route === "adminDashboard" || route === "approvalAdmin" || route === "employees" || route === "audit" ? "admin" : "employee";
+}
+
+export function canManageApproval(user: User) {
+  return user.roleCode === "ADMIN"
+    || user.roleCode === "APPROVAL_ADMIN"
+    || user.permissions.includes("FULL_ADMIN")
+    || user.permissions.includes("LEAVE_ADMIN")
+    || user.permissions.includes("LEAVE_POLICY_ADMIN");
 }
 
 export function canAccessAdminPortal(user: User) {
-  return user.roleCode === "ADMIN"
-    || user.roleCode === "APPROVAL_ADMIN"
+  return canManageApproval(user)
     || user.roleCode === "AUDIT_ADMIN"
     || user.permissions.some((permission) => adminPermissionCodes.has(permission));
 }
@@ -86,6 +95,7 @@ function dynamicMatch(pathname: string): NavigationMatch | null {
     parentFromMatch?: boolean;
   }> = [
     { expression: /^\/portal\/employee\/approvals\/(\d+)\/?$/, route: "approvals", portal: "employee", type: "APPROVAL" },
+    { expression: /^\/portal\/admin\/approvals\/(\d+)\/?$/, route: "approvalAdmin", portal: "admin", type: "APPROVAL" },
     { expression: /^\/portal\/employee\/boards\/(\d+)\/?$/, route: "boards", portal: "employee", type: "BOARD_POST" },
     { expression: /^\/portal\/employee\/notices\/(\d+)\/?$/, route: "notices", portal: "employee", type: "NOTICE" },
     { expression: /^\/portal\/employee\/pdm\/drawings\/(\d+)\/?$/, route: "pdm", portal: "employee", type: "PDM_DRAWING" },

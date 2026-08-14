@@ -195,7 +195,8 @@ import { SchedulerStatusPanel } from "./SchedulerStatusPanel";
 import { useApprovalPageController } from "./useApprovalPageController";
 import { createApprovalDocumentActions } from "./createApprovalDocumentActions";
 
-export function ApprovalPage({ user, launch, target }: { user: User; launch: ApprovalLaunch | null; target: GlobalSearchTarget | null }) {
+export function ApprovalPage({ user, launch, target, portal }: { user: User; launch: ApprovalLaunch | null; target: GlobalSearchTarget | null; portal: "employee" | "admin" }) {
+  const managementMode = portal === "admin";
   const controller = useApprovalPageController({ user, launch, target });
   const {
     box,
@@ -398,16 +399,20 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
 
   return (
     <section className="panel board-screen approval-screen">
-      {!isApprovalEditorMode && <div className="board-tabs approval-tabs approval-category-tabs">
+      {!managementMode && !isApprovalEditorMode && <div className="board-tabs approval-tabs approval-category-tabs">
         <button type="button" className={approvalCategory === "active" ? "active" : ""} onClick={() => void changeApprovalCategory("active")}>전자결재</button>
         <button type="button" className={approvalCategory === "completed" ? "active" : ""} onClick={() => void changeApprovalCategory("completed")}>결재 완료문서</button>
       </div>}
-      {!isApprovalEditorMode && approvalCategory === "active" && <div className="board-tabs approval-tabs approval-work-tabs">
+      {!managementMode && !isApprovalEditorMode && approvalCategory === "active" && <div className="board-tabs approval-tabs approval-work-tabs">
         {primaryApprovalViews.map((view) => (
           <button key={view.id} className={activePrimaryApprovalViewId === view.id ? "active" : ""} onClick={() => void openApprovalWorkView(view)}>{view.label}</button>
         ))}
         <div className="approval-tab-actions">
           <button type="button" className={mode === "delegation" ? "active" : ""} onClick={() => void openDelegationSettings()}>대리설정</button>
+        </div>
+      </div>}
+      {managementMode && !isApprovalEditorMode && <div className="board-tabs approval-tabs approval-work-tabs approval-admin-tabs">
+        <div className="approval-tab-actions">
           {isHolidayManager && <button type="button" className={mode === "compTime" ? "active" : ""} onClick={() => setMode("compTime")}>대체휴무 관리</button>}
           {isApprovalAdmin && <button type="button" className={mode === "templates" ? "active" : ""} onClick={() => void openTemplateAdmin()}>양식관리</button>}
           {isApprovalAdmin && <button type="button" className={mode === "operationSettings" ? "active" : ""} onClick={() => void openOperationSettings()}>운영설정</button>}
@@ -417,7 +422,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
           {isApprovalAdmin && <button type="button" className={mode === "deleted" ? "active" : ""} onClick={() => void openDeletedApprovals()}>보존삭제함</button>}
         </div>
       </div>}
-      {approvalCategory === "completed" && mode === "list" && <form className="approval-search-panel approval-completed-search" onSubmit={applyApprovalSearch}>
+      {!managementMode && approvalCategory === "completed" && mode === "list" && <form className="approval-search-panel approval-completed-search" onSubmit={applyApprovalSearch}>
         <label>
           <span>검색어</span>
           <input
@@ -471,7 +476,17 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
           <button type="button" className="ghost" onClick={() => void resetApprovalSearch()}><RefreshCw size={16} /> 초기화</button>
         </div>
       </form>}
-      {!isApprovalEditorMode && mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "holidays" && mode !== "annualLeaves" && mode !== "leavePolicies" && mode !== "compTime" && mode !== "deleted" && <Toolbar title={approvalCategory === "completed" ? "결재 완료문서" : "전자결재"} onNew={startCreate} onRefresh={() => load(box, dashboardFilter?.dashboardFilter ?? null)} />}
+      {!managementMode && !isApprovalEditorMode && mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "holidays" && mode !== "annualLeaves" && mode !== "leavePolicies" && mode !== "compTime" && mode !== "deleted" && <Toolbar title={approvalCategory === "completed" ? "결재 완료문서" : "전자결재"} onNew={startCreate} onRefresh={() => load(box, dashboardFilter?.dashboardFilter ?? null)} />}
+      {managementMode && mode === "list" && (
+        <div className="approval-template-editor">
+          <div className="panel-head">
+            <div>
+              <h3>전자결재 관리</h3>
+              <p className="muted-text">상단에서 권한이 부여된 관리 기능을 선택해 주세요.</p>
+            </div>
+          </div>
+        </div>
+      )}
       {approvalError && <p className="error">{approvalError}</p>}
       {mode === "detail" && selected && (
         <div className={`approval-focus-bar approval-focus-${selected.status.toLowerCase()}`}>
@@ -514,19 +529,19 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
               {permissions?.canCancel && <button className="ghost" onClick={() => action("cancel")}><X size={16} /> 취소</button>}
               {permissions?.canPrintPdf && selected.pdfStatus === "GENERATED" && selected.pdfFileId != null && <button className="ghost" onClick={() => downloadApprovalPdf(selected.approvalId, selected.documentNo ?? selected.title)}><Paperclip size={16} /> PDF 출력</button>}
             </div>
-            {isApprovalAdmin && (
+            {managementMode && isApprovalAdmin && (
               <div className="approval-actions approval-actions-admin">
                 <button className="ghost" onClick={() => void correctStatus()}><RefreshCw size={16} /> 상태 보정</button>
                 <button className="danger" onClick={() => void deleteForRetention()}><Trash2 size={16} /> 보존삭제</button>
               </div>
             )}
-            {isHolidayManager && selected.status === "APPROVED" && (isLeaveTemplateCode(selected.templateCode) || isLeaveCancelTemplateCode(selected.templateCode)) && (
+            {managementMode && isHolidayManager && selected.status === "APPROVED" && (isLeaveTemplateCode(selected.templateCode) || isLeaveCancelTemplateCode(selected.templateCode)) && (
               <div className="approval-actions approval-actions-admin"><button className="danger" onClick={() => void managementCancelLeave()}><Trash2 size={16} /> 휴가 관리 취소</button></div>
             )}
           </div>
         </div>
       )}
-      {mode === "delegation" && (
+      {!managementMode && mode === "delegation" && (
         <div className="approval-template-editor">
           <div className="panel-head">
             <div>
@@ -560,7 +575,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
           </div>
         </div>
       )}
-      {mode === "templates" && isApprovalAdmin && (
+      {managementMode && mode === "templates" && isApprovalAdmin && (
         <div className="approval-template-editor">
           <div className="panel-head">
             <div>
@@ -616,7 +631,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
           )}
         </div>
       )}
-      {mode === "operationSettings" && isApprovalAdmin && (
+      {managementMode && mode === "operationSettings" && isApprovalAdmin && (
         <div className="approval-template-editor">
           <div className="panel-head">
             <div>
@@ -653,11 +668,11 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
           <SchedulerStatusPanel />
         </div>
       )}
-      {mode === "holidays" && isHolidayManager && <ApprovalHolidayPanel onChanged={loadHolidays} />}
-      {mode === "annualLeaves" && isHolidayManager && <AnnualLeaveAdminPanel />}
-      {mode === "leavePolicies" && isLeavePolicyManager && <LeavePolicyAdminPanel employees={employees} />}
-      {mode === "compTime" && isHolidayManager && <CompTimeAdminPanel user={user} employees={employees} isManager />}
-      {mode === "deleted" && isApprovalAdmin && (
+      {managementMode && mode === "holidays" && isHolidayManager && <ApprovalHolidayPanel onChanged={loadHolidays} />}
+      {managementMode && mode === "annualLeaves" && isHolidayManager && <AnnualLeaveAdminPanel />}
+      {managementMode && mode === "leavePolicies" && isLeavePolicyManager && <LeavePolicyAdminPanel employees={employees} />}
+      {managementMode && mode === "compTime" && isHolidayManager && <CompTimeAdminPanel user={user} employees={employees} isManager />}
+      {managementMode && mode === "deleted" && isApprovalAdmin && (
         <div className="approval-template-editor">
           <div className="panel-head">
             <div>
@@ -682,7 +697,7 @@ export function ApprovalPage({ user, launch, target }: { user: User; launch: App
           </div>
         </div>
       )}
-      {mode === "list" && (
+      {!managementMode && mode === "list" && (
         <>
           {dashboardFilter && !isPrimaryDashboardFilter && (
             <div className="approval-filter-banner">

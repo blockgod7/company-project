@@ -43,14 +43,26 @@ test.describe("포털 접근과 메뉴 노출 회귀", () => {
     await expect(page.getByRole("heading", { name: "도면관리", level: 1 })).toBeVisible();
     await expect(page.getByText("이 화면은 다음 개발을 위한 읽기 전용 안내입니다.", { exact: false })).toBeVisible();
 
+    await employeeNavigation.getByRole("button", { name: "전자결재", exact: true }).click();
+    for (const managementName of ["대체휴무 관리", "양식관리", "운영설정", "휴일관리", "연차관리", "휴가정책", "보존삭제함"]) {
+      await expect(page.getByRole("button", { name: managementName, exact: true })).toHaveCount(0);
+    }
+
     await page.getByRole("button", { name: "임직원 포털", exact: true }).click();
     await page.getByRole("menuitem", { name: /관리자 포털/ }).click();
     await expect(page).toHaveURL(/\/portal\/admin\/home$/);
 
     const adminNavigation = page.getByRole("navigation", { name: "주요 메뉴" });
     await expect(adminNavigation.getByRole("button", { name: "관리 홈", exact: true })).toBeVisible();
+    await expect(adminNavigation.getByRole("button", { name: "전자결재 관리", exact: true })).toBeVisible();
     await expect(adminNavigation.getByRole("button", { name: "직원 관리", exact: true })).toBeVisible();
     await expect(adminNavigation.getByRole("button", { name: "감사 로그", exact: true })).toBeVisible();
+
+    await adminNavigation.getByRole("button", { name: "전자결재 관리", exact: true }).click();
+    await expect(page).toHaveURL(/\/portal\/admin\/approvals$/);
+    for (const managementName of ["대체휴무 관리", "양식관리", "운영설정", "휴일관리", "연차관리", "휴가정책", "보존삭제함"]) {
+      await expect(page.getByRole("button", { name: managementName, exact: true })).toBeVisible();
+    }
   });
 
   test("전권자는 예정 기능과 관리자 포털을 보지만 시스템 감사 메뉴는 보지 못한다", async ({ page }) => {
@@ -66,6 +78,7 @@ test.describe("포털 접근과 메뉴 노출 회귀", () => {
 
     const adminNavigation = page.getByRole("navigation", { name: "주요 메뉴" });
     await expect(adminNavigation.getByRole("button", { name: "관리 홈", exact: true })).toBeVisible();
+    await expect(adminNavigation.getByRole("button", { name: "전자결재 관리", exact: true })).toBeVisible();
     await expect(adminNavigation.getByRole("button", { name: "직원 관리", exact: true })).toBeVisible();
     await expect(adminNavigation.getByRole("button", { name: "감사 로그", exact: true })).toHaveCount(0);
   });
@@ -82,6 +95,7 @@ test.describe("포털 접근과 메뉴 노출 회귀", () => {
 
     const adminNavigation = page.getByRole("navigation", { name: "주요 메뉴" });
     await expect(adminNavigation.getByRole("button", { name: "관리 홈", exact: true })).toBeVisible();
+    await expect(adminNavigation.getByRole("button", { name: "전자결재 관리", exact: true })).toHaveCount(0);
     await expect(adminNavigation.getByRole("button", { name: "직원 관리", exact: true })).toBeVisible();
     await expect(adminNavigation.getByRole("button", { name: "감사 로그", exact: true })).toHaveCount(0);
   });

@@ -57,7 +57,7 @@ function App() {
       setAuthStatus("anonymous");
     }
     const expire = () => {
-      setMessage("?몄뀡??留뚮즺?섏뿀?듬땲?? ?ㅼ떆 濡쒓렇?명빐 二쇱꽭??");
+      setMessage("세션이 만료되었습니다. 다시 로그인해 주세요.");
       setUser(null);
       setAuthStatus("anonymous");
       setApprovalLaunch(null);

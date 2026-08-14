@@ -131,6 +131,38 @@ class MenuServiceTest {
     }
 
     @Test
+    void approvalAdministratorSeesApprovalManagementOnlyInAdminPortal() {
+        Emp approvalAdministrator = employee(9L, "APPROVAL_ADMIN");
+        Menu employeeApproval = menu(4L, "APPROVALS", "EMPLOYEE", "IMPLEMENTED", null, 4);
+        Menu approvalManagement = menu(5L, "APPROVAL_ADMIN", "ADMIN", "IMPLEMENTED", "APPROVAL_MANAGE", 2);
+        when(currentEmpProvider.getCurrentEmp()).thenReturn(approvalAdministrator);
+        when(preferenceRepository.findByEmpEmpId(9L)).thenReturn(List.of());
+        when(menuRepository.findByUseYnOrderByPortalCodeAscSortOrderAscMenuIdAsc("Y"))
+            .thenReturn(List.of(employeeApproval, approvalManagement));
+
+        assertThat(service.findEffective("EMPLOYEE"))
+            .extracting(EffectiveMenuResponse::menuCode)
+            .containsExactly("APPROVALS");
+        assertThat(service.findEffective("ADMIN"))
+            .extracting(EffectiveMenuResponse::menuCode)
+            .containsExactly("APPROVAL_ADMIN");
+    }
+
+    @Test
+    void employeeAdministratorCannotSeeApprovalManagementWithoutApprovalPermission() {
+        Emp employeeAdministrator = employee(10L, "USER");
+        Menu approvalManagement = menu(5L, "APPROVAL_ADMIN", "ADMIN", "IMPLEMENTED", "APPROVAL_MANAGE", 2);
+        when(currentEmpProvider.getCurrentEmp()).thenReturn(employeeAdministrator);
+        when(permissionService.hasPermission(employeeAdministrator, EmployeePermissionService.EMPLOYEE_ADMIN))
+            .thenReturn(true);
+        when(preferenceRepository.findByEmpEmpId(10L)).thenReturn(List.of());
+        when(menuRepository.findByUseYnOrderByPortalCodeAscSortOrderAscMenuIdAsc("Y"))
+            .thenReturn(List.of(approvalManagement));
+
+        assertThat(service.findEffective("ADMIN")).isEmpty();
+    }
+
+    @Test
     void rejectsUnknownPortalCode() {
         Emp employee = employee(4L, "USER");
         when(currentEmpProvider.getCurrentEmp()).thenReturn(employee);

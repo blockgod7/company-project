@@ -10,7 +10,7 @@ import type {
   LeaveUsage,
   User
 } from "../types";
-export type Route = "dashboard" | "adminDashboard" | "search" | "notices" | "boards" | "approvals" | "pdm" | "equipment" | "plannedFeature" | "notifications" | "organization" | "employees" | "audit";
+export type Route = "dashboard" | "adminDashboard" | "approvalAdmin" | "search" | "notices" | "boards" | "approvals" | "pdm" | "equipment" | "plannedFeature" | "notifications" | "organization" | "employees" | "audit";
 export type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "holidays" | "annualLeaves" | "leavePolicies" | "compTime" | "deleted";
 export type ApprovalDelegationForm = { delegateEmpId: number | null; startDate: string; endDate: string; reason: string; active: boolean };
 export type ApprovalOperationSettingsForm = { decisionDueHours: number; reminderFixedDelayMs: number; deletedDocumentRetentionDays: number; permanentDeleteEnabled: boolean; leaveDefaultReceiverEmpId: number | null };

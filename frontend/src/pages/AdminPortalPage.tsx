@@ -1,4 +1,5 @@
 import { ClipboardCheck, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { canManageApproval } from "../navigation";
 import type { User } from "../types";
 import type { Route } from "../utils/approvalDomain";
 
@@ -11,11 +12,9 @@ export function AdminPortalPage({ user, go }: AdminPortalPageProps) {
   const fullAdmin = user.roleCode === "ADMIN" || user.permissions.includes("FULL_ADMIN");
   const canManageEmployees = fullAdmin
     || user.permissions.includes("EMPLOYEE_ADMIN")
-    || user.permissions.includes("WORK_CATEGORY_ADMIN");
-  const canManageApproval = fullAdmin
-    || user.roleCode === "APPROVAL_ADMIN"
-    || user.permissions.includes("LEAVE_ADMIN")
-    || user.permissions.includes("LEAVE_POLICY_ADMIN");
+    || user.permissions.includes("WORK_CATEGORY_ADMIN")
+    || user.permissions.includes("ACCOUNT_ADMIN");
+  const approvalManagementAllowed = canManageApproval(user);
 
   return (
     <div className="admin-portal-page">
@@ -29,8 +28,8 @@ export function AdminPortalPage({ user, go }: AdminPortalPageProps) {
       </section>
 
       <section className="admin-portal-grid" aria-label="관리 기능">
-        {canManageApproval && (
-          <button type="button" className="panel admin-portal-card" onClick={() => go("approvals")}>
+        {approvalManagementAllowed && (
+          <button type="button" className="panel admin-portal-card" onClick={() => go("approvalAdmin")}>
             <ClipboardCheck size={24} />
             <strong>전자결재 운영</strong>
             <span>결재 문서와 휴가 정책·운영 설정을 관리합니다.</span>

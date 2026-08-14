@@ -106,8 +106,10 @@ public class MenuService {
         if (permission == null || permission.isBlank()) return true;
         return switch (permission) {
             case "ADMIN_PORTAL" -> canAccessAdminPortal(emp);
+            case "APPROVAL_MANAGE" -> canManageApproval(emp);
             case "EMPLOYEE_MANAGE" -> permissionService.hasPermission(emp, EmployeePermissionService.EMPLOYEE_ADMIN)
-                || permissionService.hasPermission(emp, EmployeePermissionService.WORK_CATEGORY_ADMIN);
+                || permissionService.hasPermission(emp, EmployeePermissionService.WORK_CATEGORY_ADMIN)
+                || permissionService.hasPermission(emp, EmployeePermissionService.ACCOUNT_ADMIN);
             case "SYSTEM_ADMIN" -> "ADMIN".equals(emp.getRoleCode());
             default -> permissionService.hasPermission(emp, permission);
         };
@@ -124,6 +126,14 @@ public class MenuService {
             || permissionService.hasPermission(emp, EmployeePermissionService.EMPLOYEE_ADMIN)
             || permissionService.hasPermission(emp, EmployeePermissionService.WORK_CATEGORY_ADMIN)
             || permissionService.hasPermission(emp, EmployeePermissionService.ACCOUNT_ADMIN);
+    }
+
+    private boolean canManageApproval(Emp emp) {
+        return "ADMIN".equals(emp.getRoleCode())
+            || "APPROVAL_ADMIN".equals(emp.getRoleCode())
+            || permissionService.hasPermission(emp, EmployeePermissionService.FULL_ADMIN)
+            || permissionService.hasPermission(emp, EmployeePermissionService.LEAVE_ADMIN)
+            || permissionService.hasPermission(emp, EmployeePermissionService.LEAVE_POLICY_ADMIN);
     }
 
     private boolean isSystemOrFullAdmin(Emp emp) {

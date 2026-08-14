@@ -1187,8 +1187,9 @@ VALUES
     ('ORGANIZATION', '조직도', '/portal/employee/organization', NULL, 7, 'EMPLOYEE', 'building-2', 'IMPLEMENTED', NULL),
     ('NOTIFICATIONS', '알림', '/portal/employee/notifications', NULL, 8, 'EMPLOYEE', 'bell', 'IMPLEMENTED', NULL),
     ('ADMIN_HOME', '관리 홈', '/portal/admin/home', NULL, 1, 'ADMIN', 'shield', 'IMPLEMENTED', 'ADMIN_PORTAL'),
-    ('EMPLOYEES', '직원 관리', '/portal/admin/employees', NULL, 2, 'ADMIN', 'user-cog', 'IMPLEMENTED', 'EMPLOYEE_MANAGE'),
-    ('AUDIT_LOGS', '감사 로그', '/portal/admin/audit-logs', NULL, 3, 'ADMIN', 'scroll-text', 'IMPLEMENTED', 'SYSTEM_ADMIN')
+    ('APPROVAL_ADMIN', '전자결재 관리', '/portal/admin/approvals', NULL, 2, 'ADMIN', 'clipboard-check', 'IMPLEMENTED', 'APPROVAL_MANAGE'),
+    ('EMPLOYEES', '직원 관리', '/portal/admin/employees', NULL, 3, 'ADMIN', 'user-cog', 'IMPLEMENTED', 'EMPLOYEE_MANAGE'),
+    ('AUDIT_LOGS', '감사 로그', '/portal/admin/audit-logs', NULL, 4, 'ADMIN', 'scroll-text', 'IMPLEMENTED', 'SYSTEM_ADMIN')
 ON CONFLICT (menu_code) DO NOTHING;
 
 INSERT INTO board (board_code, board_name, dept_id, use_yn, created_by)
