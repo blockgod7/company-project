@@ -19,7 +19,7 @@
 - Current patch handling is driven by `setup-local-db.ps1`; verify the script before describing which patches are applied by default.
 - `verify-local-db.ps1` checks local PostgreSQL availability, expected schema elements, seed state, and optional backend health.
 - Keep patch order and idempotency clear when future DB changes are allowed.
-- Current portal/menu personalization, employee extension, and revised annual-leave data changes are applied by `portal_menu_personalization_202608_patch.sql`, `employee_contact_extension_202608_patch.sql`, and `annual_leave_calculation_revision_202608_patch.sql` in that order.
+- Current portal/menu personalization, employee extension, revised annual-leave data, and confirmed contract terms are applied by `portal_menu_personalization_202608_patch.sql`, `employee_contact_extension_202608_patch.sql`, `annual_leave_calculation_revision_202608_patch.sql`, and `contract_employee_terms_202608_patch.sql` in that order.
 - Keep the portal-menu patch rerunnable after `uq_menu_code` exists; legacy rows that map to an existing canonical menu code must remain inactive `LEGACY_DUPLICATE_<menu_id>` rows.
 - Do not treat old planning docs as proof that a schema feature is implemented; confirm with SQL files and current Java code.
 

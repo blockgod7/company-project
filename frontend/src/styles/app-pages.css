@@ -434,12 +434,6 @@
 .status-chip.leave { color: #a16207; background: #fef3c7; }
 .status-chip.retired { color: #64748b; background: #e2e8f0; }
 .status-chip.accent { color: #166534; background: #dcfce7; }
-.binary-toggle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 8px; padding: 3px; border: 1px solid #cbd5e1; border-radius: 10px; background: #f8fafc; }
-.work-category-toggle { width: 168px; }
-.gender-toggle { width: 124px; }
-.binary-toggle button { min-width: 0; min-height: 34px; padding: 5px 8px; border: 0; border-radius: 7px; color: #64748b; background: transparent; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.binary-toggle button.active { color: white; background: #1d4ed8; box-shadow: 0 1px 3px rgba(15, 23, 42, .18); }
-.binary-toggle button:disabled { cursor: wait; opacity: .72; }
 .permission-chips, .row-actions { display: flex; gap: 5px; }
 .permission-chips { flex-wrap: wrap; align-content: center; }
 .permission-chips button { min-height: 27px; padding: 3px 7px; border: 1px solid #cbd5e1; border-radius: 999px; color: var(--muted); background: white; font-size: 10px; white-space: nowrap; }
@@ -467,9 +461,6 @@
   .employee-table .employee-col-account { width: 10%; }
   .employee-table .employee-col-permissions { width: 26%; }
   .employee-table .employee-col-actions { width: 12%; }
-  .gender-toggle { width: 112px; }
-  .work-category-toggle { width: 150px; }
-  .binary-toggle button { padding-inline: 5px; font-size: 11px; }
   .permission-chips button { padding-inline: 5px; font-size: 9px; }
 }
 @media (max-width: 700px) { .employee-filter { flex-direction: column; }.employee-filter label { min-width: 0; }.employee-form-grid { grid-template-columns: 1fr; } }

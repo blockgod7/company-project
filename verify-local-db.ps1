@@ -262,6 +262,37 @@ WHERE leave.annual_leave_id IS NULL
    OR leave.final_days IS DISTINCT FROM expected.expected_days;
 "@) "0"
 
+Assert-Equals "confirmed contract employee terms and 2026 leave values are applied" (Invoke-Scalar @"
+WITH expected(emp_no, contract_start_date, contract_end_date, final_days) AS (
+    VALUES
+        ('C0002', DATE '2026-06-30', DATE '2027-06-30', 30.0::NUMERIC),
+        ('D4035', DATE '2026-06-30', DATE '2027-06-30', 30.0::NUMERIC),
+        ('E5031', DATE '2025-10-31', DATE '2026-10-31', 15.0::NUMERIC),
+        ('C1006', DATE '2025-08-31', DATE '2026-08-31', 15.0::NUMERIC),
+        ('C7008', DATE '2025-12-31', DATE '2026-12-31', 15.0::NUMERIC),
+        ('C6013', DATE '2026-01-31', DATE '2027-01-31', 15.0::NUMERIC)
+)
+SELECT COUNT(*)
+FROM expected
+JOIN emp ON emp.emp_no = expected.emp_no
+JOIN emp_annual_leave leave ON leave.emp_id = emp.emp_id AND leave.leave_year = 2026
+WHERE emp.status = 'ACTIVE'
+  AND emp.employment_type = 'CONTRACT'
+  AND emp.contract_start_date = expected.contract_start_date
+  AND emp.contract_end_date = expected.contract_end_date
+  AND leave.auto_calculated_days = 15.0
+  AND leave.final_days = expected.final_days
+  AND leave.adjustment_days = expected.final_days - 15.0
+  AND leave.calculation_mode = 'MANUAL'
+  AND leave.confirmation_status = 'CONFIRMED'
+  AND EXISTS (
+      SELECT 1 FROM emp_employment_history history
+      WHERE history.emp_id = emp.emp_id
+        AND history.end_date IS NULL
+        AND history.employment_type = 'CONTRACT'
+  );
+"@) "6"
+
 $contactCoverage = Invoke-Scalar @"
 SELECT concat(
     'employees=', count(*),
@@ -270,7 +301,8 @@ SELECT concat(
     ', extension=', count(*) FILTER (WHERE nullif(trim(extension_number), '') IS NOT NULL)
 )
 FROM emp
-WHERE use_yn = 'Y';
+WHERE status = 'ACTIVE'
+  AND role_code <> 'ADMIN';
 "@
 Write-Host "[INFO] active employee contact coverage: $contactCoverage"
 
@@ -330,6 +362,18 @@ SELECT COUNT(*) FROM emp
 WHERE encode(convert_to(trim(position_name), 'UTF8'), 'hex') IN ('eca1b0ec9ea5', 'ebb098ec9ea5')
   AND work_category <> 'FIELD';
 "@) "0"
+
+Assert-Equals "leave cancellation template matches frontend definition" (Invoke-Scalar @"
+SELECT COUNT(*) FROM approval_template
+WHERE template_code = 'LEAVE_CANCEL'
+  AND encode(convert_to(template_name, 'UTF8'), 'hex') = 'ed9cb4eab08020ecb7a8ec868ceab384'
+  AND version = 1
+  AND encode(convert_to(description, 'UTF8'), 'hex') = 'ec8ab9ec9db820ec9984eba38ceb909c20ed9cb4eab08020ecb7a8ec868c20ec8ba0ecb2ad'
+  AND fields_json::jsonb = '[]'::jsonb
+  AND print_layout_json IS NULL
+  AND active_yn = 'Y'
+  AND sort_order = 999;
+"@) "1"
 
 $unlinkedLeaveCancelSql = @"
 WITH cancel_selections AS (

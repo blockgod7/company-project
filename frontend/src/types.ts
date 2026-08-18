@@ -181,6 +181,7 @@ export type DirectoryEmployee = {
   deptName: string | null;
   positionName: string | null;
   jobTitle: string | null;
+  status: "ACTIVE" | "LEAVE" | "RETIRED";
 };
 
 export type AuditLog = {

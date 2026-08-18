@@ -48,7 +48,7 @@ public class EmployeeManagementService {
     @Transactional(readOnly = true)
     public List<EmployeeManagementResponse> findAll() {
         permissionService.requireEmployeeOrWorkCategoryAdmin();
-        return empRepository.findAllByOrderByEmpNameAsc().stream().map(this::response).toList();
+        return empRepository.findAllEmployeesForManagement().stream().map(this::response).toList();
     }
 
     @Transactional(readOnly = true)

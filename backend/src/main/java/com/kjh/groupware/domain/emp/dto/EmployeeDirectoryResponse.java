@@ -12,14 +12,15 @@ public record EmployeeDirectoryResponse(
     Long deptId,
     String deptName,
     String positionName,
-    String jobTitle
+    String jobTitle,
+    String status
 ) {
     public static EmployeeDirectoryResponse from(Emp emp) {
         return new EmployeeDirectoryResponse(
             emp.getEmpId(), emp.getEmpNo(), emp.getEmpName(), emp.getEmail(), emp.getPhone(), emp.getExtensionNumber(),
             emp.getDept() == null ? null : emp.getDept().getDeptId(),
             emp.getDept() == null ? null : emp.getDept().getDeptName(),
-            emp.getPositionName(), emp.getJobTitle()
+            emp.getPositionName(), emp.getJobTitle(), emp.getStatus()
         );
     }
 }

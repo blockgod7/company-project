@@ -25,7 +25,8 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
 
     boolean existsByLoginId(String loginId);
 
-    List<Emp> findAllByOrderByEmpNameAsc();
+    @Query("select e from Emp e where e.roleCode <> 'ADMIN' order by e.empName asc")
+    List<Emp> findAllEmployeesForManagement();
 
     @Query("select e from Emp e where e.useYn = 'Y' and e.status = 'ACTIVE' and e.accountStatus = 'ACTIVE' and e.loginId is not null order by e.empId asc")
     List<Emp> findActiveLoginOptions();
@@ -63,6 +64,7 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
     @Query("""
         select e from Emp e
         where e.useYn = 'Y'
+          and e.roleCode <> 'ADMIN'
           and (:status is null or e.status = :status)
           and (:deptId is null or e.dept.deptId = :deptId)
           and (
@@ -86,6 +88,7 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
     @Query("""
         select e from Emp e
         where e.useYn = 'Y'
+          and e.roleCode <> 'ADMIN'
           and (:status is null or e.status = :status)
           and (:deptId is null or e.dept.deptId = :deptId)
         order by e.empId asc
@@ -98,8 +101,7 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
 
     @Query("""
         select e from Emp e
-        where e.useYn = 'Y'
-          and e.roleCode <> 'ADMIN'
+        where e.roleCode <> 'ADMIN'
           and (:status is null or e.status = :status)
           and (:deptId is null or e.dept.deptId = :deptId)
           and (
@@ -122,8 +124,7 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
 
     @Query("""
         select e from Emp e
-        where e.useYn = 'Y'
-          and e.roleCode <> 'ADMIN'
+        where e.roleCode <> 'ADMIN'
           and (:status is null or e.status = :status)
           and (:deptId is null or e.dept.deptId = :deptId)
         order by e.empId asc

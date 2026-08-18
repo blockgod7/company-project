@@ -36,4 +36,15 @@ class EmpQueryServiceTest {
         assertThat(result.content()).isEmpty();
         verify(empRepository).searchDirectory(eq("홍길동"), eq(null), eq("ACTIVE"), org.mockito.ArgumentMatchers.any(Pageable.class));
     }
+
+    @Test
+    void directoryAllStatusSearchIncludesEmploymentHistory() {
+        when(empRepository.searchDirectoryWithoutKeyword(eq(null), eq(null), org.mockito.ArgumentMatchers.any(Pageable.class)))
+            .thenReturn(Page.empty());
+
+        var result = service.searchDirectory(null, null, "ALL", 0, 100);
+
+        assertThat(result.content()).isEmpty();
+        verify(empRepository).searchDirectoryWithoutKeyword(eq(null), eq(null), org.mockito.ArgumentMatchers.any(Pageable.class));
+    }
 }
