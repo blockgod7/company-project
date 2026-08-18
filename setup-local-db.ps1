@@ -129,6 +129,7 @@ $currentPatchFiles = @(
     ,"approval_leave_cancel_source_backfill_patch.sql"
     ,"portal_menu_personalization_202608_patch.sql"
     ,"employee_contact_extension_202608_patch.sql"
+    ,"annual_leave_calculation_revision_202608_patch.sql"
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 
 $postSeedPatchFiles = @(

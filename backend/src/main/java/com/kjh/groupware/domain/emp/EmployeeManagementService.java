@@ -21,6 +21,7 @@ import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -93,11 +94,24 @@ public class EmployeeManagementService {
         Emp emp = find(empId);
         permissionService.assertCanEditTarget(actor, emp);
         validateEmployment(request.employmentType(), request.contractStartDate(), request.contractEndDate());
+        java.time.LocalDate previousEmploymentStartDate = emp.currentEmploymentStartDate();
+        String previousEmploymentType = emp.getEmploymentType();
+        java.time.LocalDate previousContractStartDate = emp.getContractStartDate();
+        java.time.LocalDate previousContractEndDate = emp.getContractEndDate();
         emp.updateProfile(
             request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()), normalize(request.extensionNumber()),
             dept(request.deptId()), normalize(request.positionName()), normalize(request.jobTitle()), manager(request.managerEmpId()),
             request.hireDate(), request.employmentType(), request.contractStartDate(), request.contractEndDate()
         );
+        boolean calculationInputChanged = !Objects.equals(previousEmploymentStartDate, emp.currentEmploymentStartDate())
+            || !Objects.equals(previousEmploymentType, emp.getEmploymentType())
+            || !Objects.equals(previousContractStartDate, emp.getContractStartDate())
+            || !Objects.equals(previousContractEndDate, emp.getContractEndDate());
+        if (calculationInputChanged) {
+            employmentHistoryRepository.findFirstByEmpEmpIdAndEndDateIsNullOrderByStartDateDesc(empId)
+                .ifPresent(history -> history.revise(emp.currentEmploymentStartDate(), emp.getEmploymentType()));
+            annualLeaveService.recalculateForEmploymentChange(emp, actor);
+        }
         return response(emp);
     }
 

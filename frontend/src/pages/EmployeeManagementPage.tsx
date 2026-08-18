@@ -94,6 +94,12 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
     if (!form.empName.trim() || !form.hireDate || (!editing && !form.empNo.trim())) {
       setError("사번, 이름, 입사일은 필수입니다."); return;
     }
+    if (form.employmentType === "CONTRACT" && (!form.contractStartDate || !form.contractEndDate)) {
+      setError("계약직은 계약 시작일과 종료일을 모두 입력해야 합니다."); return;
+    }
+    if (form.employmentType === "CONTRACT" && form.contractEndDate < form.contractStartDate) {
+      setError("계약 종료일은 계약 시작일보다 빠를 수 없습니다."); return;
+    }
     setBusy(true); setError("");
     try {
       await api<ManagedEmployee>(editing ? `/employee-management/${editing.empId}` : "/employee-management", {
@@ -245,7 +251,7 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
           <label>휴대폰 번호<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
           <label>내선번호<input value={form.extensionNumber} onChange={(event) => setForm({ ...form, extensionNumber: event.target.value })} /></label>
           <label>고용 형태<select value={form.employmentType} onChange={(event) => setForm({ ...form, employmentType: event.target.value as EmployeeForm["employmentType"] })}><option value="REGULAR">정규직</option><option value="CONTRACT">계약직</option></select></label>
-          {form.employmentType === "CONTRACT" && <><label>계약 시작일<input type="date" value={form.contractStartDate} onChange={(event) => setForm({ ...form, contractStartDate: event.target.value })} /></label><label>계약 종료일<input type="date" value={form.contractEndDate} onChange={(event) => setForm({ ...form, contractEndDate: event.target.value })} /></label></>}
+          {form.employmentType === "CONTRACT" && <><label>계약 시작일<input required type="date" value={form.contractStartDate} onChange={(event) => setForm({ ...form, contractStartDate: event.target.value })} /></label><label>계약 종료일<input required type="date" min={form.contractStartDate || undefined} value={form.contractEndDate} onChange={(event) => setForm({ ...form, contractEndDate: event.target.value })} /></label></>}
         </div>
         {error && <p className="error">{error}</p>}<div className="actions"><button onClick={() => void save()} disabled={busy}>{busy ? "저장 중..." : "저장"}</button><button className="ghost" onClick={() => setShowForm(false)}>취소</button></div>
       </div></div>}

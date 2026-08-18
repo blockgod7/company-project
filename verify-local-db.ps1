@@ -236,6 +236,32 @@ FROM user_menu_preference
 WHERE pinned_yn NOT IN ('Y', 'N') OR hidden_yn NOT IN ('Y', 'N');
 "@) "0"
 
+Assert-Equals "confirmed hire dates are applied" (Invoke-Scalar @"
+SELECT count(*)
+FROM emp
+WHERE (emp_no = 'E9024' AND hire_date = DATE '2016-09-01')
+   OR (emp_no = 'E9064' AND hire_date = DATE '2024-01-15')
+   OR (emp_no = 'C7008' AND hire_date = DATE '1997-09-29');
+"@) "3"
+
+Assert-Equals "2026 new-hire AUTO annual leave balances match revised policy" (Invoke-Scalar @"
+WITH expected(emp_no, expected_days) AS (
+    VALUES
+        ('E9086', 11.0::NUMERIC), ('E9087', 11.0::NUMERIC), ('E9088', 9.0::NUMERIC),
+        ('E9089', 8.0::NUMERIC), ('E9090', 7.0::NUMERIC), ('E9092', 7.0::NUMERIC),
+        ('E9093', 7.0::NUMERIC), ('E9094', 7.0::NUMERIC), ('E9095', 7.0::NUMERIC),
+        ('E9096', 7.0::NUMERIC), ('E9097', 7.0::NUMERIC), ('E9098', 6.0::NUMERIC),
+        ('E9099', 6.0::NUMERIC)
+)
+SELECT count(*)
+FROM expected
+JOIN emp ON emp.emp_no = expected.emp_no
+LEFT JOIN emp_annual_leave leave ON leave.emp_id = emp.emp_id AND leave.leave_year = 2026
+WHERE leave.annual_leave_id IS NULL
+   OR leave.calculation_mode <> 'AUTO'
+   OR leave.final_days IS DISTINCT FROM expected.expected_days;
+"@) "0"
+
 $contactCoverage = Invoke-Scalar @"
 SELECT concat(
     'employees=', count(*),

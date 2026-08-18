@@ -49,7 +49,8 @@ class AnnualLeaveSubmissionLockIntegrationTest {
             mock(com.kjh.groupware.global.security.CurrentEmpProvider.class),
             mock(com.kjh.groupware.domain.emp.EmployeePermissionService.class),
             mock(com.kjh.groupware.domain.notification.NotificationService.class),
-            mock(ScheduledJobStatusService.class)
+            mock(ScheduledJobStatusService.class),
+            mock(ApprovedAnnualLeaveUsageReader.class)
         );
         requester = mock(Emp.class);
         when(requester.getEmpId()).thenReturn(1L);
