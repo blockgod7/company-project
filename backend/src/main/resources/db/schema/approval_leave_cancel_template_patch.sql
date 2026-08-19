@@ -4,7 +4,7 @@
 UPDATE approval_template
 SET template_name = '휴가 취소계',
     description = '승인 완료된 휴가 취소 신청',
-    fields_json = '[]',
+    fields_json = '[{"name":"startDate","label":"취소 시작일","type":"date","required":false,"systemManaged":true},{"name":"endDate","label":"취소 종료일","type":"date","required":false,"systemManaged":true},{"name":"days","label":"취소 일수","type":"number","required":false,"systemManaged":true},{"name":"annualLeaveDays","label":"복원 연차일수","type":"number","required":false,"systemManaged":true},{"name":"leaveType","label":"취소 구분","type":"text","required":false,"systemManaged":true},{"name":"leaveSelectionsJson","label":"원본 휴가별 취소 항목","type":"json","required":true}]',
     print_layout_json = NULL,
     active_yn = 'Y',
     sort_order = 999,
@@ -29,7 +29,7 @@ SELECT
     '휴가 취소계',
     1,
     '승인 완료된 휴가 취소 신청',
-    '[]',
+    '[{"name":"startDate","label":"취소 시작일","type":"date","required":false,"systemManaged":true},{"name":"endDate","label":"취소 종료일","type":"date","required":false,"systemManaged":true},{"name":"days","label":"취소 일수","type":"number","required":false,"systemManaged":true},{"name":"annualLeaveDays","label":"복원 연차일수","type":"number","required":false,"systemManaged":true},{"name":"leaveType","label":"취소 구분","type":"text","required":false,"systemManaged":true},{"name":"leaveSelectionsJson","label":"원본 휴가별 취소 항목","type":"json","required":true}]',
     NULL,
     'Y',
     999,

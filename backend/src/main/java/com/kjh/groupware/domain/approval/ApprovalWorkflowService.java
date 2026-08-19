@@ -551,7 +551,7 @@ public class ApprovalWorkflowService {
                         .templateName("휴가 취소계")
                         .version(1)
                         .description("승인 완료된 휴가 취소 신청")
-                        .fieldsJson("[]")
+                        .fieldsJson(ApprovalLeaveUsageService.LEAVE_CANCEL_FIELDS_JSON)
                         .activeYn("Y")
                         .sortOrder(0)
                         .build();

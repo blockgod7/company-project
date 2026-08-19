@@ -286,7 +286,7 @@ class ApprovalPdfRenderer extends ApprovalPdfRenderSupport {
 
     private String leaveSelectionText(JsonNode fields) {
         String raw=text(fields,"leaveSelectionsJson"); if(raw.isBlank()) return leaveRangeText(fields)+" · "+text(fields,"leaveType");
-        try { JsonNode items=OBJECT_MAPPER.readTree(raw); List<String> values=new ArrayList<>(); for(JsonNode item:items){String date=item.path("date").asText();String shortDate=date.length()>=10?date.substring(5):date;String days=item.path("days").asText("");values.add(shortDate+" "+item.path("type").asText()+(days.isBlank()?"":"("+days+"일)"));} return String.join(" · ",values); }
+        try { JsonNode items=OBJECT_MAPPER.readTree(raw); List<String> values=new ArrayList<>(); for(JsonNode item:items){String date=item.path("date").asText();String shortDate=date.length()>=10?date.substring(5):date;String days=item.path("days").asText("");String source=item.path("sourceDocumentNo").asText("");values.add(shortDate+" "+item.path("type").asText()+(days.isBlank()?"":"("+days+"일)")+(source.isBlank()?"":" · 원본 "+source));} return String.join(" · ",values); }
         catch(Exception ignored){return leaveRangeText(fields);}
     }
 

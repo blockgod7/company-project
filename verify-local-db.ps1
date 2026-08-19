@@ -369,7 +369,8 @@ WHERE template_code = 'LEAVE_CANCEL'
   AND encode(convert_to(template_name, 'UTF8'), 'hex') = 'ed9cb4eab08020ecb7a8ec868ceab384'
   AND version = 1
   AND encode(convert_to(description, 'UTF8'), 'hex') = 'ec8ab9ec9db820ec9984eba38ceb909c20ed9cb4eab08020ecb7a8ec868c20ec8ba0ecb2ad'
-  AND fields_json::jsonb = '[]'::jsonb
+  AND jsonb_array_length(fields_json::jsonb) = 6
+  AND fields_json::jsonb @> '[{"name":"startDate","type":"date","required":false,"systemManaged":true},{"name":"endDate","type":"date","required":false,"systemManaged":true},{"name":"days","type":"number","required":false,"systemManaged":true},{"name":"annualLeaveDays","type":"number","required":false,"systemManaged":true},{"name":"leaveType","type":"text","required":false,"systemManaged":true},{"name":"leaveSelectionsJson","type":"json","required":true}]'::jsonb
   AND print_layout_json IS NULL
   AND active_yn = 'Y'
   AND sort_order = 999;

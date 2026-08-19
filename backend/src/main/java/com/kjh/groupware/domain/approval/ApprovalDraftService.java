@@ -59,8 +59,13 @@ public class ApprovalDraftService {
             leaveUsageService.assertLeaveCancelTargetsApproved(requester, null, request.formDataJson());
         }
 
+        String formDataJson = !draft && leaveDocument
+            ? leaveUsageService.normalizeLeaveFormData(requester, null, template.getTemplateCode(), request.formDataJson())
+            : request.formDataJson();
+
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
-        String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
+        String content = leaveDocument ? summarizeFormData(formDataJson)
+            : request.content() == null ? summarizeFormData(formDataJson) : request.content();
         String documentNo = draft ? null : generateDocumentNo(template.getTemplateCode());
         ApprovalDocument document = documentRepository.save(ApprovalDocument.builder()
             .documentNo(documentNo)
@@ -69,14 +74,14 @@ public class ApprovalDraftService {
             .templateCode(template.getTemplateCode())
             .templateVersion(template.getVersion())
             .templateSnapshotJson(templateSnapshot(template))
-            .formDataJson(request.formDataJson())
-            .searchText(buildSearchText(documentNo, title, requester, template, request.formDataJson()))
+            .formDataJson(formDataJson)
+            .searchText(buildSearchText(documentNo, title, requester, template, formDataJson))
             .priority(request.priority())
             .requester(requester)
             .build());
 
         if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
-            leaveUsageService.assertRequiredEvidence(document, request.formDataJson());
+            leaveUsageService.assertRequiredEvidence(document, formDataJson);
         }
 
         if (draft) {
@@ -172,8 +177,14 @@ public class ApprovalDraftService {
         if (ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode())) {
             leaveUsageService.assertLeaveCancelTargetsApproved(requester, document.getApprovalId(), request.formDataJson());
         }
+        String formDataJson = leaveDocument
+            ? leaveUsageService.normalizeLeaveFormData(
+                requester, document.getApprovalId(), template.getTemplateCode(), request.formDataJson()
+            )
+            : request.formDataJson();
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
-        String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
+        String content = leaveDocument ? summarizeFormData(formDataJson)
+            : request.content() == null ? summarizeFormData(formDataJson) : request.content();
         String documentNo = hasText(document.getDocumentNo()) ? document.getDocumentNo() : generateDocumentNo(template.getTemplateCode());
         document.updateDraft(
             title,
@@ -181,8 +192,8 @@ public class ApprovalDraftService {
             template.getTemplateCode(),
             template.getVersion(),
             templateSnapshot(template),
-            request.formDataJson(),
-            buildSearchText(documentNo, title, requester, template, request.formDataJson()),
+            formDataJson,
+            buildSearchText(documentNo, title, requester, template, formDataJson),
             request.priority()
         );
         lineRepository.deleteByDocument(document);
@@ -206,7 +217,7 @@ public class ApprovalDraftService {
                         .templateName("휴가 취소계")
                         .version(1)
                         .description("승인 완료된 휴가 취소 신청")
-                        .fieldsJson("[]")
+                        .fieldsJson(ApprovalLeaveUsageService.LEAVE_CANCEL_FIELDS_JSON)
                         .activeYn("Y")
                         .sortOrder(0)
                         .build();

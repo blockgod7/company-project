@@ -284,6 +284,47 @@ class ApprovalLeaveUsageServiceTest {
     }
 
     @Test
+    void newCancellationRequiresAnExplicitSourceDocument() {
+        assertThatThrownBy(() -> service.assertLeaveCancelTargetsApproved(
+            requester, null, formData("2026-08-03", "\uC5F0\uCC28")
+        )).isInstanceOfSatisfying(BusinessException.class, ex ->
+            assertThat(ex.getCode()).isEqualTo("LEAVE_CANCEL_SOURCE_REQUIRED")
+        );
+    }
+
+    @Test
+    void cancellationRejectsDuplicateTargetsInsideTheSameDocument() {
+        String duplicateTargets = "{\"fields\":{\"leaveSelectionsJson\":\"["
+            + "{\\\"date\\\":\\\"2026-08-03\\\",\\\"type\\\":\\\"\uC5F0\uCC28\\\",\\\"sourceApprovalId\\\":101},"
+            + "{\\\"date\\\":\\\"2026-08-03\\\",\\\"type\\\":\\\"\uC5F0\uCC28\\\",\\\"sourceApprovalId\\\":101}]\"}}";
+
+        assertThatThrownBy(() -> service.assertLeaveCancelTargetsApproved(requester, null, duplicateTargets))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("LEAVE_CANCEL_TARGET_DUPLICATED")
+            );
+    }
+
+    @Test
+    void serverNormalizesClientCalculatedLeaveSummaryFields() throws Exception {
+        String tampered = "{\"fields\":{\"days\":\"99\",\"annualLeaveDays\":\"99\","
+            + "\"usedAnnualDays\":\"99\",\"totalAnnualDays\":\"99\",\"remainingAnnualDays\":\"99\","
+            + "\"leaveSelectionsJson\":\"[{\\\"date\\\":\\\"2026-08-03\\\",\\\"type\\\":\\\"\uC5F0\uCC28\\\"}]\"}}";
+
+        String normalized = service.normalizeLeaveFormData(
+            requester, null, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, tampered
+        );
+        var fields = new ObjectMapper().readTree(normalized).path("fields");
+
+        assertThat(fields.path("days").asText()).isEqualTo("1");
+        assertThat(fields.path("annualLeaveDays").asText()).isEqualTo("1");
+        assertThat(fields.path("usedAnnualDays").asText()).isEqualTo("0");
+        assertThat(fields.path("totalAnnualDays").asText()).isEqualTo("10");
+        assertThat(fields.path("remainingAnnualDays").asText()).isEqualTo("9");
+        assertThat(fields.path("startDate").asText()).isEqualTo("2026-08-03");
+        assertThat(fields.path("endDate").asText()).isEqualTo("2026-08-03");
+    }
+
+    @Test
     void legacyPendingCancellationAlsoBlocksReferencedDuplicate() {
         ApprovalDocument source = document(101L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
             ApprovalDocument.STATUS_APPROVED, formData("2026-08-03", "\uC5F0\uCC28"));

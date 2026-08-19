@@ -611,7 +611,7 @@ export function LeaveRequestDetailView({ approval, exclusions = [] }: { approval
             <div key={`${selection.date}-${selection.type}`}>
               <strong>{selection.date}</strong>
               <span>{selection.type}</span>
-              <small>{formatDayValue(leaveAbsenceDayValue(selection.type))}일</small>
+              <small>{formatDayValue(leaveAbsenceDayValue(selection.type))}일{cancelMode && selection.sourceDocumentNo ? ` · 원본 ${selection.sourceDocumentNo}` : ""}</small>
             </div>
           )) : <div><strong>{values.startDate || "-"}</strong><span>{values.leaveType || "-"}</span><small>{requestDays}일</small></div>}
         </div>

@@ -84,10 +84,15 @@ export function leaveRequestContent(values: Record<string, string>) {
 }
 
 export function leaveCancelContent(values: Record<string, string>) {
+  const sourceDocuments = [...new Set(parseLeaveSelections(values)
+    .map((selection) => selection.sourceDocumentNo)
+    .filter((value): value is string => Boolean(value))
+  )];
   return [
     `취소기간: ${leaveDateRangeText(values)}`,
     `취소구분: ${values.leaveType ?? "-"}`,
-    `취소 연차일수: ${formatDayValue(values.annualLeaveDays ?? values.days)}일`
+    `취소 연차일수: ${formatDayValue(values.annualLeaveDays ?? values.days)}일`,
+    sourceDocuments.length ? `원본 휴가 문서: ${sourceDocuments.join(", ")}` : ""
   ].filter(Boolean).join("\n");
 }
 
@@ -110,7 +115,14 @@ export function withLeaveCancelTemplate(templates: ApprovalTemplateOption[]) {
       name: "휴가 취소계",
       description: "승인 완료된 휴가 취소 신청",
       version: 1,
-      fieldsJson: "[]",
+      fieldsJson: JSON.stringify([
+        { name: "startDate", label: "취소 시작일", type: "date", required: false, systemManaged: true },
+        { name: "endDate", label: "취소 종료일", type: "date", required: false, systemManaged: true },
+        { name: "days", label: "취소 일수", type: "number", required: false, systemManaged: true },
+        { name: "annualLeaveDays", label: "복원 연차일수", type: "number", required: false, systemManaged: true },
+        { name: "leaveType", label: "취소 구분", type: "text", required: false, systemManaged: true },
+        { name: "leaveSelectionsJson", label: "원본 휴가별 취소 항목", type: "json", required: true }
+      ]),
       activeYn: "Y" as const,
       sortOrder: 999
     }

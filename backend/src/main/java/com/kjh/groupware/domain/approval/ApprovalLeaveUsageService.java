@@ -2,6 +2,8 @@ package com.kjh.groupware.domain.approval;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kjh.groupware.domain.approval.dto.LeaveExclusionResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageSelectionResponse;
@@ -33,6 +35,9 @@ public class ApprovalLeaveUsageService {
 
     static final String LEAVE_TEMPLATE_CODE = "LEAVE";
     static final String LEAVE_CANCEL_TEMPLATE_CODE = "LEAVE_CANCEL";
+    static final String LEAVE_CANCEL_FIELDS_JSON = """
+        [{"name":"startDate","label":"취소 시작일","type":"date","required":false,"systemManaged":true},{"name":"endDate","label":"취소 종료일","type":"date","required":false,"systemManaged":true},{"name":"days","label":"취소 일수","type":"number","required":false,"systemManaged":true},{"name":"annualLeaveDays","label":"복원 연차일수","type":"number","required":false,"systemManaged":true},{"name":"leaveType","label":"취소 구분","type":"text","required":false,"systemManaged":true},{"name":"leaveSelectionsJson","label":"원본 휴가별 취소 항목","type":"json","required":true}]
+        """.strip();
     private final ApprovalDocumentRepository documentRepository;
     private final CurrentEmpProvider currentEmpProvider;
     private final ObjectMapper objectMapper;
@@ -313,10 +318,33 @@ public class ApprovalLeaveUsageService {
     public void assertLeaveCancelTargetsApproved(Emp requester, Long excludeApprovalId, String formDataJson) {
         List<LeaveUsageSelectionResponse> cancelSelections = selectionsFrom(formDataJson, null, null, true);
         if (cancelSelections.isEmpty()) {
-            throw BusinessException.badRequest("LEAVE_CANCEL_DATE_REQUIRED", "Leave cancel date is required");
+            throw BusinessException.badRequest("LEAVE_CANCEL_DATE_REQUIRED", "취소할 휴가 날짜를 한 개 이상 선택해 주세요.");
+        }
+        if (cancelSelections.stream().anyMatch(selection -> selection.approvalId() == null)) {
+            throw BusinessException.badRequest(
+                "LEAVE_CANCEL_SOURCE_REQUIRED",
+                "휴가 취소계에는 각 취소 항목의 원본 휴가 문서가 필요합니다. 승인된 휴가에서 다시 선택해 주세요."
+            );
+        }
+        Set<String> requestTargets = new HashSet<>();
+        Set<Integer> requestYears = new HashSet<>();
+        for (LeaveUsageSelectionResponse selection : cancelSelections) {
+            requestYears.add(parseDate(selection.date()).getYear());
+            if (!requestTargets.add(targetSelectionKey(selection))) {
+                throw BusinessException.badRequest(
+                    "LEAVE_CANCEL_TARGET_DUPLICATED",
+                    selection.date() + " " + selection.type() + " 취소 항목이 중복되었습니다."
+                );
+            }
+        }
+        if (requestYears.size() > 1) {
+            throw BusinessException.badRequest(
+                "LEAVE_CANCEL_YEAR_MIXED",
+                "한 휴가 취소계에는 같은 연도의 휴가만 선택할 수 있습니다."
+            );
         }
         lockReferencedLeaveDocuments(requester, cancelSelections);
-        LeaveUsageResponse usage = usageFor(requester, excludeApprovalId, LocalDate.now().getYear());
+        LeaveUsageResponse usage = usageFor(requester, excludeApprovalId, requestYears.iterator().next());
         Set<String> approvedTargets = usage.selections().stream()
             .map(this::targetSelectionKey)
             .collect(java.util.stream.Collectors.toSet());
@@ -351,6 +379,85 @@ public class ApprovalLeaveUsageService {
                 );
             }
         }
+    }
+
+    @Transactional(readOnly = true)
+    public String normalizeLeaveFormData(
+        Emp requester,
+        Long excludeApprovalId,
+        String templateCode,
+        String formDataJson
+    ) {
+        boolean cancellation = LEAVE_CANCEL_TEMPLATE_CODE.equals(templateCode);
+        if (!cancellation && !LEAVE_TEMPLATE_CODE.equals(templateCode)) {
+            return formDataJson;
+        }
+        JsonNode parsed;
+        try {
+            parsed = formDataJson == null || formDataJson.isBlank()
+                ? objectMapper.createObjectNode()
+                : objectMapper.readTree(formDataJson);
+        } catch (Exception ex) {
+            throw BusinessException.badRequest("APPROVAL_FORM_DATA_INVALID", "휴가 신청 항목 형식을 확인해 주세요.");
+        }
+        ObjectNode root = parsed != null && parsed.isObject()
+            ? (ObjectNode) parsed.deepCopy()
+            : objectMapper.createObjectNode();
+        ObjectNode fields = root.path("fields").isObject()
+            ? (ObjectNode) root.path("fields")
+            : root.putObject("fields");
+        List<LeaveUsageSelectionResponse> selections = selectionsFrom(formDataJson, null, null, cancellation).stream()
+            .sorted(java.util.Comparator.comparing(LeaveUsageSelectionResponse::date)
+                .thenComparing(LeaveUsageSelectionResponse::type))
+            .toList();
+        if (selections.isEmpty()) {
+            return root.toString();
+        }
+
+        int balanceYear = parseDate(selections.getFirst().date()).getYear();
+        LeaveUsageResponse usage = usageFor(requester, excludeApprovalId, balanceYear);
+        BigDecimal annualDays = selections.stream()
+            .map(selection -> daysFor(selection.type(), parseDate(selection.date())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal absenceDays = selections.stream()
+            .map(selection -> absenceDaysFor(selection.type()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal currentRemaining = new BigDecimal(usage.remainingAnnualDays());
+        BigDecimal resultingRemaining = cancellation
+            ? currentRemaining.add(annualDays)
+            : currentRemaining.subtract(annualDays);
+
+        ArrayNode normalizedSelections = objectMapper.createArrayNode();
+        for (LeaveUsageSelectionResponse selection : selections) {
+            ObjectNode item = normalizedSelections.addObject();
+            item.put("date", selection.date());
+            item.put("type", selection.type());
+            item.put("days", formatDay(daysFor(selection.type(), parseDate(selection.date()))));
+            if (cancellation) {
+                ApprovalDocument source = documentRepository.findById(selection.approvalId())
+                    .orElseThrow(() -> BusinessException.badRequest(
+                        "LEAVE_CANCEL_SOURCE_NOT_FOUND", "원본 휴가 문서를 찾을 수 없습니다."
+                    ));
+                item.put("sourceApprovalId", source.getApprovalId());
+                item.put("sourceDocumentNo", source.getDocumentNo());
+            }
+        }
+        String startDate = selections.stream().map(LeaveUsageSelectionResponse::date).min(String::compareTo).orElse("");
+        String endDate = selections.stream().map(LeaveUsageSelectionResponse::date).max(String::compareTo).orElse("");
+        String leaveSummary = selections.stream()
+            .map(selection -> selection.date().substring(5).replace('-', '/') + " " + selection.type())
+            .distinct()
+            .collect(java.util.stream.Collectors.joining(", "));
+        fields.put("startDate", startDate);
+        fields.put("endDate", endDate);
+        fields.put("days", formatDay(absenceDays));
+        fields.put("annualLeaveDays", formatDay(annualDays));
+        fields.put("usedAnnualDays", usage.usedAnnualDays());
+        fields.put("totalAnnualDays", usage.totalAnnualDays());
+        fields.put("remainingAnnualDays", formatDay(resultingRemaining));
+        fields.put("leaveType", leaveSummary);
+        fields.put("leaveSelectionsJson", normalizedSelections.toString());
+        return root.toString();
     }
 
     private void lockReferencedLeaveDocuments(Emp requester, List<LeaveUsageSelectionResponse> selections) {
@@ -748,6 +855,12 @@ public class ApprovalLeaveUsageService {
             return new BigDecimal("0.5");
         }
         return BigDecimal.ZERO;
+    }
+
+    private BigDecimal absenceDaysFor(String type) {
+        return Set.of("오전반차", "오후반차", "공가(오전)", "공가(오후)").contains(type)
+            ? new BigDecimal("0.5")
+            : BigDecimal.ONE;
     }
 
     private boolean overlaps(String existingType, String requestedType) {
