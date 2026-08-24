@@ -13,7 +13,8 @@ export function AdminPortalPage({ user, go }: AdminPortalPageProps) {
   const canManageEmployees = fullAdmin
     || user.permissions.includes("EMPLOYEE_ADMIN")
     || user.permissions.includes("WORK_CATEGORY_ADMIN")
-    || user.permissions.includes("ACCOUNT_ADMIN");
+    || user.permissions.includes("ACCOUNT_ADMIN")
+    || user.permissions.includes("WORK_REQUEST_ADMIN");
   const approvalManagementAllowed = canManageApproval(user);
 
   return (

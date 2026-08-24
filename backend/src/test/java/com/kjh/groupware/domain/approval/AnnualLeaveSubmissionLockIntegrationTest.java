@@ -90,6 +90,8 @@ class AnnualLeaveSubmissionLockIntegrationTest {
                     gender_code varchar(10) not null,
                     employment_type varchar(20) not null,
                     work_category varchar(20) not null,
+                    shift_type varchar(20),
+                    shift_anchor_date date,
                     contract_start_date date,
                     contract_end_date date,
                     rehire_date date,

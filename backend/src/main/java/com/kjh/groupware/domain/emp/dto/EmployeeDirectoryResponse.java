@@ -11,6 +11,7 @@ public record EmployeeDirectoryResponse(
     String extensionNumber,
     Long deptId,
     String deptName,
+    Long managerEmpId,
     String positionName,
     String jobTitle,
     String status
@@ -20,6 +21,7 @@ public record EmployeeDirectoryResponse(
             emp.getEmpId(), emp.getEmpNo(), emp.getEmpName(), emp.getEmail(), emp.getPhone(), emp.getExtensionNumber(),
             emp.getDept() == null ? null : emp.getDept().getDeptId(),
             emp.getDept() == null ? null : emp.getDept().getDeptName(),
+            emp.getManager() == null ? null : emp.getManager().getEmpId(),
             emp.getPositionName(), emp.getJobTitle(), emp.getStatus()
         );
     }

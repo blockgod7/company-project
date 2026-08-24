@@ -89,6 +89,9 @@ import {
   isEquipmentProposalTemplateCode,
   isLeaveCancelTemplateCode,
   isLeaveTemplateCode,
+  isWorkRequestTemplateCode,
+  isEmergencyCallRequestTemplateCode,
+  isWorkRequestChangeTemplateCode,
   isMoldFixtureTemplateCode,
   isPurchaseTemplateCode,
   isReceiverRoutedTemplateCode,
@@ -189,7 +192,7 @@ import { LeavePolicyAdminPanel } from "./LeavePolicyAdminPanel";
 import { CompTimeAdminPanel } from "./CompTimeAdminPanel";
 import { LeaveAdminCasePanel } from "./LeaveAdminCasePanel";
 import { ApprovalDetailView } from "./ApprovalParts";
-import { EquipmentProposalEditor, equipmentProposalContent, LeaveRequestEditor, PurchaseRequestEditor, TemplateFieldInputs, TrainingReportEditor, TrainingRequestEditor } from "./ApprovalFormParts";
+import { EquipmentProposalEditor, equipmentProposalContent, LeaveRequestEditor, PurchaseRequestEditor, TemplateFieldInputs, TrainingReportEditor, TrainingRequestEditor, WorkRequestEditor } from "./ApprovalFormParts";
 import { APPROVAL_BOXES, isApprovalBox, TemplateSelectModalV2 } from "./ApprovalTemplateParts";
 import { SchedulerStatusPanel } from "./SchedulerStatusPanel";
 import { useApprovalPageController } from "./useApprovalPageController";
@@ -359,6 +362,9 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
   const isClassicDraftForm = isDraftTemplateCode(selectedTemplate.code);
   const isLeaveRequestForm = isLeaveTemplateCode(selectedTemplate.code);
   const isLeaveCancelForm = isLeaveCancelTemplateCode(selectedTemplate.code);
+  const isWorkRequestForm = isWorkRequestTemplateCode(selectedTemplate.code);
+  const isEmergencyCallRequestForm = isEmergencyCallRequestTemplateCode(selectedTemplate.code);
+  const isWorkRequestChangeForm = isWorkRequestChangeTemplateCode(selectedTemplate.code);
   const isPurchaseRequestForm = isPurchaseTemplateCode(selectedTemplate.code);
   const isTrainingRequestForm = isTrainingRequestTemplateCode(selectedTemplate.code);
   const isTrainingReportForm = isTrainingReportTemplateCode(selectedTemplate.code);
@@ -373,6 +379,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
   const equipmentInputStage = equipmentProposal?.workflowStage === "PE_INPUT" || equipmentProposal?.workflowStage === "PURCHASE_INPUT";
   const primaryApprovalViews = [
     { id: "todo", label: "결재할 문서", box: "pending" as ApprovalBox, dashboardFilter: "actionRequired" as ApprovalDashboardFilter },
+    { id: "received", label: "수신함", box: "received" as ApprovalBox },
     { id: "progress", label: "결재진행문서", box: "processed" as ApprovalBox, dashboardFilter: "approvedInProgress" as ApprovalDashboardFilter },
     { id: "drafts", label: "임시보관함", box: "requested" as ApprovalBox, dashboardFilter: "drafts" as ApprovalDashboardFilter }
   ];
@@ -381,7 +388,9 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
       ? dashboardFilter?.dashboardFilter === "actionRequired" ? "todo"
         : dashboardFilter?.dashboardFilter === "approvedInProgress" ? "progress"
           : dashboardFilter?.dashboardFilter === "drafts" ? "drafts"
-            : ""
+            : box === "received" && !dashboardFilter
+              ? "received"
+              : ""
       : ""
   );
   const isPrimaryDashboardFilter = ["actionRequired", "approvedInProgress", "drafts", "completedInvolved"].includes(dashboardFilter?.dashboardFilter ?? "");
@@ -733,7 +742,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
       {(mode === "create" || mode === "edit") && (
         <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
           <div className={`editor approval-editor${isLeaveRequestForm || isLeaveCancelForm ? " approval-editor-leave" : ""}`}>
-            {!(isLeaveRequestForm || isLeaveCancelForm) && (
+            {!(isLeaveRequestForm || isLeaveCancelForm || isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm) && (
               <div className="panel-head">
                 <div>
                   <h3>{mode === "edit" ? "전자결재 수정" : "전자결재 작성"}</h3>
@@ -775,12 +784,13 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
             )}
             {isClassicDraftForm && <ClassicDraftEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} headerActions={approvalEditorActions} onBalanceYearChange={isLeaveCancelForm ? (year) => void changeLeaveBalanceYear(year) : undefined} onChange={setForm} />}
+            {(isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm) && <WorkRequestEditor mode={isWorkRequestChangeForm ? "change" : isEmergencyCallRequestForm ? "emergency" : "request"} user={user} form={form} headerActions={approvalEditorActions} onChange={setForm} />}
             {leavePreviewOpen && (isLeaveRequestForm || isLeaveCancelForm) && <div className="modal-backdrop"><div className="leave-form-preview-modal"><div className="modal-head"><div><h3>휴가 신청 미리보기</h3><p className="muted-text">현재 입력값 기준이며 상신 전까지 문서는 변경되지 않습니다.</p></div><button className="icon-button" onClick={() => setLeavePreviewOpen(false)}><X size={18} /></button></div><div className="leave-preview-readonly"><LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={() => undefined} /></div></div></div>}
             {isPurchaseRequestForm && <PurchaseRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isTrainingRequestForm && <TrainingRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isTrainingReportForm && <TrainingReportEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {isEquipmentProposalForm && <EquipmentProposalEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {!isClassicDraftForm && !isLeaveRequestForm && !isLeaveCancelForm && !isPurchaseRequestForm && !isTrainingRequestForm && !isTrainingReportForm && !isEquipmentProposalForm && (
+            {!isClassicDraftForm && !isLeaveRequestForm && !isLeaveCancelForm && !isWorkRequestForm && !isWorkRequestChangeForm && !isPurchaseRequestForm && !isTrainingRequestForm && !isTrainingReportForm && !isEquipmentProposalForm && (
               <>
             <div className="approval-form-grid">
               <label>양식명<select value={form.templateCode} onChange={(event) => changeTemplate(event.target.value)}>{selectableTemplates.map((template) => <option key={template.code} value={template.code}>{template.name}</option>)}</select></label>

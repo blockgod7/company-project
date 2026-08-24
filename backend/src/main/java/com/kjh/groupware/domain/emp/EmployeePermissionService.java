@@ -22,14 +22,18 @@ public class EmployeePermissionService {
     public static final String EMPLOYEE_ADMIN = "EMPLOYEE_ADMIN";
     public static final String WORK_CATEGORY_ADMIN = "WORK_CATEGORY_ADMIN";
     public static final String ACCOUNT_ADMIN = "ACCOUNT_ADMIN";
+    public static final String WORK_REQUEST_ADMIN = "WORK_REQUEST_ADMIN";
+    public static final String WORK_REQUEST_DELEGATE = "WORK_REQUEST_DELEGATE";
     public static final String FULL_ADMIN = "FULL_ADMIN";
     public static final String NOTICE_WRITE = "NOTICE_WRITE";
 
     private static final Set<String> SUPPORTED = Set.of(
-        FULL_ADMIN, LEAVE_ADMIN, LEAVE_POLICY_ADMIN, EMPLOYEE_ADMIN, WORK_CATEGORY_ADMIN, ACCOUNT_ADMIN
+        FULL_ADMIN, LEAVE_ADMIN, LEAVE_POLICY_ADMIN, EMPLOYEE_ADMIN, WORK_CATEGORY_ADMIN, ACCOUNT_ADMIN,
+        WORK_REQUEST_ADMIN, WORK_REQUEST_DELEGATE
     );
     private static final List<String> MANAGED_PERMISSIONS = List.of(
-        FULL_ADMIN, LEAVE_ADMIN, LEAVE_POLICY_ADMIN, EMPLOYEE_ADMIN, WORK_CATEGORY_ADMIN, ACCOUNT_ADMIN
+        FULL_ADMIN, LEAVE_ADMIN, LEAVE_POLICY_ADMIN, EMPLOYEE_ADMIN, WORK_CATEGORY_ADMIN, ACCOUNT_ADMIN,
+        WORK_REQUEST_ADMIN, WORK_REQUEST_DELEGATE
     );
 
     private final EmpPermissionRepository permissionRepository;
@@ -47,6 +51,10 @@ public class EmployeePermissionService {
             return true;
         }
         if (permissionRepository.existsByEmpEmpIdAndPermissionCodeAndActiveYn(emp.getEmpId(), FULL_ADMIN, "Y")) {
+            return true;
+        }
+        if (WORK_REQUEST_DELEGATE.equals(permissionCode)
+            && permissionRepository.existsByEmpEmpIdAndPermissionCodeAndActiveYn(emp.getEmpId(), WORK_REQUEST_ADMIN, "Y")) {
             return true;
         }
         return permissionRepository.existsByEmpEmpIdAndPermissionCodeAndActiveYn(emp.getEmpId(), permissionCode, "Y");
@@ -121,8 +129,16 @@ public class EmployeePermissionService {
     @Transactional(readOnly = true)
     public void requireEmployeeOrWorkCategoryAdmin() {
         Emp actor = currentEmpProvider.getCurrentEmp();
-        if (!hasPermission(actor, EMPLOYEE_ADMIN) && !hasPermission(actor, WORK_CATEGORY_ADMIN)) {
+        if (!hasPermission(actor, EMPLOYEE_ADMIN) && !hasPermission(actor, WORK_CATEGORY_ADMIN)
+            && !hasPermission(actor, WORK_REQUEST_ADMIN)) {
             throw BusinessException.forbidden("EMPLOYEE_READ_ADMIN_REQUIRED", "직원관리 또는 직군관리 권한이 필요합니다.");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void requireWorkRequestAdmin() {
+        if (!hasPermission(currentEmpProvider.getCurrentEmp(), WORK_REQUEST_ADMIN)) {
+            throw BusinessException.forbidden("WORK_REQUEST_ADMIN_REQUIRED", "근무신청 권한관리 권한이 필요합니다.");
         }
     }
 
@@ -165,7 +181,10 @@ public class EmployeePermissionService {
         String userAgent
     ) {
         Emp actor = currentEmpProvider.getCurrentEmp();
-        if (!"ADMIN".equals(actor.getRoleCode()) && !hasPermission(actor, FULL_ADMIN)) {
+        boolean fullAdministrator = "ADMIN".equals(actor.getRoleCode()) || hasPermission(actor, FULL_ADMIN);
+        boolean workAuthorityAdministrator = WORK_REQUEST_DELEGATE.equals(permissionCode)
+            && hasPermission(actor, WORK_REQUEST_ADMIN);
+        if (!fullAdministrator && !workAuthorityAdministrator) {
             throw BusinessException.forbidden("PERMISSION_GRANT_FORBIDDEN", "시스템관리자 또는 전권 관리자만 권한을 변경할 수 있습니다.");
         }
         if (!SUPPORTED.contains(permissionCode)) {

@@ -134,4 +134,38 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
         @Param("status") String status,
         Pageable pageable
     );
+
+    @Query("""
+        select e from Emp e
+        where e.roleCode <> 'ADMIN'
+          and e.status <> 'RETIRED'
+          and (:deptId is null or e.dept.deptId = :deptId)
+          and (
+            :keyword is null
+            or lower(e.empName) like lower(concat('%', :keyword, '%'))
+            or lower(e.loginId) like lower(concat('%', :keyword, '%'))
+            or lower(e.empNo) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(e.email, '')) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(e.phone, '')) like lower(concat('%', :keyword, '%'))
+            or lower(coalesce(e.extensionNumber, '')) like lower(concat('%', :keyword, '%'))
+          )
+        order by e.empId asc
+        """)
+    Page<Emp> searchCurrentDirectory(
+        @Param("keyword") String keyword,
+        @Param("deptId") Long deptId,
+        Pageable pageable
+    );
+
+    @Query("""
+        select e from Emp e
+        where e.roleCode <> 'ADMIN'
+          and e.status <> 'RETIRED'
+          and (:deptId is null or e.dept.deptId = :deptId)
+        order by e.empId asc
+        """)
+    Page<Emp> searchCurrentDirectoryWithoutKeyword(
+        @Param("deptId") Long deptId,
+        Pageable pageable
+    );
 }

@@ -132,10 +132,12 @@ $currentPatchFiles = @(
     ,"employee_contact_extension_202608_patch.sql"
     ,"annual_leave_calculation_revision_202608_patch.sql"
     ,"contract_employee_terms_202608_patch.sql"
+    ,"work_request_management_202608_patch.sql"
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 
 $postSeedPatchFiles = @(
-    "approval_leave_default_receiver_setting_patch.sql"
+    "approval_leave_default_receiver_setting_patch.sql",
+    "employee_affiliation_20260821_patch.sql"
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 
 if ($Recreate) {

@@ -9,7 +9,8 @@ ALTER TABLE emp_permission DROP CONSTRAINT IF EXISTS chk_emp_permission_code;
 ALTER TABLE emp_permission ADD CONSTRAINT chk_emp_permission_code CHECK (
     permission_code IN (
         'FULL_ADMIN', 'LEAVE_ADMIN', 'LEAVE_POLICY_ADMIN',
-        'EMPLOYEE_ADMIN', 'WORK_CATEGORY_ADMIN', 'ACCOUNT_ADMIN'
+        'EMPLOYEE_ADMIN', 'WORK_CATEGORY_ADMIN', 'ACCOUNT_ADMIN',
+        'WORK_REQUEST_ADMIN', 'WORK_REQUEST_DELEGATE'
     )
 );
 

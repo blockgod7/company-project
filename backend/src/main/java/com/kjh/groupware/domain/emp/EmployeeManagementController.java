@@ -9,6 +9,7 @@ import com.kjh.groupware.domain.emp.dto.EmployeeRehireRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeRetireRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeUpdateRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeWorkCategoryRequest;
+import com.kjh.groupware.domain.emp.dto.EmployeeShiftRequest;
 import com.kjh.groupware.domain.emp.dto.TemporaryPasswordResponse;
 import com.kjh.groupware.global.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -38,6 +39,7 @@ public class EmployeeManagementController {
     @PutMapping("/{empId}") public ApiResponse<EmployeeManagementResponse> update(@PathVariable Long empId, @Valid @RequestBody EmployeeUpdateRequest request) { return ApiResponse.ok(service.update(empId, request)); }
     @PutMapping("/{empId}/gender") public ApiResponse<EmployeeManagementResponse> updateGender(@PathVariable Long empId, @Valid @RequestBody EmployeeGenderRequest request) { return ApiResponse.ok(service.updateGender(empId, request)); }
     @PutMapping("/{empId}/work-category") public ApiResponse<EmployeeManagementResponse> updateWorkCategory(@PathVariable Long empId, @Valid @RequestBody EmployeeWorkCategoryRequest request) { return ApiResponse.ok(service.updateWorkCategory(empId, request)); }
+    @PutMapping("/{empId}/shift") public ApiResponse<EmployeeManagementResponse> updateShift(@PathVariable Long empId, @RequestBody EmployeeShiftRequest request) { return ApiResponse.ok(service.updateShift(empId, request)); }
     @PostMapping("/{empId}/retire") public ApiResponse<EmployeeManagementResponse> retire(@PathVariable Long empId, @Valid @RequestBody EmployeeRetireRequest request) { return ApiResponse.ok(service.retire(empId, request)); }
     @PostMapping("/{empId}/leave") public ApiResponse<EmployeeManagementResponse> leave(@PathVariable Long empId, @Valid @RequestBody EmployeeLeaveRequest request) { return ApiResponse.ok(service.startLeave(empId, request)); }
     @PostMapping("/{empId}/return") public ApiResponse<EmployeeManagementResponse> returnFromLeave(@PathVariable Long empId) { return ApiResponse.ok(service.returnFromLeave(empId)); }

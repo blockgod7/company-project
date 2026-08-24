@@ -9,6 +9,9 @@ type TemplateNameOption = {
 export function documentPrefix(templateCode: string | null | undefined) {
   if (templateCode === "LEAVE") return "LEV";
   if (templateCode === "LEAVE_CANCEL") return "LVC";
+  if (templateCode === "WORK_REQUEST") return "WRK";
+  if (templateCode === "EMERGENCY_CALL_REQUEST") return "EMG";
+  if (templateCode === "WORK_REQUEST_CHANGE") return "WRC";
   if (templateCode === "PURCHASE") return "PUR";
   if (templateCode === "TRAINING_REQUEST" || templateCode === "TRAINING_REPORT") return "EDU";
   if (templateCode === "EQUIPMENT_PROPOSAL") return "EQP";

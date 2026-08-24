@@ -290,6 +290,7 @@ select { min-height: 42px; }
 .org-layout tbody tr { cursor: pointer; }
 .org-layout tbody tr:hover, .org-layout tbody tr.selected { background: #f0f9ff; }
 .org-layout tbody tr.selected { box-shadow: inset 4px 0 0 var(--green); }
+.org-employee-name { display: inline-flex; align-items: center; gap: 7px; }
 .employee-contact-card {
   display: grid;
   grid-template-columns: minmax(190px, .8fr) minmax(0, 2fr);

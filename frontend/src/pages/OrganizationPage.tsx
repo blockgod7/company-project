@@ -10,13 +10,6 @@ import type { DeptNode, DirectoryEmployee, PageResponse } from "../types";
 type OrganizationPageProps = {
   target: GlobalSearchTarget | null;
 };
-type EmployeeStatusFilter = "ALL" | "ACTIVE" | "LEAVE" | "RETIRED";
-
-function employeeStatusLabel(status: DirectoryEmployee["status"]) {
-  if (status === "ACTIVE") return "재직";
-  if (status === "LEAVE") return "휴직";
-  return "퇴직";
-}
 
 const MANAGEMENT_POSITION_ORDER: Record<string, number> = {
   "대표이사": 0,
@@ -39,7 +32,12 @@ const PRODUCTION_POSITION_ORDER: Record<string, number> = {
 };
 
 function sortEmployees(employees: DirectoryEmployee[]) {
+  const managerIds = new Set(employees.flatMap((employee) => employee.managerEmpId == null ? [] : [employee.managerEmpId]));
   return [...employees].sort((left, right) => {
+    const leftIsManager = managerIds.has(left.empId);
+    const rightIsManager = managerIds.has(right.empId);
+    if (leftIsManager !== rightIsManager) return leftIsManager ? -1 : 1;
+
     const leftIsProduction = left.jobTitle === "PRODUCTION";
     const rightIsProduction = right.jobTitle === "PRODUCTION";
     if (leftIsProduction !== rightIsProduction) return leftIsProduction ? 1 : -1;
@@ -59,16 +57,16 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
     return Number.isFinite(value) && value > 0 ? value : null;
   });
   const [keyword, setKeyword] = useState("");
-  const [status, setStatus] = useState<EmployeeStatusFilter>("ACTIVE");
   const [emps, setEmps] = useState<DirectoryEmployee[]>([]);
   const [selectedEmp, setSelectedEmp] = useState<DirectoryEmployee | null>(null);
+
 
   useEffect(() => {
     void api<DeptNode[]>("/depts/tree").then(setTree);
   }, []);
 
   async function search(targetDept = deptId) {
-    const params = new URLSearchParams({ page: "0", size: "100", status });
+    const params = new URLSearchParams({ page: "0", size: "100", status: "CURRENT" });
     if (keyword) params.set("keyword", keyword);
     if (targetDept) params.set("deptId", String(targetDept));
     const page = await api<PageResponse<DirectoryEmployee>>(`/emps/directory?${params.toString()}`);
@@ -79,7 +77,7 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
 
   useEffect(() => {
     void search();
-  }, [deptId, status]);
+  }, [deptId]);
 
   useEffect(() => {
     if (target?.type === "DEPARTMENT") {
@@ -91,7 +89,7 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
     if (target?.type === "EMPLOYEE") {
       setDeptId(target.parentId);
       setKeyword(target.keyword);
-      const params = new URLSearchParams({ page: "0", size: "100", status: "ACTIVE", keyword: target.keyword });
+      const params = new URLSearchParams({ page: "0", size: "100", status: "CURRENT", keyword: target.keyword });
       if (target.parentId) params.set("deptId", String(target.parentId));
       void api<PageResponse<DirectoryEmployee>>(`/emps/directory?${params.toString()}`).then((page) => {
         const sorted = sortEmployees(page.content);
@@ -110,12 +108,6 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
       <div className="panel">
         <div className="searchbar">
           <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="이름, 사번, 이메일, 휴대폰, 내선번호 검색" />
-          <select value={status} onChange={(event) => setStatus(event.target.value as EmployeeStatusFilter)} aria-label="재직 상태">
-            <option value="ACTIVE">재직</option>
-            <option value="LEAVE">휴직</option>
-            <option value="RETIRED">퇴직</option>
-            <option value="ALL">전체 이력</option>
-          </select>
           <button onClick={() => search()}><Search size={16} /> 검색</button>
         </div>
         {selectedEmp && (
@@ -135,7 +127,6 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
           <thead>
             <tr>
               <th>이름</th>
-              <th>상태</th>
               <th>부서</th>
               <th>직책</th>
               <th>이메일</th>
@@ -147,7 +138,6 @@ export function OrganizationPage({ target }: OrganizationPageProps) {
             {emps.map((emp) => (
               <tr key={emp.empId} className={selectedEmp?.empId === emp.empId ? "selected" : ""} onClick={() => setSelectedEmp(emp)}>
                 <td>{emp.empName}</td>
-                <td><span className={`status-chip ${emp.status.toLowerCase()}`}>{employeeStatusLabel(emp.status)}</span></td>
                 <td>{emp.deptName ?? "-"}</td>
                 <td>{emp.positionName ?? emp.jobTitle ?? "-"}</td>
                 <td>{emp.email ?? "-"}</td>

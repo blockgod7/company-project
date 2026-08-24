@@ -86,6 +86,12 @@ public class Emp extends BaseEntity {
     @Column(name = "work_category", nullable = false, length = 20)
     private String workCategory;
 
+    @Column(name = "shift_type", length = 20)
+    private String shiftType;
+
+    @Column(name = "shift_anchor_date")
+    private LocalDate shiftAnchorDate;
+
     @Column(name = "contract_start_date")
     private LocalDate contractStartDate;
 
@@ -228,6 +234,11 @@ public class Emp extends BaseEntity {
 
     public void updateWorkCategory(String workCategory) {
         this.workCategory = workCategory;
+    }
+
+    public void updateShift(String shiftType, LocalDate shiftAnchorDate) {
+        this.shiftType = shiftType;
+        this.shiftAnchorDate = "A".equals(shiftType) || "B".equals(shiftType) ? shiftAnchorDate : null;
     }
 
     public void updateGender(String genderCode) {

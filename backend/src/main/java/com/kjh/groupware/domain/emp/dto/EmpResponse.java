@@ -15,6 +15,8 @@ public record EmpResponse(
     String positionName,
     String jobTitle,
     String workCategory,
+    String shiftType,
+    java.time.LocalDate shiftAnchorDate,
     String roleCode,
     String status
 ) {
@@ -33,6 +35,8 @@ public record EmpResponse(
             emp.getPositionName(),
             emp.getJobTitle(),
             emp.getWorkCategory(),
+            emp.getShiftType(),
+            emp.getShiftAnchorDate(),
             emp.getRoleCode(),
             emp.getStatus()
         );

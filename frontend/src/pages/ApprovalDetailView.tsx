@@ -181,6 +181,7 @@ import { LeaveRequestDetailView } from "./ApprovalLeaveParts";
 import { ApprovalHistorySection, EquipmentWorkCompletionDetailView, PurchaseRequestDetailView, TrainingReportDetailView, TrainingRequestDetailView } from "./ApprovalPurchaseTrainingDetails";
 import { EquipmentProposalDetailView } from "./ApprovalEquipmentProposalDetail";
 import { ApprovalOpinionList, ClassicDraftDetailView, signatureDisplayName } from "./ApprovalClassicParts";
+import { WorkRequestDetailView } from "./ApprovalWorkRequestParts";
 export function ApprovalDetailView({
   user,
   approval,
@@ -215,6 +216,9 @@ export function ApprovalDetailView({
   }
   if (isLeaveTemplateCode(approval.templateCode) || isLeaveCancelTemplateCode(approval.templateCode)) {
     return <LeaveRequestDetailView approval={approval} exclusions={leaveExclusions} />;
+  }
+  if (approval.templateCode === "WORK_REQUEST" || approval.templateCode === "EMERGENCY_CALL_REQUEST" || approval.templateCode === "WORK_REQUEST_CHANGE") {
+    return <WorkRequestDetailView approval={approval} />;
   }
   if (isPurchaseTemplateCode(approval.templateCode)) {
     return <PurchaseRequestDetailView user={user} employees={employees} approval={approval} onSaveDeliveryDate={onSavePurchaseDeliveryDate} onSubmitPurchaseApprovalLine={onSubmitPurchaseApprovalLine} />;

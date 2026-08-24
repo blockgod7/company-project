@@ -4,7 +4,9 @@ import com.kjh.groupware.domain.emp.dto.EmpResponse;
 import com.kjh.groupware.domain.emp.dto.EmployeeDirectoryResponse;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.response.PageResponse;
+import com.kjh.groupware.global.security.CurrentEmpProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import org.springframework.util.StringUtils;
 public class EmpQueryService {
 
     private final EmpRepository empRepository;
+    private final CurrentEmpProvider currentEmpProvider;
+    private final EmployeePermissionService employeePermissionService;
 
     @Transactional(readOnly = true)
     public PageResponse<EmpResponse> search(String keyword, Long deptId, String status, int page, int size) {
@@ -38,12 +42,37 @@ public class EmpQueryService {
         Pageable pageable = PageRequest.of(safePage, safeSize);
         String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
         String normalizedStatus = normalizeStatus(status);
+        if ("CURRENT".equalsIgnoreCase(normalizedStatus)) {
+            return searchCurrentDirectory(normalizedKeyword, deptId, pageable);
+        }
+        if (normalizedStatus == null && !canViewEmploymentHistory()) {
+            return searchCurrentDirectory(normalizedKeyword, deptId, pageable);
+        }
+        if ("RETIRED".equalsIgnoreCase(normalizedStatus) && !canViewEmploymentHistory()) {
+            return PageResponse.from(Page.<EmployeeDirectoryResponse>empty(pageable));
+        }
         if (normalizedKeyword == null) {
             return PageResponse.from(empRepository.searchDirectoryWithoutKeyword(deptId, normalizedStatus, pageable)
                 .map(EmployeeDirectoryResponse::from));
         }
         return PageResponse.from(empRepository.searchDirectory(normalizedKeyword, deptId, normalizedStatus, pageable)
             .map(EmployeeDirectoryResponse::from));
+    }
+
+    private PageResponse<EmployeeDirectoryResponse> searchCurrentDirectory(String keyword, Long deptId, Pageable pageable) {
+        if (keyword == null) {
+            return PageResponse.from(empRepository.searchCurrentDirectoryWithoutKeyword(deptId, pageable)
+                .map(EmployeeDirectoryResponse::from));
+        }
+        return PageResponse.from(empRepository.searchCurrentDirectory(keyword, deptId, pageable)
+            .map(EmployeeDirectoryResponse::from));
+    }
+
+    private boolean canViewEmploymentHistory() {
+        return employeePermissionService.hasPermission(
+            currentEmpProvider.getCurrentEmp(),
+            EmployeePermissionService.EMPLOYEE_ADMIN
+        );
     }
 
     @Transactional(readOnly = true)

@@ -7,6 +7,7 @@ import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.notification.NotificationService;
+import com.kjh.groupware.domain.work.WorkRequestService;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
@@ -34,6 +35,7 @@ public class ApprovalDraftService {
     private final ApprovalEquipmentProposalService equipmentProposalService;
     private final ApprovalLeaveUsageService leaveUsageService;
     private final CompTimeLedgerService compTimeLedgerService;
+    private final WorkRequestService workRequestService;
     private final ApprovalDelegationService delegationService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
@@ -89,6 +91,7 @@ public class ApprovalDraftService {
             linePolicyService.createLines(document, request, false);
         } else {
             linePolicyService.createLines(document, request, true);
+            workRequestService.prepareSubmission(document);
             document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
             compTimeLedgerService.reserveForSubmission(document);
             delegationService.applyAutoDelegationForAbsenceDocument(requester, document, request.formDataJson());
@@ -199,6 +202,7 @@ public class ApprovalDraftService {
         lineRepository.deleteByDocument(document);
         lineRepository.flush();
         linePolicyService.createLines(document, request, true);
+        workRequestService.prepareSubmission(document);
         document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
         compTimeLedgerService.reserveForSubmission(document);
         delegationService.applyAutoDelegationForAbsenceDocument(requester, document, request.formDataJson());
@@ -313,6 +317,9 @@ public class ApprovalDraftService {
             case "LEAVE_CANCEL" -> "LVC";
             case "PURCHASE" -> "PUR";
             case "TRAINING_REQUEST", "TRAINING_REPORT" -> "EDU";
+            case WorkRequestService.TEMPLATE -> "WRK";
+            case WorkRequestService.EMERGENCY_TEMPLATE -> "EMG";
+            case WorkRequestService.CHANGE_TEMPLATE -> "WRC";
             case ApprovalEquipmentProposal.TEMPLATE_CODE -> "EQP";
             case ApprovalEquipmentProposal.MOLD_FIXTURE_TEMPLATE_CODE -> "MFP";
             default -> "APP";

@@ -98,6 +98,9 @@ export const PURCHASE_BU_CODES = ["BU1", "BU2", "BU3", "BU4", "BU5", "BU7", "BU9
 
 export const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
   { code: "GENERAL", name: "일반문서", description: "일반 업무 기안", version: 1 },
+  { code: "WORK_REQUEST", name: "근무신청서", description: "잔업·특근 근무 신청", version: 1 },
+  { code: "EMERGENCY_CALL_REQUEST", name: "비상호출 신청서", description: "비상호출 근무 신청", version: 1 },
+  { code: "WORK_REQUEST_CHANGE", name: "근무 변경·취소계", description: "승인된 근무의 변경 또는 취소 신청", version: 1 },
   { code: "PURCHASE", name: "구매요청서", description: "물품 또는 서비스 구매 요청", version: 1 },
   { code: "EQUIPMENT_PROPOSAL", name: "설비 품의서", description: "사용부서, 생산기술팀, 구매팀이 단계별로 작성하는 설비 품의서", version: 1 },
   { code: "MOLD_FIXTURE_PROPOSAL", name: "금형 치공구 품의서", description: "설비 품의서와 동일한 단계로 작성하는 금형 치공구 품의서", version: 1 },
@@ -119,8 +122,9 @@ export const DEFAULT_APPROVAL_SEARCH: ApprovalSearchForm = {
 export const APPROVAL_TEMPLATE_CATEGORIES: ApprovalTemplateCategory[] = [
   { id: "draft", label: "1. 기안 공문", codes: ["DRAFT", "EQUIPMENT_PROPOSAL", "MOLD_FIXTURE_PROPOSAL"] },
   { id: "leave", label: "2. 휴가, 출장", codes: ["LEAVE", "LEAVE_CANCEL"] },
-  { id: "purchase", label: "3. 구매", codes: ["PURCHASE"] },
-  { id: "education", label: "4. 교육 및 제안", codes: ["TRAINING_REQUEST", "TRAINING_REPORT"] }
+  { id: "work", label: "3. 근무", codes: ["WORK_REQUEST", "EMERGENCY_CALL_REQUEST", "WORK_REQUEST_CHANGE"] },
+  { id: "purchase", label: "4. 구매", codes: ["PURCHASE"] },
+  { id: "education", label: "5. 교육 및 제안", codes: ["TRAINING_REQUEST", "TRAINING_REPORT"] }
 ];
 export const ENABLE_TEMPLATE_FALLBACK = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEMPLATE_FALLBACK === "true";
 export const LEAVE_TYPE_OPTIONS = [
@@ -270,6 +274,18 @@ export function isLeaveTemplateCode(templateCode: string | null | undefined) {
 
 export function isLeaveCancelTemplateCode(templateCode: string | null | undefined) {
   return templateCode === "LEAVE_CANCEL";
+}
+
+export function isWorkRequestTemplateCode(templateCode: string | null | undefined) {
+  return templateCode === "WORK_REQUEST";
+}
+
+export function isEmergencyCallRequestTemplateCode(templateCode: string | null | undefined) {
+  return templateCode === "EMERGENCY_CALL_REQUEST";
+}
+
+export function isWorkRequestChangeTemplateCode(templateCode: string | null | undefined) {
+  return templateCode === "WORK_REQUEST_CHANGE";
 }
 
 export function isPurchaseTemplateCode(templateCode: string | null | undefined) {

@@ -73,6 +73,7 @@ class ApprovalServiceWorkflowTest {
     private final ApprovalLeaveLifecycleCancellationRepository lifecycleCancellationRepository = mock(ApprovalLeaveLifecycleCancellationRepository.class);
     private final EmployeePermissionService employeePermissionService = mock(EmployeePermissionService.class);
     private final CompTimeLedgerService compTimeLedgerService = mock(CompTimeLedgerService.class);
+    private final com.kjh.groupware.domain.work.WorkRequestService workRequestService = mock(com.kjh.groupware.domain.work.WorkRequestService.class);
     private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService, employeePermissionService);
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final AtomicReference<Emp> currentEmp = new AtomicReference<>();
@@ -283,6 +284,7 @@ class ApprovalServiceWorkflowTest {
             equipmentProposalService,
             leaveUsageService,
             compTimeLedgerService,
+            workRequestService,
             delegationService,
             jdbcTemplate,
             new ObjectMapper()
@@ -305,7 +307,8 @@ class ApprovalServiceWorkflowTest {
             compTimeLedgerService,
             equipmentManagementService,
             new ObjectMapper(),
-            employeePermissionService
+            employeePermissionService,
+            workRequestService
         );
 
         service = new ApprovalService(

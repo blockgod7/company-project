@@ -79,6 +79,8 @@ export type ManagedEmployee = {
   employmentStartDate: string;
   employmentType: "REGULAR" | "CONTRACT";
   workCategory: "MANAGEMENT" | "FIELD";
+  shiftType?: "A" | "B" | "DAY_FIXED" | null;
+  shiftAnchorDate?: string | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
   status: "ACTIVE" | "LEAVE" | "RETIRED";
@@ -166,8 +168,30 @@ export type Employee = {
   positionName: string | null;
   jobTitle: string | null;
   workCategory: "MANAGEMENT" | "FIELD";
+  shiftType: "A" | "B" | "DAY_FIXED" | null;
+  shiftAnchorDate: string | null;
   roleCode: string;
   status: string;
+};
+
+export type WorkSchedule = {
+  workEntryId: number;
+  approvalId: number;
+  empId: number;
+  empName: string;
+  deptId: number | null;
+  deptName: string | null;
+  workCategory: "MANAGEMENT" | "FIELD";
+  shiftType: "A" | "B" | "DAY_FIXED" | null;
+  scheduledShift: "DAY" | "NIGHT" | "A" | "B" | null;
+  workType: "OVERTIME" | "SPECIAL" | "EMERGENCY_CALL";
+  workDate: string;
+  startTime: string;
+  endTime: string;
+  workMinutes: number;
+  workContent: string;
+  compTime: boolean;
+  status: "PENDING" | "PLANNED" | "COMPLETED" | "CANCEL_PENDING" | "CANCELED";
 };
 
 export type DirectoryEmployee = {
@@ -179,6 +203,7 @@ export type DirectoryEmployee = {
   extensionNumber: string | null;
   deptId: number | null;
   deptName: string | null;
+  managerEmpId: number | null;
   positionName: string | null;
   jobTitle: string | null;
   status: "ACTIVE" | "LEAVE" | "RETIRED";

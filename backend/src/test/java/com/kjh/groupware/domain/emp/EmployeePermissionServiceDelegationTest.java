@@ -43,6 +43,16 @@ class EmployeePermissionServiceDelegationTest {
     }
 
     @Test
+    void workRequestAdminAlsoReceivesDelegatePermission() {
+        Emp workRequestAdmin = emp(11L, "USER");
+        when(permissionRepository.existsByEmpEmpIdAndPermissionCodeAndActiveYn(
+            11L, EmployeePermissionService.WORK_REQUEST_ADMIN, "Y"
+        )).thenReturn(true);
+
+        assertThat(service.hasPermission(workRequestAdmin, EmployeePermissionService.WORK_REQUEST_DELEGATE)).isTrue();
+    }
+
+    @Test
     void delegatedFullAdminCannotModifySystemAdministratorAuthority() {
         Emp delegate = emp(10L, "USER");
         Emp systemAdmin = emp(1L, "ADMIN");

@@ -122,6 +122,8 @@ $requiredTables = @(
     "leave_policy",
     "comp_time_credit",
     "comp_time_allocation",
+    "work_request_entry",
+    "work_request_change",
     "leave_policy_override",
     "approval_leave_admin_case",
     "bereavement_policy",
@@ -152,6 +154,8 @@ $requiredColumns = @(
     @{ Table = "emp"; Column = "work_category" },
     @{ Table = "emp"; Column = "account_status" },
     @{ Table = "emp"; Column = "extension_number" },
+    @{ Table = "emp"; Column = "shift_type" },
+    @{ Table = "emp"; Column = "shift_anchor_date" },
     @{ Table = "menu"; Column = "menu_code" },
     @{ Table = "menu"; Column = "portal_code" },
     @{ Table = "menu"; Column = "icon_key" },
@@ -172,6 +176,8 @@ $requiredColumns = @(
     @{ Table = "approval_leave_lifecycle_cancellation"; Column = "updated_at" },
     @{ Table = "approval_leave_lifecycle_cancellation"; Column = "updated_by" },
     @{ Table = "comp_time_credit"; Column = "expiration_notified_at" },
+    @{ Table = "comp_time_credit"; Column = "source_work_entry_id" },
+    @{ Table = "work_request_entry"; Column = "shift_anchor_date_snapshot" },
     @{ Table = "comp_time_allocation"; Column = "restored_by_approval_id" },
     @{ Table = "leave_policy_override"; Column = "override_max_segments" },
     @{ Table = "approval_leave_admin_case"; Column = "workers_comp_status" },
@@ -244,6 +250,56 @@ WHERE (emp_no = 'E9024' AND hire_date = DATE '2016-09-01')
    OR (emp_no = 'C7008' AND hire_date = DATE '1997-09-29');
 "@) "3"
 
+Assert-Equals "PDF-confirmed employee affiliations are applied" (Invoke-Scalar @"
+WITH expected(emp_no, dept_code) AS (
+    VALUES
+        ('D8011', 'MOBILITY_BU520'),
+        ('D5028', 'MOBILITY_PRETREAT'),
+        ('C7011', 'MOBILITY_PROCESSING'),
+        ('D2008', 'MOBILITY_SINTERING'),
+        ('C9017', 'MOBILITY_FORMING'),
+        ('D0018', 'ULSAN_SALES'),
+        ('D2014', 'VCB_CHEONGJU'),
+        ('E9024', 'VCB_CHEONGJU')
+)
+SELECT count(*)
+FROM expected
+JOIN emp employee ON employee.emp_no = expected.emp_no
+JOIN dept department ON department.dept_id = employee.dept_id
+WHERE department.dept_code = expected.dept_code;
+"@) "8"
+
+Assert-Equals "production-family managers follow confirmed leaders" (Invoke-Scalar @"
+WITH expected(employee_emp_no, manager_emp_no) AS (
+    VALUES
+        ('E9048', 'D8011'),
+        ('E9072', 'D8011'),
+        ('D2008', 'D8011'),
+        ('E9064', 'D8011'),
+        ('E0060', 'C3008'),
+        ('E7019', 'C3008'),
+        ('E5007', 'E0055'),
+        ('D5044', 'E0055'),
+        ('E9093', 'D2014'),
+        ('E9024', 'D2014')
+)
+SELECT count(*)
+FROM expected
+JOIN emp employee ON employee.emp_no = expected.employee_emp_no
+JOIN emp manager ON manager.emp_id = employee.manager_emp_id
+WHERE manager.emp_no = expected.manager_emp_no;
+"@) "10"
+
+Assert-Equals "R&D employees report to the confirmed team leader" (Invoke-Scalar @"
+SELECT count(*)
+FROM emp employee
+JOIN dept department ON department.dept_id = employee.dept_id
+JOIN emp manager ON manager.emp_id = employee.manager_emp_id
+WHERE department.dept_code = 'RND'
+  AND employee.emp_no <> 'E3048'
+  AND manager.emp_no = 'E3048';
+"@) "6"
+
 Assert-Equals "2026 new-hire AUTO annual leave balances match revised policy" (Invoke-Scalar @"
 WITH expected(emp_no, expected_days) AS (
     VALUES
@@ -311,9 +367,25 @@ SELECT COUNT(*)
 FROM emp_permission
 WHERE permission_code NOT IN (
     'FULL_ADMIN', 'LEAVE_ADMIN', 'LEAVE_POLICY_ADMIN',
-    'EMPLOYEE_ADMIN', 'WORK_CATEGORY_ADMIN', 'ACCOUNT_ADMIN'
+    'EMPLOYEE_ADMIN', 'WORK_CATEGORY_ADMIN', 'ACCOUNT_ADMIN',
+    'WORK_REQUEST_ADMIN', 'WORK_REQUEST_DELEGATE'
 );
 "@) "0"
+
+Assert-Equals "work-request templates are active" (Invoke-Scalar @"
+SELECT COUNT(*)
+FROM approval_template
+WHERE template_code IN ('WORK_REQUEST', 'EMERGENCY_CALL_REQUEST', 'WORK_REQUEST_CHANGE')
+  AND version = 1 AND active_yn = 'Y';
+"@) "3"
+
+Assert-Equals "work-request permission codes are allowed by the database" (Invoke-Scalar @"
+SELECT count(*)
+FROM pg_constraint
+WHERE conname = 'chk_emp_permission_code'
+  AND pg_get_constraintdef(oid) LIKE '%WORK_REQUEST_ADMIN%'
+  AND pg_get_constraintdef(oid) LIKE '%WORK_REQUEST_DELEGATE%';
+"@) "1"
 
 Assert-Equals "removed leave types are inactive" (Invoke-Scalar @"
 SELECT COUNT(*) FROM leave_policy
@@ -336,9 +408,13 @@ SELECT COUNT(DISTINCT leave_type) FROM leave_policy
 WHERE encode(convert_to(leave_type, 'UTF8'), 'hex') IN ('eca1b0ed87b4', 'eab3b5ec8381') AND active_yn = 'Y';
 "@) "2"
 
-Assert-Equals "compensatory-time credits expire at occurrence-year end" (Invoke-Scalar @"
+Assert-Equals "compensatory-time credits follow annual and late-December expiry rules" (Invoke-Scalar @"
 SELECT COUNT(*) FROM comp_time_credit
-WHERE expires_on <> make_date(EXTRACT(YEAR FROM work_date)::int, 12, 31);
+WHERE expires_on <> CASE
+    WHEN EXTRACT(MONTH FROM work_date) = 12 AND EXTRACT(DAY FROM work_date) >= 15
+        THEN make_date(EXTRACT(YEAR FROM work_date)::int + 1, 1, 31)
+    ELSE make_date(EXTRACT(YEAR FROM work_date)::int, 12, 31)
+END;
 "@) "0"
 
 Assert-Equals "bereavement childbirth options are inactive" (Invoke-Scalar @"

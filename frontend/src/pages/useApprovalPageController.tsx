@@ -19,6 +19,8 @@ import {
   isEquipmentProposalTemplateCode,
   isLeaveCancelTemplateCode,
   isLeaveTemplateCode,
+  isWorkRequestTemplateCode,
+  isWorkRequestChangeTemplateCode,
   isPurchaseTemplateCode,
   isTrainingRequestTemplateCode,
   isTrainingTemplateCode,
@@ -129,7 +131,8 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   const canViewPreview = canViewPlannedFeatures(user);
   const visibleTemplates = canViewPreview
     ? templates
-    : templates.filter((template) => isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code));
+    : templates.filter((template) => isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code)
+      || isWorkRequestTemplateCode(template.code) || isWorkRequestChangeTemplateCode(template.code));
 
   async function load(
     targetBox: ApprovalBox,

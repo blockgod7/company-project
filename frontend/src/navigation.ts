@@ -50,7 +50,8 @@ const adminPermissionCodes = new Set([
   "LEAVE_POLICY_ADMIN",
   "EMPLOYEE_ADMIN",
   "WORK_CATEGORY_ADMIN",
-  "ACCOUNT_ADMIN"
+  "ACCOUNT_ADMIN",
+  "WORK_REQUEST_ADMIN"
 ]);
 
 export function pathForRoute(route: Route) {

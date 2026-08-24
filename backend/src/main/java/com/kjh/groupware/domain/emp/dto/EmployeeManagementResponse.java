@@ -26,6 +26,8 @@ public record EmployeeManagementResponse(
     LocalDate employmentStartDate,
     String employmentType,
     String workCategory,
+    String shiftType,
+    LocalDate shiftAnchorDate,
     LocalDate contractStartDate,
     LocalDate contractEndDate,
     String status,
@@ -40,7 +42,8 @@ public record EmployeeManagementResponse(
             emp.getDept() == null ? null : emp.getDept().getDeptName(), emp.getPositionName(), emp.getJobTitle(),
             emp.getManager() == null ? null : emp.getManager().getEmpId(), emp.getManager() == null ? null : emp.getManager().getEmpName(),
             emp.getRoleCode(), emp.getHireDate(), emp.getRetireDate(), emp.getRehireDate(), emp.currentEmploymentStartDate(),
-            emp.getEmploymentType(), emp.getWorkCategory(), emp.getContractStartDate(), emp.getContractEndDate(), emp.getStatus(), emp.getAccountStatus(),
+            emp.getEmploymentType(), emp.getWorkCategory(), emp.getShiftType(), emp.getShiftAnchorDate(),
+            emp.getContractStartDate(), emp.getContractEndDate(), emp.getStatus(), emp.getAccountStatus(),
             emp.isRehired(), permissions
         );
     }

@@ -15,6 +15,7 @@ import com.kjh.groupware.domain.emp.dto.EmployeeRehireRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeRetireRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeUpdateRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeWorkCategoryRequest;
+import com.kjh.groupware.domain.emp.dto.EmployeeShiftRequest;
 import com.kjh.groupware.domain.emp.dto.TemporaryPasswordResponse;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
@@ -123,6 +124,21 @@ public class EmployeeManagementService {
             throw BusinessException.forbidden("SYSTEM_ADMIN_PROTECTED", "시스템관리자 계정은 변경할 수 없습니다.");
         }
         emp.updateWorkCategory(request.workCategory());
+        return response(emp);
+    }
+
+    @Transactional
+    public EmployeeManagementResponse updateShift(Long empId, EmployeeShiftRequest request) {
+        permissionService.requireWorkRequestAdmin();
+        String type = request.shiftType() == null || request.shiftType().isBlank() ? null : request.shiftType().trim();
+        if (type != null && !List.of("A", "B", "DAY_FIXED").contains(type)) {
+            throw BusinessException.badRequest("SHIFT_TYPE_INVALID", "교대유형은 A조, B조, 주간전담 중에서 선택해 주세요.");
+        }
+        if (("A".equals(type) || "B".equals(type)) && request.shiftAnchorDate() == null) {
+            throw BusinessException.badRequest("SHIFT_ANCHOR_REQUIRED", "A/B조는 2주 교대 기준일이 필요합니다.");
+        }
+        Emp emp = find(empId);
+        emp.updateShift(type, request.shiftAnchorDate());
         return response(emp);
     }
 

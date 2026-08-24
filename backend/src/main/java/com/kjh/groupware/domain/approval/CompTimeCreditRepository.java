@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface CompTimeCreditRepository extends JpaRepository<CompTimeCredit, Long> {
     boolean existsByEmpEmpIdAndWorkDate(Long empId, LocalDate workDate);
+    boolean existsBySourceWorkEntryWorkEntryId(Long workEntryId);
 
     List<CompTimeCredit> findByEmpEmpIdOrderByExpiresOnAscWorkDateAsc(Long empId);
 

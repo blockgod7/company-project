@@ -88,6 +88,8 @@ import {
   isEquipmentProposalTemplateCode,
   isLeaveCancelTemplateCode,
   isLeaveTemplateCode,
+  isWorkRequestChangeTemplateCode,
+  isWorkRequestTemplateCode,
   isMoldFixtureTemplateCode,
   isPurchaseTemplateCode,
   isReceiverRoutedTemplateCode,
@@ -177,7 +179,7 @@ import type {
 export const APPROVAL_BOXES: { box: ApprovalBox; label: string }[] = [
   { box: "agreement", label: "합의대기" },
   { box: "pending", label: "결재대기" },
-  { box: "received", label: "수신문서" },
+  { box: "received", label: "수신함" },
   { box: "shared", label: "참조/연람" },
   { box: "requested", label: "기안문서" },
   { box: "processed", label: "처리문서" },
@@ -288,7 +290,59 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
   previewDeptName: string;
   previewRequesterName: string;
 }) {
+  if (isWorkRequestTemplateCode(template.code)) {
+    return (
+      <div className="template-work-preview">
+        <div className="template-work-head">
+          <span>잔업·특근 근무자를 한 문서에서 신청합니다</span>
+          <h2>근무신청서</h2>
+          <p>근무자별 근무일시와 업무내용을 입력하고 특근 시 대체근무 여부를 선택합니다.</p>
+        </div>
+        <div className="template-work-applicant">
+          <div><span>신청부서</span><strong>{previewDeptName || "-"}</strong></div>
+          <div><span>신청자</span><strong>{previewRequesterName}</strong></div>
+          <div><span>작성일</span><strong>{todayDate()}</strong></div>
+        </div>
+        <div className="template-work-section-title"><strong>근무자별 신청 내역</strong><span>여러 명 일괄 신청 가능</span></div>
+        <div className="template-work-table">
+          <strong>근무자</strong><strong>구분</strong><strong>근무일</strong><strong>시간</strong><strong>대체근무</strong>
+          <span>{previewRequesterName}</span><span>특근</span><span>{todayDate()}</span><span>08:30~17:30</span><span className="accent">선택</span>
+          <span>추가 근무자</span><span>잔업</span><span>날짜 선택</span><span>18:00~20:00</span><span>-</span>
+        </div>
+        <div className="template-work-content"><strong>근무내용</strong><span>근무자별 업무 내용을 입력합니다.</span></div>
+        <div className="template-work-note">대체휴무 · 4시간 이하는 0.5일, 4시간 초과는 1일</div>
+        <TemplateWorkRoute previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
+      </div>
+    );
+  }
+
+  if (isWorkRequestChangeTemplateCode(template.code)) {
+    return (
+      <div className="template-work-preview template-work-change-preview">
+        <div className="template-work-head change">
+          <span>승인된 원 근무는 수정하지 않고 별도 결재로 처리합니다</span>
+          <h2>근무 변경·취소계</h2>
+          <p>변경 또는 취소할 근무를 선택하고 처리 내용과 사유를 기록합니다.</p>
+        </div>
+        <div className="template-work-applicant">
+          <div><span>신청부서</span><strong>{previewDeptName || "-"}</strong></div>
+          <div><span>신청자</span><strong>{previewRequesterName}</strong></div>
+          <div><span>작성일</span><strong>{todayDate()}</strong></div>
+        </div>
+        <div className="template-work-section-title"><strong>변경·취소 대상</strong><span>처리 구분 선택</span></div>
+        <div className="template-work-change-flow">
+          <div><span>원 근무</span><strong>{todayDate()} · 특근</strong><small>08:30~17:30 · 기존 업무 내용</small></div>
+          <b>→</b>
+          <div className="after"><span>변경 후</span><strong>변경 근무일 · 특근</strong><small>변경 시간 · 변경 업무 내용</small></div>
+        </div>
+        <div className="template-work-change-reason"><strong>처리</strong><span>변경 / 취소</span><strong>사유</strong><span>변경·취소 사유를 필수로 입력합니다.</span></div>
+        <div className="template-work-note change">최종 승인 시 예정 근무 일정에 변경 또는 취소 내용이 반영됩니다.</div>
+        <TemplateWorkRoute previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
+      </div>
+    );
+  }
   if (isPurchaseTemplateCode(template.code)) {
+
     return (
       <div className="template-paper template-purchase-preview">
         <div className="template-purchase-head">
@@ -505,6 +559,17 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
       <div className="template-draft-footer">
         <span>수신</span><span>참조</span><span>열람</span><span>상태</span>
       </div>
+    </div>
+  );
+}
+
+function TemplateWorkRoute({ previewDeptName, previewRequesterName }: { previewDeptName: string; previewRequesterName: string }) {
+  return (
+    <div className="template-work-route">
+      <strong>결재</strong>
+      <div><span>작성</span><b>{previewRequesterName}</b><small>{previewDeptName || "신청 부서"}</small></div>
+      <div><span>검토</span><b>부서 결재자</b><small>결재선 적용</small></div>
+      <div><span>승인</span><b>최종 결재자</b><small>결재선 적용</small></div>
     </div>
   );
 }

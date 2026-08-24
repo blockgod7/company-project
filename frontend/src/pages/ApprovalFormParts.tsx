@@ -14,3 +14,4 @@ export {
   MoldFixtureProposalUserSection,
   equipmentProposalContent
 } from "./ApprovalEquipmentProposalParts";
+export { WorkRequestEditor } from "./ApprovalWorkRequestParts";

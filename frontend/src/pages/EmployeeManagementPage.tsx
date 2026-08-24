@@ -56,6 +56,7 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
   const canManageAccounts = user.permissions.includes("ACCOUNT_ADMIN");
   const canManageEmployees = user.permissions.includes("EMPLOYEE_ADMIN");
   const canManageWorkCategory = user.permissions.includes("WORK_CATEGORY_ADMIN");
+  const canManageWorkRequests = user.permissions.includes("WORK_REQUEST_ADMIN");
   const canEditEmployeeDetails = canManageEmployees || canManageWorkCategory;
   const profileFieldsDisabled = !canManageEmployees;
   const canGrantPermissions = user.permissions.includes("FULL_ADMIN") || user.roleCode === "ADMIN";
@@ -150,7 +151,7 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
     } catch (err) { setError(err instanceof Error ? err.message : "계정을 처리하지 못했습니다."); }
   }
 
-  async function togglePermission(employee: ManagedEmployee, permissionCode: "FULL_ADMIN" | "LEAVE_ADMIN" | "LEAVE_POLICY_ADMIN" | "EMPLOYEE_ADMIN" | "WORK_CATEGORY_ADMIN" | "ACCOUNT_ADMIN") {
+  async function togglePermission(employee: ManagedEmployee, permissionCode: "FULL_ADMIN" | "LEAVE_ADMIN" | "LEAVE_POLICY_ADMIN" | "EMPLOYEE_ADMIN" | "WORK_CATEGORY_ADMIN" | "ACCOUNT_ADMIN" | "WORK_REQUEST_ADMIN" | "WORK_REQUEST_DELEGATE") {
     const active = !employee.permissions.includes(permissionCode);
     try {
       await api(`/employee-management/permissions/${employee.empId}`, {
@@ -158,6 +159,16 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
       });
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : "권한을 변경하지 못했습니다."); }
+  }
+
+  async function updateShift(employee: ManagedEmployee) {
+    const raw = window.prompt("교대유형을 입력하세요. (A / B / DAY_FIXED / 비우면 해제)", employee.shiftType ?? "")?.trim().toUpperCase();
+    if (raw === undefined) return;
+    if (raw && !["A", "B", "DAY_FIXED"].includes(raw)) { setError("교대유형은 A, B, DAY_FIXED 중 하나입니다."); return; }
+    const anchor = raw === "A" || raw === "B" ? window.prompt("2주 교대 기준일 (YYYY-MM-DD)", employee.shiftAnchorDate ?? new Date().toISOString().slice(0, 10))?.trim() : null;
+    if ((raw === "A" || raw === "B") && !anchor) return;
+    try { await api(`/employee-management/${employee.empId}/shift`, { method: "PUT", body: jsonBody({ shiftType: raw || null, shiftAnchorDate: anchor }) }); await load(); }
+    catch (err) { setError(err instanceof Error ? err.message : "교대유형을 변경하지 못했습니다."); }
   }
 
   async function retire(employee: ManagedEmployee) {
@@ -208,7 +219,7 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
         <tbody>{filtered.map((employee) => <tr key={employee.empId}>
           <td><strong>{employee.empName}</strong>{employee.rehired && <em className="status-chip accent">재입사</em>}<small>{employee.empNo} · {employee.genderCode === "FEMALE" ? "여성" : "남성"}</small></td>
           <td>{employee.deptName ?? "미지정"}<small>{employee.positionName ?? employee.jobTitle ?? "-"}</small></td>
-          <td>{employee.employmentType === "CONTRACT" ? "계약직" : "정규직"}<small>{employee.employmentStartDate} 입사</small><small>{employee.workCategory === "MANAGEMENT" ? "관리직" : "현장직"}</small></td>
+          <td>{employee.employmentType === "CONTRACT" ? "계약직" : "정규직"}<small>{employee.employmentStartDate} 입사</small><small>{employee.workCategory === "MANAGEMENT" ? "관리직" : "현장직"}{employee.shiftType ? ` · ${employee.shiftType === "DAY_FIXED" ? "주간전담" : `${employee.shiftType}조`}` : ""}</small></td>
           <td><span className={`status-chip ${employee.status.toLowerCase()}`}>{employee.status === "ACTIVE" ? "재직" : employee.status === "LEAVE" ? "휴직" : "퇴직"}</span></td>
           <td>{employee.loginId ?? "미발급"}<small>{employee.accountStatus}</small></td>
           <td><div className="permission-chips">
@@ -218,8 +229,10 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
             <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("EMPLOYEE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "EMPLOYEE_ADMIN")}>직원관리</button>
             <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("WORK_CATEGORY_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "WORK_CATEGORY_ADMIN")}>직군관리</button>
             <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("ACCOUNT_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "ACCOUNT_ADMIN")}>계정관리</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("WORK_REQUEST_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "WORK_REQUEST_ADMIN")}>근무권한관리</button>
+            <button disabled={(!canManageWorkRequests && !canGrantPermissions) || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("WORK_REQUEST_DELEGATE") ? "on" : ""} onClick={() => void togglePermission(employee, "WORK_REQUEST_DELEGATE")}>근무 대리·일괄</button>
           </div></td>
-          <td><div className="row-actions">{canEditEmployeeDetails && <button title="상세 정보 수정" onClick={() => openEdit(employee)}><Pencil size={15} /></button>}{canManageEmployees && employee.status === "ACTIVE" && <><button title="휴직" onClick={() => void startLeave(employee)}>휴직</button><button title="퇴직" onClick={() => void retire(employee)}>퇴직</button></>}{canManageEmployees && employee.status === "LEAVE" && <button title="복직" onClick={() => void returnFromLeave(employee)}>복직</button>}{canManageEmployees && employee.status === "RETIRED" && <button title="재입사" onClick={() => void rehire(employee)}>재입사</button>}{canManageAccounts && <button title={employee.loginId ? "비밀번호 초기화" : "계정 발급"} onClick={() => void issueAccount(employee)}>{employee.loginId ? <KeyRound size={15} /> : <UserCheck size={15} />}</button>}</div></td>
+          <td><div className="row-actions">{canEditEmployeeDetails && <button title="상세 정보 수정" onClick={() => openEdit(employee)}><Pencil size={15} /></button>}{canManageWorkRequests && <button title="교대유형 설정" onClick={() => void updateShift(employee)}>교대</button>}{canManageEmployees && employee.status === "ACTIVE" && <><button title="휴직" onClick={() => void startLeave(employee)}>휴직</button><button title="퇴직" onClick={() => void retire(employee)}>퇴직</button></>}{canManageEmployees && employee.status === "LEAVE" && <button title="복직" onClick={() => void returnFromLeave(employee)}>복직</button>}{canManageEmployees && employee.status === "RETIRED" && <button title="재입사" onClick={() => void rehire(employee)}>재입사</button>}{canManageAccounts && <button title={employee.loginId ? "비밀번호 초기화" : "계정 발급"} onClick={() => void issueAccount(employee)}>{employee.loginId ? <KeyRound size={15} /> : <UserCheck size={15} />}</button>}</div></td>
         </tr>)}</tbody></table></div>
       {!filtered.length && <p className="empty-state">조건에 맞는 직원이 없습니다.</p>}
 
