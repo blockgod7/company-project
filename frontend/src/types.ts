@@ -184,7 +184,7 @@ export type WorkSchedule = {
   workCategory: "MANAGEMENT" | "FIELD";
   shiftType: "A" | "B" | "DAY_FIXED" | null;
   scheduledShift: "DAY" | "NIGHT" | "A" | "B" | null;
-  workType: "OVERTIME" | "SPECIAL" | "EMERGENCY_CALL";
+  workType: "OVERTIME" | "NIGHT" | "NIGHT_OVERTIME" | "SPECIAL" | "SPECIAL_OVERTIME" | "SPECIAL_NIGHT" | "SPECIAL_NIGHT_OVERTIME" | "EMERGENCY_CALL";
   workDate: string;
   startTime: string;
   endTime: string;

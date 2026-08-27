@@ -9,6 +9,7 @@ import {
   Home,
   LogOut,
   MessageSquare,
+  MoreHorizontal,
   ScrollText,
   Search,
   Settings2,
@@ -22,7 +23,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import schunkLogo from "../assets/schunk-carbon-logo.png";
 import { useEffectiveMenus } from "../hooks/useEffectiveMenus";
 import type { PortalMode } from "../navigation";
-import type { User } from "../types";
+import type { EffectiveMenu, User } from "../types";
 import { routeLabels, type Route } from "../utils/approvalDomain";
 import { MenuSettingsDialog } from "./MenuSettingsDialog";
 
@@ -73,9 +74,20 @@ export function AppShell({
 }: AppShellProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [portalSwitcherOpen, setPortalSwitcherOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const portalSwitcherRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const effectiveMenus = useEffectiveMenus(user.empId, portal);
   const visibleMenus = effectiveMenus.menus.filter((item) => !item.hidden);
+  const isMenuActive = (item: EffectiveMenu) => item.menuPath != null
+    && (currentPath === item.menuPath || currentPath.startsWith(`${item.menuPath}/`));
+  const activeMenu = visibleMenus.find(isMenuActive);
+  const pinnedMenus = visibleMenus.filter((item) => item.pinned);
+  const compactBase = [...pinnedMenus, ...visibleMenus.filter((item) => !item.pinned)].slice(0, 4);
+  const compactMenus = activeMenu && !compactBase.some((item) => item.menuCode === activeMenu.menuCode)
+    ? [...compactBase.slice(0, 3), activeMenu]
+    : compactBase;
+  const overflowMenus = visibleMenus.filter((item) => !compactMenus.some((compact) => compact.menuCode === item.menuCode));
 
   useEffect(() => {
     if (!portalSwitcherOpen) return;
@@ -92,6 +104,43 @@ export function AppShell({
       document.removeEventListener("keydown", closePortalSwitcherOnEscape);
     };
   }, [portalSwitcherOpen]);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    function closeMoreMenu(event: MouseEvent) {
+      if (!moreMenuRef.current?.contains(event.target as Node)) setMoreMenuOpen(false);
+    }
+    function closeMoreMenuOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMoreMenuOpen(false);
+    }
+    document.addEventListener("mousedown", closeMoreMenu);
+    document.addEventListener("keydown", closeMoreMenuOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeMoreMenu);
+      document.removeEventListener("keydown", closeMoreMenuOnEscape);
+    };
+  }, [moreMenuOpen]);
+
+  function renderMenuButton(item: EffectiveMenu, closeOverflow = false) {
+    const Icon = menuIcons[item.iconKey ?? ""] ?? Circle;
+    return (
+      <button
+        key={item.menuCode}
+        className={isMenuActive(item) ? "side active" : "side"}
+        aria-current={isMenuActive(item) ? "page" : undefined}
+        title={item.menuName}
+        onClick={() => {
+          if (closeOverflow) setMoreMenuOpen(false);
+          if (item.menuPath) onNavigatePath(item.menuPath);
+        }}
+        disabled={!item.menuPath}
+      >
+        <Icon size={19} />
+        <span>{item.menuName}</span>
+        {item.implementationStatus === "PLANNED" && <small>예정</small>}
+      </button>
+    );
+  }
 
   function switchPortal(nextPortal: PortalMode) {
     setPortalSwitcherOpen(false);
@@ -110,37 +159,53 @@ export function AppShell({
         </div>
         <div className="profile">
           <div className="avatar"><UserRound size={38} /></div>
-          <strong>{user.empName}</strong>
-          <span>{user.deptName ?? "소속 미정"} · {user.roleCode}</span>
+          <strong title={user.empName}>{user.empName}</strong>
+          <span title={`${user.deptName ?? "소속 미정"} · ${user.roleCode}`}>{user.deptName ?? "소속 미정"} · {user.roleCode}</span>
         </div>
         <nav className="side-nav" aria-label="주요 메뉴">
           {effectiveMenus.loading && <span className="side-nav-status">메뉴 불러오는 중</span>}
-          {!effectiveMenus.loading && visibleMenus.map((item) => {
-            const Icon = menuIcons[item.iconKey ?? ""] ?? Circle;
-            const active = item.menuPath != null && (currentPath === item.menuPath || currentPath.startsWith(`${item.menuPath}/`));
-            return (
-              <button
-                key={item.menuCode}
-                className={active ? "side active" : "side"}
-                onClick={() => item.menuPath && onNavigatePath(item.menuPath)}
-                disabled={!item.menuPath}
-              >
-                <Icon size={19} />
-                <span>{item.menuName}</span>
-                {item.implementationStatus === "PLANNED" && <small>예정</small>}
-              </button>
-            );
-          })}
+          {!effectiveMenus.loading && visibleMenus.length > 0 && (
+            <>
+              <div className="side-nav-desktop">
+                {visibleMenus.map((item) => renderMenuButton(item))}
+                <button type="button" className="side menu-settings-trigger" onClick={() => setSettingsOpen(true)}>
+                  <Settings2 size={19} /> <span>메뉴 설정</span>
+                </button>
+              </div>
+              <div className="side-nav-compact">
+                <div className="compact-primary-menus">
+                  {compactMenus.map((item) => renderMenuButton(item))}
+                </div>
+                <div className="compact-overflow" ref={moreMenuRef}>
+                  <button
+                    type="button"
+                    className="side compact-more-trigger"
+                    aria-haspopup="menu"
+                    aria-expanded={moreMenuOpen}
+                    onClick={() => setMoreMenuOpen((open) => !open)}
+                  >
+                    <MoreHorizontal size={19} /><span>더보기</span>
+                  </button>
+                  {moreMenuOpen && (
+                    <div className="compact-overflow-menu" role="menu" aria-label="추가 메뉴">
+                      {overflowMenus.map((item) => renderMenuButton(item, true))}
+                      <button type="button" className="side menu-settings-trigger" onClick={() => {
+                        setMoreMenuOpen(false);
+                        setSettingsOpen(true);
+                      }}>
+                        <Settings2 size={19} /> <span>메뉴 설정</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
           {!effectiveMenus.loading && !effectiveMenus.error && visibleMenus.length === 0 && (
             <span className="side-nav-status">표시할 메뉴가 없습니다. 메뉴 설정에서 숨김을 해제해 주세요.</span>
           )}
           {effectiveMenus.error && (
             <span className="side-nav-error">메뉴를 불러오지 못했습니다.<small>{effectiveMenus.error}</small></span>
-          )}
-          {!effectiveMenus.loading && effectiveMenus.menus.length > 0 && (
-            <button type="button" className="side menu-settings-trigger" onClick={() => setSettingsOpen(true)}>
-              <Settings2 size={19} /> 메뉴 설정
-            </button>
           )}
         </nav>
         <button className="logout-link" onClick={onLogout}>
@@ -165,7 +230,6 @@ export function AppShell({
             </form>
           </div>
           <div className="userbar">
-            <Search size={17} />
             {canUseAdminPortal && (
               <div className="portal-switcher" ref={portalSwitcherRef}>
                 <button
@@ -203,7 +267,7 @@ export function AppShell({
                 )}
               </div>
             )}
-            <span>{user.empName}</span>
+            <span className="userbar-name" title={user.empName}>{user.empName}</span>
             <span className="role">{user.roleCode}</span>
             <button className="icon-button" onClick={onLogout} title="로그아웃">
               <LogOut size={18} />

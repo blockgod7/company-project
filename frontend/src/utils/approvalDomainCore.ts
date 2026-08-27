@@ -98,7 +98,7 @@ export const PURCHASE_BU_CODES = ["BU1", "BU2", "BU3", "BU4", "BU5", "BU7", "BU9
 
 export const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
   { code: "GENERAL", name: "일반문서", description: "일반 업무 기안", version: 1 },
-  { code: "WORK_REQUEST", name: "근무신청서", description: "잔업·특근 근무 신청", version: 1 },
+  { code: "WORK_REQUEST", name: "근무신청서", description: "잔업·특근·야간 근무 신청", version: 1 },
   { code: "EMERGENCY_CALL_REQUEST", name: "비상호출 신청서", description: "비상호출 근무 신청", version: 1 },
   { code: "WORK_REQUEST_CHANGE", name: "근무 변경·취소계", description: "승인된 근무의 변경 또는 취소 신청", version: 1 },
   { code: "PURCHASE", name: "구매요청서", description: "물품 또는 서비스 구매 요청", version: 1 },

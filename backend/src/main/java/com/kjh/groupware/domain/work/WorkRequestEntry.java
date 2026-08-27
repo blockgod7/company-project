@@ -33,7 +33,7 @@ public class WorkRequestEntry extends BaseEntity {
     @Column(name = "work_category_snapshot", nullable = false, length = 20) private String workCategorySnapshot;
     @Column(name = "shift_type_snapshot", length = 20) private String shiftTypeSnapshot;
     @Column(name = "shift_anchor_date_snapshot") private LocalDate shiftAnchorDateSnapshot;
-    @Column(name = "work_type", nullable = false, length = 20) private String workType;
+    @Column(name = "work_type", nullable = false, length = 30) private String workType;
     @Column(name = "work_date", nullable = false) private LocalDate workDate;
     @Column(name = "start_time", nullable = false) private LocalTime startTime;
     @Column(name = "end_time", nullable = false) private LocalTime endTime;

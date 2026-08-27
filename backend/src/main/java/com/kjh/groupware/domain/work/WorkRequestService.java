@@ -25,6 +25,12 @@ public class WorkRequestService {
     public static final String TEMPLATE = "WORK_REQUEST";
     public static final String EMERGENCY_TEMPLATE = "EMERGENCY_CALL_REQUEST";
     public static final String CHANGE_TEMPLATE = "WORK_REQUEST_CHANGE";
+    private static final Set<String> WORK_REQUEST_TYPES = Set.of(
+        "OVERTIME", "NIGHT", "NIGHT_OVERTIME", "SPECIAL", "SPECIAL_OVERTIME", "SPECIAL_NIGHT", "SPECIAL_NIGHT_OVERTIME"
+    );
+    private static final Set<String> ENTRY_TYPES = Set.of(
+        "OVERTIME", "NIGHT", "NIGHT_OVERTIME", "SPECIAL", "SPECIAL_OVERTIME", "SPECIAL_NIGHT", "SPECIAL_NIGHT_OVERTIME", "EMERGENCY_CALL"
+    );
     private final WorkRequestEntryRepository entryRepository;
     private final WorkRequestChangeRepository changeRepository;
     private final EmpRepository empRepository;
@@ -47,12 +53,17 @@ public class WorkRequestService {
         Emp actor = document.getRequester();
         boolean delegate = permissionService.hasPermission(actor, EmployeePermissionService.WORK_REQUEST_DELEGATE);
         Set<String> duplicate = new HashSet<>();
+        LocalDate commonDate = null;
         for (JsonNode row : rows) {
             Emp emp = empRepository.findById(row.path("empId").asLong()).orElseThrow(() -> bad("EMP_NOT_FOUND", "근무 대상자를 찾을 수 없습니다."));
             if (!actor.getEmpId().equals(emp.getEmpId()) && !delegate) throw BusinessException.forbidden("WORK_DELEGATE_REQUIRED", "본인 외 직원은 근무 대리·일괄신청 권한이 필요합니다.");
             if (!actor.getEmpId().equals(emp.getEmpId()) && !sameDepartment(actor, emp)) throw BusinessException.forbidden("WORK_DEPT_SCOPE_REQUIRED", "같은 소속 부서 직원만 근무를 대리·일괄신청할 수 있습니다.");
             String type = required(row, "workType", "근무구분");
             LocalDate date = date(required(row, "workDate", "근무일자"));
+            if (TEMPLATE.equals(document.getTemplateCode())) {
+                if (commonDate == null) commonDate = date;
+                else if (!commonDate.equals(date)) throw bad("WORK_DATE_MUST_MATCH", "근무신청서의 모든 근무자는 같은 근무일자를 사용해야 합니다.");
+            }
             LocalTime start = time(required(row, "startTime", "시작시간"));
             LocalTime end = time(required(row, "endTime", "종료시간"));
             int minutes = duration(start, end);
@@ -174,20 +185,25 @@ public class WorkRequestService {
     }
 
     private void validateSubmissionType(String templateCode, String type) {
-        if (TEMPLATE.equals(templateCode) && !List.of("OVERTIME", "SPECIAL").contains(type))
-            throw bad("WORK_TYPE_INVALID", "근무신청서는 잔업 또는 특근만 신청할 수 있습니다.");
+        if (TEMPLATE.equals(templateCode) && !WORK_REQUEST_TYPES.contains(type))
+            throw bad("WORK_TYPE_INVALID", "근무신청서는 잔업·특근·야간 중 하나 이상을 선택해야 합니다.");
         if (EMERGENCY_TEMPLATE.equals(templateCode) && !"EMERGENCY_CALL".equals(type))
             throw bad("WORK_TYPE_INVALID", "비상호출 신청서에는 비상호출 근무만 신청할 수 있습니다.");
     }
 
     private void validateType(Emp emp, String type, LocalDate date, boolean comp) {
-        if (!List.of("OVERTIME", "SPECIAL", "EMERGENCY_CALL").contains(type)) throw bad("WORK_TYPE_INVALID", "근무구분이 올바르지 않습니다.");
-        if ("MANAGEMENT".equals(emp.getWorkCategory()) && "OVERTIME".equals(type)) throw bad("WORK_TYPE_NOT_ALLOWED", "관리직은 잔업 신청 대상이 아닙니다.");
+        if (!ENTRY_TYPES.contains(type)) throw bad("WORK_TYPE_INVALID", "근무구분이 올바르지 않습니다.");
+        if ("MANAGEMENT".equals(emp.getWorkCategory()) && (hasOvertime(type) || hasNight(type)))
+            throw bad("WORK_TYPE_NOT_ALLOWED", "잔업·야간 선택은 현장직 근무신청에서만 사용할 수 있습니다.");
         boolean weekend = date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY;
         boolean holiday = holidayRepository.findByHolidayDateAndActiveYn(date, "Y").isPresent();
-        if ("SPECIAL".equals(type) && !weekend && !holiday) throw bad("SPECIAL_WORK_DATE_INVALID", "특근은 주말 또는 등록된 공휴일에만 신청할 수 있습니다.");
-        if (comp && !"SPECIAL".equals(type)) throw bad("COMP_TIME_SPECIAL_ONLY", "대체근무는 주말·공휴일 특근에만 선택할 수 있습니다.");
+        if (hasSpecial(type) && !weekend && !holiday) throw bad("SPECIAL_WORK_DATE_INVALID", "특근은 주말 또는 등록된 공휴일에만 신청할 수 있습니다.");
+        if (comp && !hasSpecial(type)) throw bad("COMP_TIME_SPECIAL_ONLY", "대체근무는 주말·공휴일 특근에만 선택할 수 있습니다.");
     }
+
+    private boolean hasOvertime(String type) { return type.contains("OVERTIME"); }
+    private boolean hasSpecial(String type) { return type.contains("SPECIAL"); }
+    private boolean hasNight(String type) { return type.contains("NIGHT"); }
 
     private boolean isEntryTemplate(String templateCode) {
         return TEMPLATE.equals(templateCode) || EMERGENCY_TEMPLATE.equals(templateCode);

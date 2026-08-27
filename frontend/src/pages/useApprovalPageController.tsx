@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, authenticatedFetch, jsonBody } from "../api";
 import type { DraftAttachment } from "../utils/attachments";
 import { templateName } from "../utils/approvalLabels";
@@ -82,11 +82,25 @@ function equipmentCompletionReportId(approval: Approval): number | null {
   }
 }
 
+function approvalSearchScope(search: ApprovalSearchForm) {
+  return [
+    search.keyword,
+    search.status,
+    search.templateCode,
+    search.role,
+    search.dateFrom,
+    search.dateTo
+  ].map((value) => encodeURIComponent(value.trim())).join("|");
+}
+
 export function useApprovalPageController({ user, launch, target }: { user: User; launch: ApprovalLaunch | null; target: GlobalSearchTarget | null }) {
   const [box, setBox] = useState<ApprovalBox>(launch?.box ?? "pending");
   const [dashboardFilter, setDashboardFilter] = useState<ApprovalLaunch | null>(launch);
   const [approvalCategory, setApprovalCategory] = useState<ApprovalCategory>("active");
   const [items, setItems] = useState<ApprovalSummary[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState("");
+  const listRequestId = useRef(0);
   const [retentionAudits, setRetentionAudits] = useState<AuditLog[]>([]);
   const [approvalBoxes, setApprovalBoxes] = useState<{ box: ApprovalBox; label: string }[]>(APPROVAL_BOXES);
   const [selected, setSelected] = useState<Approval | null>(null);
@@ -124,6 +138,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   const [operationSettingsMessage, setOperationSettingsMessage] = useState("");
   const [approvalActionComment, setApprovalActionComment] = useState("");
   const [approvalSearch, setApprovalSearch] = useState<ApprovalSearchForm>(DEFAULT_APPROVAL_SEARCH);
+  const [appliedApprovalSearchScope, setAppliedApprovalSearchScope] = useState(() => approvalSearchScope(DEFAULT_APPROVAL_SEARCH));
   const isFullAdmin = user.roleCode === "ADMIN" || user.permissions.includes("FULL_ADMIN");
   const isApprovalAdmin = isFullAdmin || user.roleCode === "APPROVAL_ADMIN";
   const isHolidayManager = isFullAdmin || user.permissions.includes("LEAVE_ADMIN");
@@ -139,6 +154,9 @@ export function useApprovalPageController({ user, launch, target }: { user: User
     targetFilter: ApprovalDashboardFilter | null | undefined = dashboardFilter?.dashboardFilter,
     search: ApprovalSearchForm | null = approvalCategory === "completed" ? approvalSearch : null
   ) {
+    const requestId = ++listRequestId.current;
+    setListLoading(true);
+    setListError("");
     const params = new URLSearchParams({ box: targetBox, size: "30" });
     if (targetFilter) params.set("dashboardFilter", targetFilter);
     if (search) {
@@ -147,8 +165,16 @@ export function useApprovalPageController({ user, launch, target }: { user: User
         if (trimmed) params.set(key, trimmed);
       });
     }
-    const page = await api<PageResponse<ApprovalSummary>>(`/approvals?${params.toString()}`);
-    setItems(page.content);
+    try {
+      const page = await api<PageResponse<ApprovalSummary>>(`/approvals?${params.toString()}`);
+      if (requestId === listRequestId.current) setItems(page.content);
+    } catch (reason) {
+      if (requestId === listRequestId.current) {
+        setListError(reason instanceof Error ? reason.message : "잠시 후 다시 시도해 주세요.");
+      }
+    } finally {
+      if (requestId === listRequestId.current) setListLoading(false);
+    }
   }
 
   async function loadDeletedApprovals() {
@@ -881,6 +907,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   async function applyApprovalSearchValues(search: ApprovalSearchForm) {
     setApprovalError("");
     const nextFilter = approvalCategory === "completed" ? { box: "processed" as ApprovalBox, dashboardFilter: "completedInvolved" as ApprovalDashboardFilter, label: "결재 완료문서" } : null;
+    setAppliedApprovalSearchScope(approvalSearchScope(search));
     setDashboardFilter(nextFilter);
     setSelected(null);
     setMode("list");
@@ -896,6 +923,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
     setItems([]);
     if (nextCategory === "completed") {
       const nextFilter = { box: "processed" as ApprovalBox, dashboardFilter: "completedInvolved" as ApprovalDashboardFilter, label: "결재 완료문서" };
+      setAppliedApprovalSearchScope(approvalSearchScope(approvalSearch));
       setDashboardFilter(nextFilter);
       setBox("processed");
       await load("processed", "completedInvolved", approvalSearch);
@@ -927,7 +955,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   }
 
   return {
-    box, setBox, dashboardFilter, setDashboardFilter, approvalCategory, setApprovalCategory, items, setItems,
+    box, setBox, dashboardFilter, setDashboardFilter, approvalCategory, setApprovalCategory, items, setItems, listLoading, listError,
     retentionAudits, setRetentionAudits, approvalBoxes, setApprovalBoxes, selected, setSelected, equipmentProposal, setEquipmentProposal,
     equipmentProposalLoading, setEquipmentProposalLoading, equipmentCompletionReport, setEquipmentCompletionReport, mode, setMode, templates, setTemplates,
     adminTemplates, setAdminTemplates, templateFallbackActive, setTemplateFallbackActive, templateModalOpen, setTemplateModalOpen, previewTemplate, setPreviewTemplate,
@@ -937,7 +965,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
     defaultLineMessage, setDefaultLineMessage, savedApprovalLines, setSavedApprovalLines, selectedSavedLineId, setSelectedSavedLineId, approvalInfoOpen, setApprovalInfoOpen,
     templateAdminMessage, setTemplateAdminMessage, delegation, setDelegation, delegationForm, setDelegationForm, delegationMessage, setDelegationMessage,
     operationSettingsForm, setOperationSettingsForm, operationSettings, setOperationSettings, operationSettingsMessage, setOperationSettingsMessage, approvalActionComment, setApprovalActionComment,
-    approvalSearch, setApprovalSearch, isApprovalAdmin, isHolidayManager, isLeavePolicyManager, canViewPreview, visibleTemplates, load,
+    approvalSearch, setApprovalSearch, appliedApprovalSearchScope, isApprovalAdmin, isHolidayManager, isLeavePolicyManager, canViewPreview, visibleTemplates, load,
     loadDeletedApprovals, loadRetentionAudits, downloadRetentionAuditCsv, loadApprovalBoxes, loadEmployees, loadLeaveUsage, changeLeaveBalanceYear, loadCompTimeSummary,
     loadHolidays, loadLeavePolicies, loadActiveTemplates, loadSavedApprovalLines, loadAdminTemplates, loadTemplateDefaultLine, applyDefaultLine, savePersonalDefaultLine,
     saveNamedApprovalLine, applySavedApprovalLine, renameSavedApprovalLine, deleteSavedApprovalLine, rememberSubmittedApprovalLine, selectAdminTemplate, newAdminTemplate, saveTemplateVersion,

@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS work_request_entry (
     work_category_snapshot VARCHAR(20) NOT NULL,
     shift_type_snapshot VARCHAR(20) NULL,
     shift_anchor_date_snapshot DATE NULL,
-    work_type VARCHAR(20) NOT NULL,
+    work_type VARCHAR(30) NOT NULL,
     work_date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
@@ -89,12 +89,17 @@ CREATE TABLE IF NOT EXISTS work_request_entry (
     created_by BIGINT NULL REFERENCES emp(emp_id),
     updated_at TIMESTAMP NULL,
     updated_by BIGINT NULL REFERENCES emp(emp_id),
-    CONSTRAINT chk_work_entry_type CHECK (work_type IN ('OVERTIME', 'SPECIAL', 'EMERGENCY_CALL')),
+    CONSTRAINT chk_work_entry_type CHECK (work_type IN ('OVERTIME', 'NIGHT', 'NIGHT_OVERTIME', 'SPECIAL', 'SPECIAL_OVERTIME', 'SPECIAL_NIGHT', 'SPECIAL_NIGHT_OVERTIME', 'EMERGENCY_CALL')),
     CONSTRAINT chk_work_entry_comp CHECK (comp_time_yn IN ('Y', 'N')),
     CONSTRAINT chk_work_entry_status CHECK (status IN ('PENDING', 'PLANNED', 'COMPLETED', 'CANCEL_PENDING', 'CANCELED')),
     CONSTRAINT chk_work_entry_minutes CHECK (work_minutes > 0 AND work_minutes <= 1440),
     CONSTRAINT uk_work_entry_approval_emp_date_time UNIQUE (approval_id, emp_id, work_date, start_time, end_time)
 );
+
+ALTER TABLE work_request_entry ALTER COLUMN work_type TYPE VARCHAR(30);
+ALTER TABLE work_request_entry DROP CONSTRAINT IF EXISTS chk_work_entry_type;
+ALTER TABLE work_request_entry ADD CONSTRAINT chk_work_entry_type
+    CHECK (work_type IN ('OVERTIME', 'NIGHT', 'NIGHT_OVERTIME', 'SPECIAL', 'SPECIAL_OVERTIME', 'SPECIAL_NIGHT', 'SPECIAL_NIGHT_OVERTIME', 'EMERGENCY_CALL'));
 
 CREATE INDEX IF NOT EXISTS idx_work_entry_emp_calendar
     ON work_request_entry(emp_id, work_date, status);
@@ -143,7 +148,7 @@ WHERE EXTRACT(MONTH FROM work_date) = 12
   AND EXTRACT(DAY FROM work_date) >= 15
   AND expires_on <> make_date(EXTRACT(YEAR FROM work_date)::int + 1, 1, 31);
 
-UPDATE approval_template SET template_name = '근무신청서', description = '잔업·특근 근무 신청',
+UPDATE approval_template SET template_name = '근무신청서', description = '잔업·특근·야간 근무 신청',
     fields_json = '[{"name":"workEntriesJson","label":"근무 신청 내역","type":"json","required":true,"systemManaged":true}]',
     active_yn = 'Y', sort_order = 40, updated_at = NOW()
 WHERE template_code = 'WORK_REQUEST' AND version = 1;
@@ -160,7 +165,7 @@ WHERE template_code = 'WORK_REQUEST_CHANGE' AND version = 1;
 
 INSERT INTO approval_template (template_code, template_name, version, description, fields_json,
     print_layout_json, active_yn, sort_order, created_at, updated_at)
-SELECT 'WORK_REQUEST', '근무신청서', 1, '잔업·특근 근무 신청',
+SELECT 'WORK_REQUEST', '근무신청서', 1, '잔업·특근·야간 근무 신청',
     '[{"name":"workEntriesJson","label":"근무 신청 내역","type":"json","required":true,"systemManaged":true}]',
     NULL, 'Y', 40, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM approval_template WHERE template_code = 'WORK_REQUEST' AND version = 1);

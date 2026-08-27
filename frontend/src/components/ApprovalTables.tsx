@@ -17,34 +17,39 @@ type TemplateNameOption = {
 export function ApprovalListTable({ items, templates, onOpen }: { items: ApprovalSummary[]; templates: TemplateNameOption[]; onOpen: (id: number) => void }) {
   return (
     <div className="table-wrap">
-      <table className="content-table approval-list-table">
+      <table className="content-table approval-list-table approval-work-list-table">
         <thead>
           <tr>
-            <th>문서번호</th>
-            <th>중요도</th>
-            <th>양식</th>
             <th>제목</th>
+            <th>중요도</th>
             <th>기안자</th>
             <th>현재 단계</th>
             <th>문서 상태</th>
             <th>작성일</th>
-            <th>완료일</th>
-            <th>진행률</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
             <tr key={item.approvalId} className={`approval-row approval-row-${item.status.toLowerCase()}`}>
-              <td>{item.documentNo ?? "상신 전"}</td>
+              <td className="approval-primary-cell">
+                <div className="approval-primary-line">
+                  <small className="approval-document-no" title={`${item.documentNo ?? "상신 전"} · ${templateName(templates, item.templateCode)}`}>
+                    {item.documentNo ?? "상신 전"} · {templateName(templates, item.templateCode)}
+                  </small>
+                  <button className="title-link" title={item.title} onClick={() => onOpen(item.approvalId)}>{item.title}</button>
+                </div>
+                <div className="approval-mobile-meta">
+                  <span className={`approval-status-pill approval-status-${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span>
+                  <span className="approval-stage-pill">{stageLabel(item.currentStage)}</span>
+                  <span className="approval-mobile-requester" title={item.requesterName}>{item.requesterName}</span>
+                  <time title={formatDate(item.requestedAt)}>{formatDate(item.requestedAt)}</time>
+                </div>
+              </td>
               <td><span className={`priority priority-${item.priority.toLowerCase()}`}>{priorityLabel(item.priority)}</span></td>
-              <td>{templateName(templates, item.templateCode)}</td>
-              <td><button className="title-link" onClick={() => onOpen(item.approvalId)}>{item.title}</button></td>
-              <td>{item.requesterName}</td>
+              <td title={item.requesterName}>{item.requesterName}</td>
               <td><span className="approval-stage-pill">{stageLabel(item.currentStage)}</span></td>
               <td><span className={`approval-status-pill approval-status-${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span></td>
-              <td>{formatDate(item.requestedAt)}</td>
-              <td>{item.completedAt ? formatDate(item.completedAt) : "-"}</td>
-              <td>{item.currentApproverName ? `결재 ${item.currentApproverName}` : stageLabel(item.currentStage)}</td>
+              <td><time title={formatDate(item.requestedAt)}>{formatDate(item.requestedAt)}</time></td>
             </tr>
           ))}
         </tbody>

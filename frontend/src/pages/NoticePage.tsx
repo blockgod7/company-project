@@ -4,6 +4,7 @@ import { NoticeEditor } from "../components/BoardEditors";
 import type { NoticeForm } from "../components/BoardEditors";
 import { AttachmentBox, ReadDetail } from "../components/ContentTools";
 import { Empty } from "../components/Empty";
+import { ListState } from "../components/ListState";
 import { ContentTable, DetailPage, ListSummary, Toolbar } from "../components/PageLayout";
 import { loadAttachmentPresence, uploadAttachments } from "../utils/attachments";
 import type { AttachmentPresence, DraftAttachment } from "../utils/attachments";
@@ -20,14 +21,24 @@ export function NoticePage({ user, target }: { user: User; target: GlobalSearchT
   const [form, setForm] = useState<NoticeForm>({ title: "", content: "", pinned: false });
   const [attachments, setAttachments] = useState<AttachmentPresence>({});
   const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState("");
   const canWrite = user.permissions.includes("NOTICE_WRITE");
   const canEdit = selected ? canWrite && (user.roleCode === "ADMIN" || selected.writerEmpId === user.empId) : false;
 
   async function load() {
-    const page = await api<PageResponse<Notice>>("/notices?size=20");
-    setItems(page.content);
-    const nextAttachments = await loadAttachmentPresence("NOTICE", page.content.map((item) => item.noticeId));
-    setAttachments(nextAttachments);
+    setListLoading(true);
+    setListError("");
+    try {
+      const page = await api<PageResponse<Notice>>("/notices?size=20");
+      setItems(page.content);
+      const nextAttachments = await loadAttachmentPresence("NOTICE", page.content.map((item) => item.noticeId));
+      setAttachments(nextAttachments);
+    } catch (reason) {
+      setListError(reason instanceof Error ? reason.message : "잠시 후 다시 시도해 주세요.");
+    } finally {
+      setListLoading(false);
+    }
   }
 
   async function loadDetail(id: number) {
@@ -88,7 +99,13 @@ export function NoticePage({ user, target }: { user: User; target: GlobalSearchT
       {mode === "list" && (
         <>
           <ListSummary count={items.length} text="등록된 공지" />
-          {items.length ? (
+          <ListState
+            loading={listLoading}
+            error={listError}
+            hasData={items.length > 0}
+            onRetry={load}
+            empty={<Empty text="게시글이 없습니다." />}
+          >
             <ContentTable
               rows={items.map((item) => ({
                 id: item.noticeId,
@@ -101,7 +118,7 @@ export function NoticePage({ user, target }: { user: User; target: GlobalSearchT
                 onOpen: () => loadDetail(item.noticeId)
               }))}
             />
-          ) : <Empty text="게시글이 없습니다." />}
+          </ListState>
         </>
       )}
       {mode === "detail" && selected && (

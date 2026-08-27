@@ -294,20 +294,21 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
     return (
       <div className="template-work-preview">
         <div className="template-work-head">
-          <span>잔업·특근 근무자를 한 문서에서 신청합니다</span>
+          <span>잔업·특근·야간 근무자를 한 문서에서 신청합니다</span>
           <h2>근무신청서</h2>
-          <p>근무자별 근무일시와 업무내용을 입력하고 특근 시 대체근무 여부를 선택합니다.</p>
+          <p>공통 근무일자를 정하고 근무자별 잔업·특근·야간과 업무내용을 입력합니다.</p>
         </div>
         <div className="template-work-applicant">
           <div><span>신청부서</span><strong>{previewDeptName || "-"}</strong></div>
           <div><span>신청자</span><strong>{previewRequesterName}</strong></div>
           <div><span>작성일</span><strong>{todayDate()}</strong></div>
+          <div><span>근무일자</span><strong>{todayDate()}</strong></div>
         </div>
         <div className="template-work-section-title"><strong>근무자별 신청 내역</strong><span>여러 명 일괄 신청 가능</span></div>
         <div className="template-work-table">
-          <strong>근무자</strong><strong>구분</strong><strong>근무일</strong><strong>시간</strong><strong>대체근무</strong>
-          <span>{previewRequesterName}</span><span>특근</span><span>{todayDate()}</span><span>08:30~17:30</span><span className="accent">선택</span>
-          <span>추가 근무자</span><span>잔업</span><span>날짜 선택</span><span>18:00~20:00</span><span>-</span>
+          <strong>근무자</strong><strong>선택 구분</strong><strong>시간</strong><strong>대체근무</strong>
+          <span>{previewRequesterName}</span><span>특근 + 잔업</span><span>08:30~20:00</span><span className="accent">선택</span>
+          <span>추가 근무자</span><span>야간 잔업</span><span>20:00~08:00</span><span>-</span>
         </div>
         <div className="template-work-content"><strong>근무내용</strong><span>근무자별 업무 내용을 입력합니다.</span></div>
         <div className="template-work-note">대체휴무 · 4시간 이하는 0.5일, 4시간 초과는 1일</div>

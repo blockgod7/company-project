@@ -35,10 +35,10 @@ class WorkRequestServiceTest {
     }
 
     @Test
-    void createsOneBatchEntryWithCompTimeForFieldEmployee() {
+    void createsCombinedSpecialNightOvertimeEntryWithCompTimeForFieldEmployee() {
         Emp worker = employee(100L, "100", "현장직", "반장");
         ApprovalDocument document = document(worker, WorkRequestService.TEMPLATE, """
-            {"fields":{"workEntriesJson":"[{\\\"empId\\\":100,\\\"workType\\\":\\\"SPECIAL\\\",\\\"workDate\\\":\\\"2026-08-22\\\",\\\"startTime\\\":\\\"08:00\\\",\\\"endTime\\\":\\\"12:00\\\",\\\"workContent\\\":\\\"특근\\\",\\\"compTime\\\":true}]"}}
+            {"fields":{"workEntriesJson":"[{\\\"empId\\\":100,\\\"workType\\\":\\\"SPECIAL_NIGHT_OVERTIME\\\",\\\"workDate\\\":\\\"2026-08-22\\\",\\\"startTime\\\":\\\"20:00\\\",\\\"endTime\\\":\\\"00:00\\\",\\\"workContent\\\":\\\"특근 야간 잔업\\\",\\\"compTime\\\":true}]"}}
             """);
         when(employees.findById(100L)).thenReturn(Optional.of(worker));
 
@@ -47,7 +47,20 @@ class WorkRequestServiceTest {
         ArgumentCaptor<WorkRequestEntry> captor = ArgumentCaptor.forClass(WorkRequestEntry.class);
         verify(entries).save(captor.capture());
         assertThat(captor.getValue().getWorkMinutes()).isEqualTo(240);
+        assertThat(captor.getValue().getWorkType()).isEqualTo("SPECIAL_NIGHT_OVERTIME");
         assertThat(captor.getValue().getCompTimeYn()).isEqualTo("Y");
+    }
+
+    @Test
+    void normalWorkRequestRequiresOneCommonDateForEveryWorkerRow() {
+        Emp worker = employee(110L, "110", "현장직", "반장");
+        ApprovalDocument document = document(worker, WorkRequestService.TEMPLATE, """
+            {"fields":{"workEntriesJson":"[{\\\"empId\\\":110,\\\"workType\\\":\\\"OVERTIME\\\",\\\"workDate\\\":\\\"2026-08-21\\\",\\\"startTime\\\":\\\"18:00\\\",\\\"endTime\\\":\\\"20:00\\\",\\\"workContent\\\":\\\"첫째 날\\\",\\\"compTime\\\":false},{\\\"empId\\\":110,\\\"workType\\\":\\\"OVERTIME\\\",\\\"workDate\\\":\\\"2026-08-22\\\",\\\"startTime\\\":\\\"20:00\\\",\\\"endTime\\\":\\\"22:00\\\",\\\"workContent\\\":\\\"둘째 날\\\",\\\"compTime\\\":false}]"}}
+            """);
+        when(employees.findById(110L)).thenReturn(Optional.of(worker));
+
+        assertThatThrownBy(() -> service.prepareSubmission(document)).isInstanceOf(BusinessException.class);
+        verify(entries, times(1)).save(any());
     }
 
     @Test

@@ -14,21 +14,20 @@
 .panel, .portal-card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-panel);
+  padding: 16px 20px;
+  box-shadow: none;
 }
 .portal-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 18px;
+  gap: 16px;
 }
-.schedule-card { grid-column: span 8; min-height: 274px; }
-.calendar-card { grid-column: span 4; }
-.board-card { grid-column: span 8; }
-.commute-card { grid-column: span 4; }
-.metric-card { grid-column: span 2; min-height: 168px; }
-.pending-card { grid-column: span 6; }
+.pending-card { grid-column: span 7; }
+.schedule-card { grid-column: span 5; }
+.board-card { grid-column: span 7; }
+.calendar-card { grid-column: span 5; }
+.dashboard-summary-card { grid-column: 1 / -1; }
 .search-page {
   display: grid;
   gap: 18px;
@@ -390,34 +389,36 @@
 .card-head, .panel-head, .toolbar, .toolbar-actions, .actions, .searchbar, .comment-form, .board-tabs {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
-.card-head, .panel-head, .toolbar { justify-content: space-between; margin-bottom: 14px; }
+.card-head, .panel-head, .toolbar { justify-content: space-between; margin-bottom: 12px; }
 .card-head h3, .toolbar h3, .panel h3, .editor h3 {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   margin: 0;
   color: var(--navy);
-  font-size: 18px;
+  font-size: 16px;
+  line-height: 1.35;
+  letter-spacing: -.015em;
 }
 .card-head h3 svg { color: var(--green); }
 .card-head button, .toolbar button, .toolbar-actions button, .actions button, .comment-form button, .searchbar button, .board-tabs button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 34px;
+  gap: 8px;
+  min-height: 36px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background: #fff;
-  padding: 7px 11px;
+  padding: 8px 12px;
   color: var(--text);
   font-weight: 700;
 }
 .toolbar > button, .toolbar-actions button:last-child, .actions button:first-child, .comment-form button, .searchbar button {
-  background: var(--green);
+  background: var(--blue);
   color: white;
-  border-color: var(--green);
+  border-color: var(--blue);
 }
 .toolbar-actions .ghost {
   background: white;
@@ -425,17 +426,18 @@
   border-color: var(--line);
 }
 .toolbar-actions .primary-action {
-  background: var(--green);
+  background: var(--blue);
   color: white;
-  border-color: var(--green);
+  border-color: var(--blue);
 }
 .actions .ghost { background: white; color: var(--text); border-color: var(--line); }
 .actions .danger, .danger { color: var(--danger); border-color: #fed7aa; background: #fff7ed; }
 
 .schedule-date {
-  margin: 4px 0 42px;
+  margin: 2px 0 12px;
   color: var(--green);
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
 }
 .tab-row {
   display: flex;
@@ -458,38 +460,59 @@
   border: 0;
   border-bottom: 1px solid var(--line);
   background: transparent;
-  padding: 11px 0;
+  padding: 12px 0;
   text-align: left;
 }
 .feed-row strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.4;
 }
 .feed-row span, .list-item span, .notice-row span { color: var(--muted); font-size: 12px; }
 .commute-card p { color: var(--muted); margin: 18px 0 28px; }
-.action-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.action-pair button {
-  min-height: 48px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--green);
-  color: white;
-  font-weight: 800;
-}
 .metric-card {
   display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-content: center;
-  justify-items: center;
-  gap: 7px;
-  text-align: center;
+  align-items: center;
+  gap: 4px 9px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: #fff;
+  text-align: left;
   color: var(--text);
 }
 .metric-card svg { color: var(--green); }
-.metric-card strong { color: var(--green); font-size: 34px; }
-.metric-card span { font-weight: 800; }
-.metric-card small { color: var(--muted); }
+.metric-card strong { grid-row: span 2; color: var(--navy); font-size: 24px; line-height: 1; }
+.metric-card span { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.metric-card small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-summary-card {
+  display: grid;
+  grid-template-columns: minmax(220px, .8fr) minmax(0, 2.2fr);
+  align-items: center;
+  gap: 20px;
+}
+.dashboard-summary-head .card-head { margin-bottom: 5px; }
+.dashboard-summary-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.dashboard-summary-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 1fr)) repeat(2, minmax(100px, .72fr));
+  gap: 8px;
+}
+.dashboard-shortcut {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid var(--blue);
+  border-radius: var(--radius-control);
+  color: var(--blue);
+  background: var(--blue-soft);
+  font-weight: 700;
+}

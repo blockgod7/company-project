@@ -30,6 +30,7 @@ import { CardHeader } from "../components/CardHeader";
 import { AttachmentBox, DraftAttachmentPicker, EditorHeader, EditorTools, ReadDetail, RichContent } from "../components/ContentTools";
 import { ApprovalLineTableEditor, EmployeeMultiPicker } from "../components/EmployeePickers";
 import { Empty, EmptyDetail } from "../components/Empty";
+import { ListState } from "../components/ListState";
 import { DetailPage, ListSummary, Toolbar, TwoPane } from "../components/PageLayout";
 import { uploadAttachments } from "../utils/attachments";
 import type { DraftAttachment } from "../utils/attachments";
@@ -210,6 +211,8 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
     setApprovalCategory,
     items,
     setItems,
+    listLoading,
+    listError,
     retentionAudits,
     setRetentionAudits,
     approvalBoxes,
@@ -284,6 +287,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
     setApprovalActionComment,
     approvalSearch,
     setApprovalSearch,
+    appliedApprovalSearchScope,
     isApprovalAdmin,
     isHolidayManager,
     isLeavePolicyManager,
@@ -715,7 +719,16 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
             </div>
           )}
           <ListSummary count={items.length} text={`${approvalListLabel} 문서`} />
-          {items.length ? <ApprovalListTable items={items} templates={templates} onOpen={loadDetail} /> : <Empty text="게시글이 없습니다." />}
+          <ListState
+            loading={listLoading}
+            error={listError}
+            hasData={items.length > 0}
+            onRetry={() => load(box, dashboardFilter?.dashboardFilter ?? null)}
+            empty={<Empty text="결재 문서가 없습니다." />}
+            recoveryScope={[box, approvalCategory, dashboardFilter?.dashboardFilter ?? "", appliedApprovalSearchScope].join("|")}
+          >
+            <ApprovalListTable items={items} templates={templates} onOpen={loadDetail} />
+          </ListState>
         </>
       )}
       {mode === "detail" && selected && (
