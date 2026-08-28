@@ -3,7 +3,6 @@ package com.kjh.groupware.domain.approval;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kjh.groupware.domain.approval.dto.CompTimeCreditResponse;
 import com.kjh.groupware.domain.approval.dto.CompTimeExpiryRequest;
-import com.kjh.groupware.domain.approval.dto.CompTimeGrantRequest;
 import com.kjh.groupware.domain.approval.dto.CompTimeSummaryResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageSelectionResponse;
 import com.kjh.groupware.domain.emp.Emp;
@@ -30,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompTimeLedgerService {
     public static final String LEAVE_TYPE = "대체휴무";
     private static final BigDecimal ONE_DAY = BigDecimal.ONE;
+    private static final int COMP_TIME_MINIMUM_MINUTES = 240;
 
     private final CompTimeCreditRepository creditRepository;
     private final CompTimeAllocationRepository allocationRepository;
@@ -54,38 +54,12 @@ public class CompTimeLedgerService {
     }
 
     @Transactional
-    public CompTimeCreditResponse grant(CompTimeGrantRequest request, String ipAddress, String userAgent) {
-        Emp manager = requireManager();
-        Emp emp = requireEmpForUpdate(request.empId());
-        LocalDate today = LocalDate.now();
-        if (request.workDate().isAfter(today)) {
-            throw BusinessException.badRequest("COMP_TIME_WORK_DATE_FUTURE", "대체휴무 근무일은 오늘 이후일 수 없습니다.");
-        }
-        if (creditRepository.existsByEmpEmpIdAndWorkDate(emp.getEmpId(), request.workDate())) {
-            throw BusinessException.badRequest("COMP_TIME_WORK_DATE_DUPLICATED", "같은 근무일에는 대체휴무를 한 번만 적립할 수 있습니다.");
-        }
-        LocalDate expiresOn = request.workDate().getMonthValue() == 12 && request.workDate().getDayOfMonth() >= 15
-            ? LocalDate.of(request.workDate().getYear() + 1, 1, 31)
-            : LocalDate.of(request.workDate().getYear(), 12, 31);
-        if (expiresOn.isBefore(today) || expiresOn.isBefore(request.workDate())) {
-            throw BusinessException.badRequest("COMP_TIME_EXPIRY_INVALID", "만료일은 근무일과 오늘보다 빠를 수 없습니다.");
-        }
-        CompTimeCredit credit = creditRepository.saveAndFlush(new CompTimeCredit(
-            emp, request.workDate(), request.grantedDays(), request.reason().trim(), manager, expiresOn
-        ));
-        notificationService.notifyEmp(
-            emp.getEmpId(), "대체휴무 적립", request.workDate() + " 근무분 " + day(request.grantedDays())
-                + "일이 적립되었습니다. 만료일: " + expiresOn, "COMP_TIME", credit.getCreditId()
-        );
-        audit(manager, AuditActionType.CREATE, credit, null, request.reason().trim(), ipAddress, userAgent);
-        return CompTimeCreditResponse.from(credit, today);
-    }
-
-    @Transactional
     public void grantFromCompletedWork(WorkRequestEntry entry) {
-        if (!"Y".equals(entry.getCompTimeYn()) || creditRepository.existsBySourceWorkEntryWorkEntryId(entry.getWorkEntryId())) return;
+        if (!"Y".equals(entry.getCompTimeYn()) || entry.getWorkMinutes() == null
+            || entry.getWorkMinutes() < COMP_TIME_MINIMUM_MINUTES) return;
+        if (creditRepository.existsBySourceWorkEntryWorkEntryId(entry.getWorkEntryId())) return;
         if (creditRepository.existsByEmpEmpIdAndWorkDate(entry.getEmp().getEmpId(), entry.getWorkDate())) return;
-        BigDecimal days = entry.getWorkMinutes() <= 240 ? new BigDecimal("0.5") : BigDecimal.ONE;
+        BigDecimal days = ONE_DAY;
         LocalDate expiry = entry.getWorkDate().getMonthValue() == 12 && entry.getWorkDate().getDayOfMonth() >= 15
             ? LocalDate.of(entry.getWorkDate().getYear() + 1, 1, 31)
             : LocalDate.of(entry.getWorkDate().getYear(), 12, 31);
@@ -312,11 +286,6 @@ public class CompTimeLedgerService {
 
     private Emp requireEmp(Long empId) {
         return empRepository.findById(empId)
-            .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
-    }
-
-    private Emp requireEmpForUpdate(Long empId) {
-        return empRepository.findByIdForUpdate(empId)
             .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
     }
 

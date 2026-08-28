@@ -52,6 +52,20 @@ class WorkRequestServiceTest {
     }
 
     @Test
+    void rejectsCompTimeWhenSpecialWorkIsShorterThanFourHours() {
+        Emp worker = employee(105L, "105", "현장직", "반장");
+        ApprovalDocument document = document(worker, WorkRequestService.TEMPLATE, """
+            {"fields":{"workEntriesJson":"[{\\"empId\\":105,\\"workType\\":\\"SPECIAL\\",\\"workDate\\":\\"2026-08-22\\",\\"startTime\\":\\"08:30\\",\\"endTime\\":\\"12:00\\",\\"workContent\\":\\"3시간 30분 특근\\",\\"compTime\\":true}]"}}
+            """);
+        when(employees.findById(105L)).thenReturn(Optional.of(worker));
+
+        assertThatThrownBy(() -> service.prepareSubmission(document))
+            .isInstanceOfSatisfying(BusinessException.class,
+                error -> assertThat(error.getCode()).isEqualTo("COMP_TIME_MINIMUM_NOT_MET"));
+        verify(entries, never()).save(any());
+    }
+
+    @Test
     void normalWorkRequestRequiresOneCommonDateForEveryWorkerRow() {
         Emp worker = employee(110L, "110", "현장직", "반장");
         ApprovalDocument document = document(worker, WorkRequestService.TEMPLATE, """

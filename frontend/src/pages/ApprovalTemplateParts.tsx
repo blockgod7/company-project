@@ -311,7 +311,7 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
           <span>추가 근무자</span><span>야간 잔업</span><span>20:00~08:00</span><span>-</span>
         </div>
         <div className="template-work-content"><strong>근무내용</strong><span>근무자별 업무 내용을 입력합니다.</span></div>
-        <div className="template-work-note">대체휴무 · 4시간 이하는 0.5일, 4시간 초과는 1일</div>
+        <div className="template-work-note">대체휴무 · 특근 4시간 이상 근무 시 1일</div>
         <TemplateWorkRoute previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
       </div>
     );

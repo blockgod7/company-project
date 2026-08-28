@@ -5,26 +5,28 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kjh.groupware.domain.approval.dto.CompTimeCreditResponse;
-import com.kjh.groupware.domain.approval.dto.CompTimeGrantRequest;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageSelectionResponse;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
 import com.kjh.groupware.domain.emp.EmployeePermissionService;
 import com.kjh.groupware.domain.notification.NotificationService;
+import com.kjh.groupware.domain.work.WorkRequestEntry;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class CompTimeLedgerServiceTest {
@@ -48,24 +50,35 @@ class CompTimeLedgerServiceTest {
         );
         when(currentEmpProvider.getCurrentEmp()).thenReturn(manager);
         when(permissionService.hasPermission(manager, EmployeePermissionService.LEAVE_ADMIN)).thenReturn(true);
-        when(empRepository.findByIdForUpdate(employee.getEmpId())).thenReturn(Optional.of(employee));
-        when(creditRepository.saveAndFlush(any())).thenAnswer(invocation -> {
+    }
+
+    @Test
+    void completedWorkSkipsShortDurationAndGrantsOneDayFromExactlyFourHours() {
+        ApprovalDocument approval = document(90L, "WORK_REQUEST");
+        LocalDate workDate = LocalDate.of(2026, 8, 22);
+        WorkRequestEntry shortEntry = new WorkRequestEntry(approval, employee, manager, "SPECIAL", workDate,
+            LocalTime.of(8, 0), LocalTime.of(11, 59), 239, "단시간 특근", true);
+        ReflectionTestUtils.setField(shortEntry, "workEntryId", 901L);
+
+        service.grantFromCompletedWork(shortEntry);
+
+        verify(creditRepository, never()).save(any());
+
+        WorkRequestEntry exactEntry = new WorkRequestEntry(approval, employee, manager, "SPECIAL", workDate,
+            LocalTime.of(8, 0), LocalTime.of(12, 0), 240, "4시간 특근", true);
+        ReflectionTestUtils.setField(exactEntry, "workEntryId", 902L);
+        when(creditRepository.save(any())).thenAnswer(invocation -> {
             CompTimeCredit credit = invocation.getArgument(0);
             ReflectionTestUtils.setField(credit, "creditId", 10L);
             return credit;
         });
-    }
 
-    @Test
-    void grantDefaultsExpiryToEndOfWorkYearAndNotifiesEmployee() {
-        LocalDate workDate = LocalDate.now();
-        CompTimeCreditResponse response = service.grant(
-            new CompTimeGrantRequest(employee.getEmpId(), workDate, BigDecimal.ONE, "휴일 근무", null),
-            "127.0.0.1", "test"
-        );
+        service.grantFromCompletedWork(exactEntry);
 
-        assertThat(response.expiresOn()).isEqualTo(LocalDate.of(workDate.getYear(), 12, 31));
-        assertThat(response.availableDays()).isEqualByComparingTo("1.0");
+        ArgumentCaptor<CompTimeCredit> captor = ArgumentCaptor.forClass(CompTimeCredit.class);
+        verify(creditRepository).save(captor.capture());
+        assertThat(captor.getValue().getGrantedDays()).isEqualByComparingTo("1.0");
+        assertThat(captor.getValue().getExpiresOn()).isEqualTo(LocalDate.of(2026, 12, 31));
         verify(notificationService).notifyEmp(eq(employee.getEmpId()), eq("대체휴무 적립"), anyString(), eq("COMP_TIME"), eq(10L));
     }
 

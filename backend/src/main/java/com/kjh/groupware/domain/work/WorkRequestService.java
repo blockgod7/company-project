@@ -25,6 +25,7 @@ public class WorkRequestService {
     public static final String TEMPLATE = "WORK_REQUEST";
     public static final String EMERGENCY_TEMPLATE = "EMERGENCY_CALL_REQUEST";
     public static final String CHANGE_TEMPLATE = "WORK_REQUEST_CHANGE";
+    private static final int COMP_TIME_MINIMUM_MINUTES = 240;
     private static final Set<String> WORK_REQUEST_TYPES = Set.of(
         "OVERTIME", "NIGHT", "NIGHT_OVERTIME", "SPECIAL", "SPECIAL_OVERTIME", "SPECIAL_NIGHT", "SPECIAL_NIGHT_OVERTIME"
     );
@@ -71,6 +72,7 @@ public class WorkRequestService {
             boolean comp = row.path("compTime").asBoolean(false);
             validateSubmissionType(document.getTemplateCode(), type);
             validateType(emp, type, date, comp);
+            validateCompTimeDuration(comp, minutes);
             String key = emp.getEmpId() + ":" + date + ":" + start + ":" + end;
             if (!duplicate.add(key)) throw bad("WORK_ENTRY_DUPLICATED", "동일한 직원·날짜·시간의 근무가 중복되었습니다.");
             entryRepository.save(new WorkRequestEntry(document, emp, actor, type, date, start, end, minutes, content, comp));
@@ -96,9 +98,11 @@ public class WorkRequestService {
             if ("CHANGE".equals(action)) {
                 newDate = date(required(row, "newWorkDate", "변경 근무일자"));
                 newStart = time(required(row, "newStartTime", "변경 시작시간"));
-                newEnd = time(required(row, "newEndTime", "변경 종료시간")); duration(newStart, newEnd);
+                newEnd = time(required(row, "newEndTime", "변경 종료시간"));
+                int newMinutes = duration(newStart, newEnd);
                 newContent = required(row, "newWorkContent", "변경 근무내용"); newComp = row.path("newCompTime").asBoolean(false);
                 validateType(source.getEmp(), source.getWorkType(), newDate, newComp);
+                validateCompTimeDuration(newComp, newMinutes);
             }
             source.markCancelPending();
             changeRepository.save(new WorkRequestChange(document, source, action, newDate, newStart, newEnd, newContent, newComp, reason));
@@ -199,6 +203,11 @@ public class WorkRequestService {
         boolean holiday = holidayRepository.findByHolidayDateAndActiveYn(date, "Y").isPresent();
         if (hasSpecial(type) && !weekend && !holiday) throw bad("SPECIAL_WORK_DATE_INVALID", "특근은 주말 또는 등록된 공휴일에만 신청할 수 있습니다.");
         if (comp && !hasSpecial(type)) throw bad("COMP_TIME_SPECIAL_ONLY", "대체근무는 주말·공휴일 특근에만 선택할 수 있습니다.");
+    }
+
+    private void validateCompTimeDuration(boolean comp, int minutes) {
+        if (comp && minutes < COMP_TIME_MINIMUM_MINUTES)
+            throw bad("COMP_TIME_MINIMUM_NOT_MET", "대체휴무는 특근 시간이 4시간 이상인 경우에만 신청할 수 있습니다.");
     }
 
     private boolean hasOvertime(String type) { return type.contains("OVERTIME"); }

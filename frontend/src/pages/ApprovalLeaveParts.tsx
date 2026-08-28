@@ -184,6 +184,28 @@ import { PurchaseDraftStampHeader, TrainingDraftStampHeader } from "./ApprovalPa
 function leaveAbsenceDayValue(type: string) {
   return ["오전반차", "오후반차", "공가(오전)", "공가(오후)"].includes(type) ? 0.5 : 1;
 }
+function compTimeExpiryNotice(summary: CompTimeSummary | null) {
+  const dateValue = (value: string) => {
+    const [year, month, day] = value.split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  const today = dateValue(todayDate());
+  const expiryGroups = new Map<string, number>();
+  summary?.credits.forEach((credit) => {
+    if (credit.status !== "ACTIVE" || Number(credit.availableDays) <= 0) return;
+    const daysUntilExpiry = Math.floor((dateValue(credit.expiresOn) - today) / 86_400_000);
+    if (daysUntilExpiry < 0 || daysUntilExpiry > 31) return;
+    expiryGroups.set(credit.expiresOn, (expiryGroups.get(credit.expiresOn) ?? 0) + Number(credit.availableDays));
+  });
+  if (!expiryGroups.size) return "";
+  return [...expiryGroups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, days]) => {
+      const [year, month, day] = date.split("-").map(Number);
+      return `${formatDayValue(days)}일 · ${year}년 ${month}월 ${day}일 만료`;
+    })
+    .join(" / ");
+}
 export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, compTimeSummary, holidays, leaveTypeOptions = LEAVE_TYPE_OPTIONS, headerActions, onBalanceYearChange, onChange }: { mode: "request" | "cancel"; user: User; employees: Employee[]; form: ApprovalForm; leaveUsage: LeaveUsage | null; compTimeSummary: CompTimeSummary | null; holidays: ApprovalHoliday[]; leaveTypeOptions?: string[]; headerActions?: ReactNode; onBalanceYearChange?: (year: number) => void; onChange: (form: ApprovalForm) => void }) {
   const values = form.fieldValues;
   const selections = parseLeaveSelections(values);
@@ -193,6 +215,7 @@ export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, co
   const availableLeaveTypeOptions = user.genderCode === "FEMALE" ? leaveTypeOptions : leaveTypeOptions.filter((type) => !["여성휴가", "출산전후휴가", "유산·사산휴가"].includes(type));
   const selectedCompTimeDays = selections.filter((selection) => selection.type === "대체휴무").length;
   const availableCompTimeDays = Number(compTimeSummary?.availableDays ?? 0);
+  const expiryNotice = compTimeExpiryNotice(compTimeSummary);
   const requestedDays = formatDayValue(values.days);
   const annualDays = formatDayValue(values.annualLeaveDays ?? values.days);
   const usedBefore = formatDayValue(leaveUsage?.usedAnnualDays ?? values.usedAnnualDays ?? "0");
@@ -246,11 +269,11 @@ export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, co
       </section>
       <div className={`leave-balance-grid${cancelMode ? " is-cancel" : ""}`}>
         <section className="leave-metrics" aria-label="휴가 현황"><div><span>총 휴가 일수</span><strong>{totalDays}<small>일</small></strong></div><div><span>신청 전 휴가 사용 일수</span><strong>{usedBefore}<small>일</small></strong><em>최종 결재 완료 기준</em></div><div className="accent"><span>{cancelMode ? "이번 취소 휴가 일수" : "이번 신청 휴가 일수"}</span><strong>{requestedDays}<small>일</small></strong><em>{cancelMode ? `취소 후 연차 잔여 ${remainingDays}일` : `신청 후 연차 잔여 ${remainingDays}일`}</em></div></section>
-        {!cancelMode && <div className={`leave-comp-time-summary${selectedCompTimeDays > availableCompTimeDays ? " insufficient" : ""}`}><div><strong>대체휴무</strong><span>대체근무 적립분을 휴가 종류에서 바로 선택할 수 있습니다.</span></div><div><b>사용 가능 {formatDayValue(availableCompTimeDays)}일</b><span>결재 중 예약 {formatDayValue(compTimeSummary?.reservedDays ?? 0)}일 · 이번 선택 {selectedCompTimeDays}일</span></div></div>}
+        {!cancelMode && <div className={`leave-comp-time-summary${selectedCompTimeDays > availableCompTimeDays ? " insufficient" : ""}`}><div><strong>대체휴무</strong>{expiryNotice && <span>{expiryNotice}</span>}</div><div><b>사용 가능 {formatDayValue(availableCompTimeDays)}일</b><span>결재 중 예약 {formatDayValue(compTimeSummary?.reservedDays ?? 0)}일 · 이번 선택 {selectedCompTimeDays}일</span></div></div>}
       </div>
       {overbooked && <p className="leave-overbooked">결재 중인 휴가 {leaveUsage?.reservedAnnualDays}일을 포함하면 총 휴가 일수를 초과합니다. 진행 중 문서를 회수하거나 휴가관리자에게 확인해 주세요.</p>}
       <section className="leave-web-card"><div className="leave-section-title"><div><CalendarDays size={20} /><div><h3>{cancelMode ? "취소 날짜" : "신청 날짜"}</h3><p>날짜를 선택한 뒤 해당 날짜 안에서 휴가 종류를 지정하세요.</p></div></div><strong>{leaveDateRangeText(values)}</strong></div><LeaveCalendarInline mode={mode} selections={selections} lockedSelections={(cancelMode ? leaveUsage?.selections : leaveUsage?.occupiedSelections) ?? []} pendingCancelSelections={leaveUsage?.pendingCancelSelections ?? []} holidays={holidays} leaveTypeOptions={availableLeaveTypeOptions} compTimeSummary={compTimeSummary} unpaidLeaveEligible={unpaidLeaveEligible} onChange={applySelections} /></section>
-      <LeaveConditionalDetails selections={selections} values={values} compTimeSummary={compTimeSummary} workCategory={requester?.workCategory ?? "FIELD"} onChange={(next) => updateValues({ ...values, ...next })} />
+      <LeaveConditionalDetails selections={selections} values={values} workCategory={requester?.workCategory ?? "FIELD"} onChange={(next) => updateValues({ ...values, ...next })} />
       <section className="leave-web-card leave-routing"><LeaveRouteRow title="결재" people={[{ employee: requester, role: "작성" }, ...employeesByIds(employees, form.approverEmpIds).map((employee, index, list) => ({ employee, role: index === list.length - 1 ? "승인" : "검토" }))]} /><LeaveRouteRow title="수신" people={employeesByIds(employees, form.receiverEmpIds).map((employee) => ({ employee, role: "수신" }))} /></section>
       <p className="muted-text">{cancelMode ? "최종 결재 완료된 휴가 날짜만 선택할 수 있고, 취소계 승인 후 연차가 복구됩니다." : "연차와 하계휴가는 1일, 오전·오후반차는 0.5일로 계산하며 주말과 등록 휴일은 선택할 수 없습니다."}</p>
       {!!leaveUsage?.exclusions?.length && (
@@ -267,7 +290,7 @@ function LeaveRouteRow({ title, people }: { title: string; people: { employee?: 
   return <div className="leave-route-row"><strong className="leave-route-label">{title}</strong><div className="leave-person-list">{people.length ? people.map(({ employee, role }, index) => <div className="leave-person-card" key={`${role}-${employee?.empId ?? index}`}><span>{index + 1}</span><div><em>{role}</em><strong>{employee?.empName ?? "미지정"}</strong><small>{employee?.deptName ?? "부서 미지정"} · {employee?.positionName ?? employee?.jobTitle ?? "직급 미지정"}</small></div></div>) : <p className="muted-text">지정된 사람이 없습니다.</p>}</div><span className="leave-route-help">상단 ‘결재 정보’에서 수정</span></div>;
 }
 
-function LeaveConditionalDetails({ selections, values, compTimeSummary, workCategory, onChange }: { selections: LeaveSelection[]; values: Record<string, string>; compTimeSummary: CompTimeSummary | null; workCategory: "MANAGEMENT" | "FIELD"; onChange: (values: Record<string, string>) => void }) {
+function LeaveConditionalDetails({ selections, values, workCategory, onChange }: { selections: LeaveSelection[]; values: Record<string, string>; workCategory: "MANAGEMENT" | "FIELD"; onChange: (values: Record<string, string>) => void }) {
   const types = new Set(selections.map((selection) => selection.type));
   const needsReason = ["무급휴가", "공가", "공가(오전)", "공가(오후)", "공상"].some((type) => types.has(type));
   const [bereavementOptions, setBereavementOptions] = useState<BereavementOption[]>([]);
@@ -304,7 +327,6 @@ function LeaveConditionalDetails({ selections, values, compTimeSummary, workCate
     {types.has("경조") && <><label>경조 유형<select required value={values.familyEventType ?? ""} onChange={(event) => onChange({ familyEventType: event.target.value, familyRelation: "" })}><option value="">선택</option>{BEREAVEMENT_EVENT_TYPES.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></label><label>{values.familyEventType === "DEATH" ? "상신자와 고인의 관계" : "대상 관계"}<select required disabled={!values.familyEventType || !relationOptions.length} value={values.familyRelation ?? ""} onChange={(event) => onChange({ familyRelation: event.target.value })}><option value="">{values.familyEventType && !relationOptions.length ? "등록된 기준 없음" : "선택"}</option>{relationOptions.map((item) => <option key={`${item.eventType}-${item.familyRelation}`} value={item.familyRelation}>{item.familyRelationLabel} · {item.allowedDays}일 · {item.payType === "PAID" ? "유급" : "무급"}{item.evidenceRequired ? " · 증빙필수" : ""}</option>)}</select></label>{bereavementError && <p className="wide error">{bereavementError}</p>}</>}
     {types.has("산재요양") && <><label>예상 휴업 시작일<input type="date" value={values.accidentExpectedStartDate ?? ""} onChange={(event) => onChange({ accidentExpectedStartDate: event.target.value })} /></label><label>예상 휴업 종료일<input type="date" value={values.accidentExpectedEndDate ?? ""} onChange={(event) => onChange({ accidentExpectedEndDate: event.target.value })} /></label><label className="wide">산재 접수정보<input value={values.accidentReceiptInfo ?? ""} onChange={(event) => onChange({ accidentReceiptInfo: event.target.value })} /></label></>}
     {(types.has("배우자 출산휴가") || types.has("출산전후휴가")) && <><label>출산 예정일<input type="date" value={values.expectedBirthDate ?? ""} onChange={(event) => onChange({ expectedBirthDate: event.target.value })} /></label><label>실제 출산일 <small>출산 후 확정 가능</small><input type="date" value={values.actualBirthDate ?? ""} onChange={(event) => onChange({ actualBirthDate: event.target.value })} /></label>{types.has("배우자 출산휴가") && <><label className="wide"><span>다태아(쌍둥이 이상)</span><input type="checkbox" checked={values.multipleBirthYn === "Y"} onChange={(event) => onChange({ multipleBirthYn: event.target.checked ? "Y" : "N" })} /></label><div className="wide leave-comp-time-note"><strong>사용 한도 자동 확인</strong><span>{values.multipleBirthYn === "Y" ? "다태아 25일" : "기본 20일"} · 기존 사용/결재 중 포함 · 법정 사용기간을 상신 시 다시 검사합니다.</span></div></>}</>}
-    {types.has("대체휴무") && <div className="wide leave-comp-time-note"><strong>대체휴무 사용 가능 {formatDayValue(compTimeSummary?.availableDays ?? 0)}일</strong><span>대체근무 발생 연도 12월 31일까지 사용할 수 있으며 1월 1일부터 잔여분은 만료됩니다. 이력은 보존됩니다.</span></div>}
   </div></section>;
 }
 

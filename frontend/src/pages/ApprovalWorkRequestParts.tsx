@@ -8,6 +8,7 @@ type WorkRow = { empId: number; empName?: string; deptName?: string | null; work
 type ChangeRow = { sourceWorkEntryId: number; actionType: "CANCEL" | "CHANGE"; reason: string; newWorkDate: string; newStartTime: string; newEndTime: string; newWorkContent: string; newCompTime: boolean };
 type WorkTypeFlag = "overtime" | "special" | "night";
 
+const COMP_TIME_MINIMUM_MINUTES = 240;
 const today = () => new Date().toISOString().slice(0, 10);
 const defaultWorkTimes = (workType: WorkRow["workType"]) => workType === "OVERTIME"
   ? { startTime: "18:00", endTime: "20:00" }
@@ -15,9 +16,14 @@ const defaultWorkTimes = (workType: WorkRow["workType"]) => workType === "OVERTI
     : workType.includes("NIGHT") ? { startTime: "20:00", endTime: "08:00" } : { startTime: "08:00", endTime: "17:00" };
 const blankWork = (empId: number, mode: "request" | "emergency" = "request", management = false): WorkRow => {
   const workType: WorkRow["workType"] = mode === "emergency" ? "EMERGENCY_CALL" : management ? "SPECIAL" : "OVERTIME";
-  return { empId, workType, workDate: today(), ...defaultWorkTimes(workType), workContent: "", compTime: mode === "request" && management };
+  const times = defaultWorkTimes(workType);
+  return { empId, workType, workDate: today(), ...times, workContent: "", compTime: mode === "request" && management && canUseCompTime(workType, times.startTime, times.endTime) };
 };
-const blankChange = (source?: WorkSchedule): ChangeRow => ({ sourceWorkEntryId: source?.workEntryId ?? 0, actionType: "CANCEL", reason: "", newWorkDate: source?.workDate ?? today(), newStartTime: source?.startTime?.slice(0, 5) ?? "08:00", newEndTime: source?.endTime?.slice(0, 5) ?? "17:00", newWorkContent: source?.workContent ?? "", newCompTime: source?.compTime ?? false });
+const blankChange = (source?: WorkSchedule): ChangeRow => {
+  const newStartTime = source?.startTime?.slice(0, 5) ?? "08:00";
+  const newEndTime = source?.endTime?.slice(0, 5) ?? "17:00";
+  return { sourceWorkEntryId: source?.workEntryId ?? 0, actionType: "CANCEL", reason: "", newWorkDate: source?.workDate ?? today(), newStartTime, newEndTime, newWorkContent: source?.workContent ?? "", newCompTime: !!source?.compTime && canUseCompTime(source.workType, newStartTime, newEndTime) };
+};
 
 function parseRows<T>(value: string | undefined, fallback: T[]): T[] { try { const parsed = JSON.parse(value || "[]"); return Array.isArray(parsed) && parsed.length ? parsed : fallback; } catch { return fallback; } }
 function workTypeFlags(type: WorkRow["workType"]) {
@@ -34,6 +40,17 @@ function workTypeFromFlags(flags: Record<WorkTypeFlag, boolean>): WorkRow["workT
   return "";
 }
 function isSpecialWork(type: WorkRow["workType"]) { return type.includes("SPECIAL"); }
+function workDurationMinutes(startTime: string, endTime: string) {
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+  if ([startHour, startMinute, endHour, endMinute].some((value) => !Number.isFinite(value))) return 0;
+  let minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+  if (minutes <= 0) minutes += 24 * 60;
+  return minutes;
+}
+function canUseCompTime(type: WorkRow["workType"], startTime: string, endTime: string) {
+  return isSpecialWork(type) && workDurationMinutes(startTime, endTime) >= COMP_TIME_MINIMUM_MINUTES;
+}
 function workTypeLabel(type: WorkRow["workType"]) {
   if (type === "OVERTIME") return "주간 잔업";
   if (type === "NIGHT") return "야간";
@@ -67,12 +84,15 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
   const [schedules, setSchedules] = useState<WorkSchedule[]>([]);
   const [workerPickerOpen, setWorkerPickerOpen] = useState(false);
   const [workerPickerEmpId, setWorkerPickerEmpId] = useState<number | null>(null);
-  const delegated = user.permissions.includes("WORK_REQUEST_DELEGATE") || user.roleCode === "ADMIN" || user.permissions.includes("FULL_ADMIN");
+  const delegated = user.permissions.includes("WORK_REQUEST_DELEGATE") || user.permissions.includes("WORK_REQUEST_ADMIN") || user.roleCode === "ADMIN" || user.permissions.includes("FULL_ADMIN");
   useEffect(() => { void api<Employee[]>("/work-schedules/candidates").then(setCandidates).finally(() => setCandidatesLoaded(true)); }, []);
   useEffect(() => { if (mode === "change") void api<WorkSchedule[]>(`/work-schedules/changeable${delegated ? "?all=true" : ""}`).then(setSchedules); }, [mode, delegated]);
   const employees = candidates.length ? candidates : [{ empId: user.empId, empName: user.empName, deptId: user.deptId, deptName: user.deptName, workCategory: "FIELD" } as Employee];
   const requestMode = mode === "emergency" ? "emergency" : "request";
-  const workRows = useMemo(() => parseRows<WorkRow>(form.fieldValues.workEntriesJson, [blankWork(user.empId, requestMode)]), [form.fieldValues.workEntriesJson, user.empId, requestMode]);
+  const workRows = useMemo(
+    () => parseRows<WorkRow>(form.fieldValues.workEntriesJson, delegated && mode === "request" ? [] : [blankWork(user.empId, requestMode)]),
+    [form.fieldValues.workEntriesJson, user.empId, requestMode, delegated, mode]
+  );
   const commonWorkDate = form.fieldValues.workDate || workRows[0]?.workDate || today();
   const changeRows = useMemo(() => parseRows<ChangeRow>(form.fieldValues.workChangesJson, schedules[0] ? [blankChange(schedules[0])] : []), [form.fieldValues.workChangesJson, schedules]);
   const setWorkRows = (rows: WorkRow[], nextCommonDate = commonWorkDate) => onChange({
@@ -82,22 +102,55 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
       ...(mode === "request" ? { workDate: nextCommonDate } : {}),
       workEntriesJson: JSON.stringify(rows.map((row) => {
         const employee = employees.find((item) => item.empId === row.empId);
-        return { ...row, ...(mode === "request" ? { workDate: nextCommonDate } : {}), empName: employee?.empName ?? row.empName, deptName: employee?.deptName ?? row.deptName };
+        return {
+          ...row,
+          ...(mode === "request" ? { workDate: nextCommonDate } : {}),
+          empName: employee?.empName ?? row.empName,
+          deptName: employee?.deptName ?? row.deptName,
+          compTime: canUseCompTime(row.workType, row.startTime, row.endTime) && row.compTime
+        };
       }))
     }
   });
-  const setChangeRows = (rows: ChangeRow[]) => onChange({ ...form, fieldValues: { ...form.fieldValues, workChangesJson: JSON.stringify(rows) } });
+  const setChangeRows = (rows: ChangeRow[]) => onChange({
+    ...form,
+    fieldValues: {
+      ...form.fieldValues,
+      workChangesJson: JSON.stringify(rows.map((row) => {
+        const source = schedules.find((item) => item.workEntryId === row.sourceWorkEntryId);
+        return {
+          ...row,
+          newCompTime: !!source && canUseCompTime(source.workType, row.newStartTime, row.newEndTime) && row.newCompTime
+        };
+      }))
+    }
+  });
   useEffect(() => {
     if (mode !== "change" && candidatesLoaded && !form.fieldValues.workEntriesJson) {
       const requester = candidates.find((item) => item.empId === user.empId);
-      setWorkRows([blankWork(user.empId, requestMode, requester?.workCategory === "MANAGEMENT")]);
+      if (mode === "request" && delegated) {
+        setWorkRows([]);
+        setWorkerPickerOpen(true);
+      } else {
+        setWorkRows([blankWork(user.empId, requestMode, requester?.workCategory === "MANAGEMENT")]);
+      }
     }
-  }, [mode, candidates, candidatesLoaded, form.fieldValues.workEntriesJson, user.empId, requestMode]);
+  }, [mode, candidates, candidatesLoaded, form.fieldValues.workEntriesJson, user.empId, requestMode, delegated]);
   useEffect(() => {
     if (mode === "change" && schedules[0] && !form.fieldValues.workChangesJson) setChangeRows([blankChange(schedules[0])]);
   }, [mode, schedules, form.fieldValues.workChangesJson]);
   const updateWork = (index: number, next: Partial<WorkRow>) => setWorkRows(workRows.map((row, i) => i === index ? { ...row, ...next } : row));
   const updateChange = (index: number, next: Partial<ChangeRow>) => setChangeRows(changeRows.map((row, i) => i === index ? { ...row, ...next } : row));
+  const updateWorkTime = (index: number, field: "startTime" | "endTime", value: string) => {
+    const current = workRows[index];
+    const next = { ...current, [field]: value };
+    updateWork(index, { [field]: value, compTime: canUseCompTime(next.workType, next.startTime, next.endTime) ? current.compTime : false });
+  };
+  const updateChangeTime = (index: number, field: "newStartTime" | "newEndTime", value: string, source: WorkSchedule) => {
+    const current = changeRows[index];
+    const next = { ...current, [field]: value };
+    updateChange(index, { [field]: value, newCompTime: canUseCompTime(source.workType, next.newStartTime, next.newEndTime) ? current.newCompTime : false });
+  };
   const openWorkerPicker = () => {
     setWorkerPickerEmpId(null);
     setWorkerPickerOpen(true);
@@ -124,17 +177,18 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
     const fieldEmployee = employee?.workCategory !== "MANAGEMENT";
     const currentFlags = workTypeFlags(current.workType);
     const workType = fieldEmployee || (!currentFlags.overtime && !currentFlags.night) ? current.workType : "SPECIAL";
+    const times = workType === current.workType ? { startTime: current.startTime, endTime: current.endTime } : defaultWorkTimes(workType);
     updateWork(index, {
       empId,
       workType,
-      ...(workType === current.workType ? {} : defaultWorkTimes(workType)),
-      compTime: isSpecialWork(workType) && employee?.workCategory === "MANAGEMENT"
+      ...(workType === current.workType ? {} : times),
+      compTime: employee?.workCategory === "MANAGEMENT" && canUseCompTime(workType, times.startTime, times.endTime)
     });
   };
   const updateWorkType = (index: number, flag: WorkTypeFlag, checked: boolean) => {
     const current = workRows[index];
     const workType = workTypeFromFlags({ ...workTypeFlags(current.workType), [flag]: checked });
-    updateWork(index, { workType, compTime: isSpecialWork(workType) ? current.compTime : false });
+    updateWork(index, { workType, compTime: canUseCompTime(workType, current.startTime, current.endTime) ? current.compTime : false });
   };
 
   return <div className={"work-request-editor work-request-form " + mode}>
@@ -159,8 +213,10 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
           {canAddWorkers && <button type="button" onClick={openWorkerPicker}><Plus size={16} /> 근무자 추가</button>}
         </div>
         <div className="work-form-entry-list">
+          {!workRows.length && <div className="empty compact">근무자를 추가해 주세요.</div>}
           {workRows.map((row, index) => {
             const employee = employees.find((item) => item.empId === row.empId) ?? employees[0];
+            const compTimeAvailable = canUseCompTime(row.workType, row.startTime, row.endTime);
             return (
               <article className={"work-form-entry-card work-form-entry-row " + mode} key={index}>
                 <div className={"work-form-row-grid " + mode}>
@@ -178,20 +234,20 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
                     ? <WorkTypeSelector value={row.workType} fieldEmployee={employee.workCategory !== "MANAGEMENT"} onChange={(flag, checked) => updateWorkType(index, flag, checked)} />
                     : <label><span>근무 구분</span><select value={row.workType} disabled><option value="EMERGENCY_CALL">비상호출</option></select></label>}
                   {mode === "request" && (
-                    <label className={"work-form-comp-time" + (isSpecialWork(row.workType) ? " available" : "")}>
-                      <input type="checkbox" disabled={!isSpecialWork(row.workType)} checked={row.compTime} onChange={(event) => updateWork(index, { compTime: event.target.checked })} />
-                      <span><strong>대체근무</strong><small>{isSpecialWork(row.workType) ? "특근 시간에 적용" : "특근 선택 시 가능"}</small></span>
+                    <label className={"work-form-comp-time" + (compTimeAvailable ? " available" : "")}>
+                      <input type="checkbox" disabled={!compTimeAvailable} checked={compTimeAvailable && row.compTime} onChange={(event) => updateWork(index, { compTime: compTimeAvailable && event.target.checked })} />
+                      <span><strong>대체근무</strong><small>{!isSpecialWork(row.workType) ? "특근 선택 시 가능" : compTimeAvailable ? "4시간 이상 · 1일 적립" : "4시간 이상 근무 시 가능"}</small></span>
                     </label>
                   )}
-                  <label className="work-form-time-field work-form-time-start"><span>시작</span><input type="time" value={row.startTime} onChange={(event) => updateWork(index, { startTime: event.target.value })} /></label>
-                  <label className="work-form-time-field work-form-time-end"><span>종료</span><input type="time" value={row.endTime} onChange={(event) => updateWork(index, { endTime: event.target.value })} /></label>
+                  <label className="work-form-time-field work-form-time-start"><span>시작</span><input type="time" value={row.startTime} onChange={(event) => updateWorkTime(index, "startTime", event.target.value)} /></label>
+                  <label className="work-form-time-field work-form-time-end"><span>종료</span><input type="time" value={row.endTime} onChange={(event) => updateWorkTime(index, "endTime", event.target.value)} /></label>
                   <button type="button" className="icon-button" title="근무자 삭제" disabled={!canAddWorkers || workRows.length === 1} onClick={() => setWorkRows(workRows.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={16} /></button>
                 </div>
               </article>
             );
           })}
         </div>
-        {mode === "request" && <div className="work-form-policy-note"><strong>대체휴무 기준</strong><span>4시간 이하는 0.5일, 4시간 초과는 1일 · 12월 15일 이후 발생분은 다음 해 1월 31일까지 사용</span></div>}
+        {mode === "request" && <div className="work-form-policy-note"><strong>대체휴무 기준</strong><span>특근 4시간 이상 근무 시 1일 · 12월 15일 이후 발생분은 다음 해 1월 31일까지 사용</span></div>}
       </section>
     ) : (
       <section className="work-form-section work-change-section">
@@ -203,6 +259,7 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
           <div className="work-form-entry-list">
             {changeRows.map((row, index) => {
               const source = schedules.find((item) => item.workEntryId === row.sourceWorkEntryId) ?? schedules[0];
+              const compTimeAvailable = canUseCompTime(source.workType, row.newStartTime, row.newEndTime);
               return (
                 <article className="work-form-entry-card work-change-card" key={index}>
                   <div className={"work-form-entry-head" + (!canAddWorkers ? " single" : "")}>
@@ -231,12 +288,12 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
                       <div className="work-change-after-title"><span>원 근무</span><b>→</b><strong>변경 후</strong></div>
                       <div className="work-form-field-grid">
                         <label><span>변경 근무일</span><input type="date" value={row.newWorkDate} onChange={(event) => updateChange(index, { newWorkDate: event.target.value })} /></label>
-                        <label><span>변경 시작</span><input type="time" value={row.newStartTime} onChange={(event) => updateChange(index, { newStartTime: event.target.value })} /></label>
-                        <label><span>변경 종료</span><input type="time" value={row.newEndTime} onChange={(event) => updateChange(index, { newEndTime: event.target.value })} /></label>
+                        <label><span>변경 시작</span><input type="time" value={row.newStartTime} onChange={(event) => updateChangeTime(index, "newStartTime", event.target.value, source)} /></label>
+                        <label><span>변경 종료</span><input type="time" value={row.newEndTime} onChange={(event) => updateChangeTime(index, "newEndTime", event.target.value, source)} /></label>
                         <label className="wide"><span>변경 근무내용</span><input value={row.newWorkContent} onChange={(event) => updateChange(index, { newWorkContent: event.target.value })} placeholder="변경된 업무 내용을 입력하세요" /></label>
-                        <label className={"work-form-comp-time wide" + (isSpecialWork(source.workType) ? " available" : "")}>
-                          <input type="checkbox" disabled={!isSpecialWork(source.workType)} checked={row.newCompTime} onChange={(event) => updateChange(index, { newCompTime: event.target.checked })} />
-                          <span><strong>변경 후 대체근무 적용</strong><small>{isSpecialWork(source.workType) ? "변경된 특근 일정에 대체휴무를 적용합니다." : "특근 일정만 적용할 수 있습니다."}</small></span>
+                        <label className={"work-form-comp-time wide" + (compTimeAvailable ? " available" : "")}>
+                          <input type="checkbox" disabled={!compTimeAvailable} checked={compTimeAvailable && row.newCompTime} onChange={(event) => updateChange(index, { newCompTime: compTimeAvailable && event.target.checked })} />
+                          <span><strong>변경 후 대체근무 적용</strong><small>{!isSpecialWork(source.workType) ? "특근 일정만 적용할 수 있습니다." : compTimeAvailable ? "변경된 특근 일정에 대체휴무 1일을 적용합니다." : "변경 근무시간이 4시간 이상이어야 합니다."}</small></span>
                         </label>
                       </div>
                     </div>
