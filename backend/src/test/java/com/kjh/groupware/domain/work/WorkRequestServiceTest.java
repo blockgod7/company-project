@@ -149,6 +149,45 @@ class WorkRequestServiceTest {
         verify(compTime).grantFromCompletedWork(entry);
     }
 
+    @Test
+    void schedulerDoesNotGrantOvernightWorkBeforeItsEnd() {
+        Emp worker = employee(400L, "400", "야간 검증", "반장");
+        ApprovalDocument document = document(worker, WorkRequestService.TEMPLATE, "{}");
+        LocalDate date = LocalDate.of(2026, 8, 29);
+        WorkRequestEntry entry = new WorkRequestEntry(document, worker, worker, "SPECIAL_NIGHT", date,
+            java.time.LocalTime.of(22, 0), java.time.LocalTime.of(2, 0), 240, "야간", true);
+        entry.approve(date.atTime(21, 0));
+        when(entries.dueForCompletion(date.plusDays(1))).thenReturn(List.of(entry));
+
+        service.completePastSchedules(date.plusDays(1).atTime(0, 5));
+        verify(compTime, never()).grantFromCompletedWork(any());
+        assertThat(entry.getStatus()).isEqualTo(WorkRequestEntry.PLANNED);
+        service.completePastSchedules(date.plusDays(1).atTime(2, 0));
+        verify(compTime).grantFromCompletedWork(entry);
+    }
+
+    @Test
+    void changeRequestRejectsShortCompTimeBeforeMarkingSourcePending() {
+        Emp worker = employee(401L, "401", "변경 검증", "반장");
+        LocalDate date = LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))
+            .with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.SATURDAY));
+        WorkRequestEntry source = new WorkRequestEntry(null, worker, worker, "SPECIAL", date,
+            java.time.LocalTime.of(8, 0), java.time.LocalTime.of(12, 0), 240, "특근", true);
+        source.approve(date.minusDays(1).atStartOfDay());
+        when(entries.findByIdForUpdate(10L)).thenReturn(Optional.of(source));
+        ApprovalDocument change = document(worker, WorkRequestService.CHANGE_TEMPLATE, """
+            {"fields":{"workChangesJson":[{"sourceWorkEntryId":10,"actionType":"CHANGE",
+            "reason":"시간 변경","newWorkDate":"%s","newStartTime":"08:00","newEndTime":"11:59",
+            "newWorkContent":"단축 근무","newCompTime":true}]}}
+            """.formatted(date));
+
+        assertThatThrownBy(() -> service.prepareSubmission(change))
+            .isInstanceOfSatisfying(BusinessException.class,
+                error -> assertThat(error.getCode()).isEqualTo("COMP_TIME_MINIMUM_NOT_MET"));
+        assertThat(source.getStatus()).isEqualTo(WorkRequestEntry.PLANNED);
+        verify(changes, never()).save(any());
+    }
+
     private Emp employee(Long id, String no, String name, String position) {
         Emp employee = Emp.pending(no, name, "MALE", null, null, null, null, position, null, null,
             LocalDate.of(2020, 1, 1), "REGULAR", null, null);

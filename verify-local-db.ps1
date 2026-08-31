@@ -8,10 +8,15 @@ param(
     [string]$BackendUrl = "http://localhost:8080/api/v1/health",
     [switch]$ApplyLeavePatch,
     [switch]$SkipSeedCheck,
-    [switch]$SkipBackendHealth
+    [switch]$SkipBackendHealth,
+    [switch]$WorkRequestOnly
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($WorkRequestOnly -and $ApplyLeavePatch) {
+    throw "WorkRequestOnly is read-only and cannot be combined with ApplyLeavePatch."
+}
 
 if ([string]::IsNullOrWhiteSpace($DbName)) { $DbName = "groupware" }
 if ([string]::IsNullOrWhiteSpace($DbUser)) { $DbUser = "groupware" }
@@ -48,7 +53,7 @@ function Invoke-Scalar {
     $oldPassword = $env:PGPASSWORD
     try {
         if (-not [string]::IsNullOrWhiteSpace($DbPassword)) { $env:PGPASSWORD = $DbPassword }
-        $result = & $script:Psql -v ON_ERROR_STOP=1 -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -A -c $Sql
+        $result = & $script:Psql -X -w -v ON_ERROR_STOP=1 -h $DbHost -p $DbPort -U $DbUser -d $DbName -t -A -c $Sql
         if ($LASTEXITCODE -ne 0) {
             throw "psql query failed with exit code $LASTEXITCODE"
         }
@@ -63,7 +68,7 @@ function Invoke-SqlFile {
     $oldPassword = $env:PGPASSWORD
     try {
         if (-not [string]::IsNullOrWhiteSpace($DbPassword)) { $env:PGPASSWORD = $DbPassword }
-        & $script:Psql -q -v ON_ERROR_STOP=1 -h $DbHost -p $DbPort -U $DbUser -d $DbName -f $Path
+        & $script:Psql -X -w -q -v ON_ERROR_STOP=1 -h $DbHost -p $DbPort -U $DbUser -d $DbName -f $Path
         if ($LASTEXITCODE -ne 0) {
             throw "psql script failed with exit code $LASTEXITCODE"
         }
@@ -104,6 +109,14 @@ if ($ApplyLeavePatch) {
     }
     Invoke-SqlFile -Path $leavePatch
     Write-Host "[OK] leave management expansion patch applied"
+}
+
+$workRequestCheck = Join-Path $PSScriptRoot "backend\src\main\resources\db\verify\work_request_integrity.sql"
+Invoke-SqlFile -Path $workRequestCheck
+Write-Host "[OK] work-request and compensatory-time database integrity"
+if ($WorkRequestOnly) {
+    Write-Host "Work-request PostgreSQL verification completed (read-only)."
+    return
 }
 
 $requiredTables = @(
@@ -250,7 +263,7 @@ WHERE (emp_no = 'E9024' AND hire_date = DATE '2016-09-01')
    OR (emp_no = 'C7008' AND hire_date = DATE '1997-09-29');
 "@) "3"
 
-Assert-Equals "PDF-confirmed employee affiliations are applied" (Invoke-Scalar @"
+Assert-Equals "confirmed employee affiliations (including subsequent user corrections) are applied" (Invoke-Scalar @"
 WITH expected(emp_no, dept_code) AS (
     VALUES
         ('D8011', 'MOBILITY_BU520'),
@@ -260,7 +273,7 @@ WITH expected(emp_no, dept_code) AS (
         ('C9017', 'MOBILITY_FORMING'),
         ('D0018', 'ULSAN_SALES'),
         ('D2014', 'VCB_CHEONGJU'),
-        ('E9024', 'VCB_CHEONGJU')
+        ('E9024', 'HR_ADMIN')
 )
 SELECT count(*)
 FROM expected
@@ -280,15 +293,14 @@ WITH expected(employee_emp_no, manager_emp_no) AS (
         ('E7019', 'C3008'),
         ('E5007', 'E0055'),
         ('D5044', 'E0055'),
-        ('E9093', 'D2014'),
-        ('E9024', 'D2014')
+        ('E9093', 'D2014')
 )
 SELECT count(*)
 FROM expected
 JOIN emp employee ON employee.emp_no = expected.employee_emp_no
 JOIN emp manager ON manager.emp_id = employee.manager_emp_id
 WHERE manager.emp_no = expected.manager_emp_no;
-"@) "10"
+"@) "9"
 
 Assert-Equals "R&D employees report to the confirmed team leader" (Invoke-Scalar @"
 SELECT count(*)

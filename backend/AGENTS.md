@@ -19,6 +19,8 @@
 - `auth` owns login, login options, current-user lookup, token refresh, and logout API behavior.
 - Concurrent attempts for the same login ID are serialized with the PostgreSQL transaction advisory lock in `EmpRepository.acquireLoginLock`; preserve this ordering before employee state and refresh-token writes.
 - `approval` owns electronic approval documents, lines, templates, delegations, operation settings, leave balances, managed holidays, post-approval leave exclusions, retention/audit flows, PDFs, and related workflow APIs.
+- `work` owns work requests, changes, cancellation and schedules. Completion uses Asia/Seoul end timestamps (overnight included) and runs every minute; retain source-entry locking and the employee lock before compensatory-credit deduplication.
+- Leave/work acceptance fixtures under `src/test/resources/leave-work-acceptance.sql` are restricted to the isolated `groupware_leave_work_qa` DB; never apply them to the business database.
 - `board` and `notice` own board and notice APIs.
 - `file` owns upload/download metadata and file access behavior.
 - `pdm` owns drawing-management folders, documents, revisions, and related actions.

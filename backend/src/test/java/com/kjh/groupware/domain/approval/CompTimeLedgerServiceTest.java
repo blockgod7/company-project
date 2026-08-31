@@ -59,6 +59,7 @@ class CompTimeLedgerServiceTest {
         WorkRequestEntry shortEntry = new WorkRequestEntry(approval, employee, manager, "SPECIAL", workDate,
             LocalTime.of(8, 0), LocalTime.of(11, 59), 239, "단시간 특근", true);
         ReflectionTestUtils.setField(shortEntry, "workEntryId", 901L);
+        shortEntry.approve(workDate.plusDays(1).atStartOfDay());
 
         service.grantFromCompletedWork(shortEntry);
 
@@ -67,6 +68,8 @@ class CompTimeLedgerServiceTest {
         WorkRequestEntry exactEntry = new WorkRequestEntry(approval, employee, manager, "SPECIAL", workDate,
             LocalTime.of(8, 0), LocalTime.of(12, 0), 240, "4시간 특근", true);
         ReflectionTestUtils.setField(exactEntry, "workEntryId", 902L);
+        exactEntry.approve(workDate.plusDays(1).atStartOfDay());
+        when(empRepository.findByIdForUpdate(employee.getEmpId())).thenReturn(Optional.of(employee));
         when(creditRepository.save(any())).thenAnswer(invocation -> {
             CompTimeCredit credit = invocation.getArgument(0);
             ReflectionTestUtils.setField(credit, "creditId", 10L);
@@ -133,6 +136,47 @@ class CompTimeLedgerServiceTest {
         assertThat(allocation.getStatus()).isEqualTo(CompTimeAllocation.RESTORED);
         assertThat(allocation.getRestoredByApproval()).isSameAs(cancel);
         assertThat(credit.availableDays()).isEqualByComparingTo("1.0");
+    }
+
+    @Test
+    void plannedWorkCannotGenerateCreditAndExistingSourceIsIdempotent() {
+        LocalDate date = LocalDate.now().minusDays(2);
+        WorkRequestEntry entry = new WorkRequestEntry(document(90L, "WORK_REQUEST"), employee, manager,
+            "SPECIAL", date, LocalTime.of(8, 0), LocalTime.of(12, 0), 240, "검증", true);
+        ReflectionTestUtils.setField(entry, "workEntryId", 902L);
+        service.grantFromCompletedWork(entry);
+        verify(creditRepository, never()).save(any());
+        entry.approve(date.atTime(12, 0));
+        when(empRepository.findByIdForUpdate(employee.getEmpId())).thenReturn(Optional.of(employee));
+        when(creditRepository.existsBySourceWorkEntryWorkEntryId(902L)).thenReturn(true);
+        service.grantFromCompletedWork(entry);
+        verify(creditRepository, never()).save(any());
+    }
+
+    @Test
+    void cancellationRestoresOnlyItsSelectedSourceDocument() {
+        LocalDate date = LocalDate.now().plusDays(3);
+        ApprovalDocument firstLeave = document(201L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE);
+        ApprovalDocument secondLeave = document(202L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE);
+        ApprovalDocument cancel = document(203L, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE);
+        CompTimeCredit firstCredit = credit("1", date.plusDays(10));
+        CompTimeCredit secondCredit = credit("1", date.plusDays(10));
+        firstCredit.reserve(BigDecimal.ONE);
+        secondCredit.reserve(BigDecimal.ONE);
+        CompTimeAllocation first = new CompTimeAllocation(firstCredit, firstLeave, date, BigDecimal.ONE);
+        CompTimeAllocation second = new CompTimeAllocation(secondCredit, secondLeave, date, BigDecimal.ONE);
+        first.use();
+        second.use();
+        when(leaveUsageService.selectionsFor(cancel)).thenReturn(List.of(
+            new LeaveUsageSelectionResponse(date.toString(), CompTimeLedgerService.LEAVE_TYPE, "1", 201L, null)));
+        when(leaveUsageService.parseDate(date.toString())).thenReturn(date);
+        when(allocationRepository.findByApprovalRequesterEmpIdAndLeaveDateAndStatusOrderByAllocationIdAsc(
+            employee.getEmpId(), date, CompTimeAllocation.USED)).thenReturn(List.of(first, second));
+        service.consumeOnFinalApproval(cancel);
+        assertThat(first.getStatus()).isEqualTo(CompTimeAllocation.RESTORED);
+        assertThat(second.getStatus()).isEqualTo(CompTimeAllocation.USED);
+        assertThat(firstCredit.getUsedDays()).isEqualByComparingTo("0");
+        assertThat(secondCredit.getUsedDays()).isEqualByComparingTo("1");
     }
 
     private CompTimeCredit credit(String days, LocalDate expiresOn) {

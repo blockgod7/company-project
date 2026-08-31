@@ -133,6 +133,7 @@ $currentPatchFiles = @(
     ,"annual_leave_calculation_revision_202608_patch.sql"
     ,"contract_employee_terms_202608_patch.sql"
     ,"work_request_management_202608_patch.sql"
+    ,"work_request_type_20260831_patch.sql"
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 
 $postSeedPatchFiles = @(

@@ -29,6 +29,7 @@
 - General doc-only check: `git diff --check`.
 - Command/path availability checks should include `.tools\apache-maven-3.9.9\bin\mvn.cmd`, `backend\pom.xml`, `frontend\package.json`, and `frontend\.env.example` before citing backend or frontend commands.
 - Full runtime checks require local services such as PostgreSQL and are not automatic for doc-only edits.
+- `.\verify-leave-work.ps1 -BackupFile <dump> -JavaHome <Java21>` runs leave/work acceptance on a new isolated PostgreSQL cluster, API 8081 and UI 5175; it never connects to the source DB and stops only its own services. See `backend/docs/leave-work-readiness-20260831.md` for fixture/date prerequisites.
 
 ## Child DOX Index
 - `backend/AGENTS.md` - Spring Boot API, domain modules, backend commands, and backend documentation rules.

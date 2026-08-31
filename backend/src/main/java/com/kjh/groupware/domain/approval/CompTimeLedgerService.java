@@ -55,8 +55,11 @@ public class CompTimeLedgerService {
 
     @Transactional
     public void grantFromCompletedWork(WorkRequestEntry entry) {
-        if (!"Y".equals(entry.getCompTimeYn()) || entry.getWorkMinutes() == null
+        if (!WorkRequestEntry.COMPLETED.equals(entry.getStatus()) || !"Y".equals(entry.getCompTimeYn()) || entry.getWorkMinutes() == null
             || entry.getWorkMinutes() < COMP_TIME_MINIMUM_MINUTES) return;
+        // Serialize credits for the same employee before checking the existing daily limit.
+        empRepository.findByIdForUpdate(entry.getEmp().getEmpId())
+            .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
         if (creditRepository.existsBySourceWorkEntryWorkEntryId(entry.getWorkEntryId())) return;
         if (creditRepository.existsByEmpEmpIdAndWorkDate(entry.getEmp().getEmpId(), entry.getWorkDate())) return;
         BigDecimal days = ONE_DAY;
@@ -250,7 +253,8 @@ public class CompTimeLedgerService {
             List<CompTimeAllocation> allocations = allocationRepository
                 .findByApprovalRequesterEmpIdAndLeaveDateAndStatusOrderByAllocationIdAsc(
                     cancelDocument.getRequester().getEmpId(), leaveDate, CompTimeAllocation.USED
-                );
+                ).stream().filter(allocation -> selection.approvalId() == null
+                    || selection.approvalId().equals(allocation.getApproval().getApprovalId())).toList();
             allocations.forEach(allocation -> allocation.restore(cancelDocument, reason));
             restored.addAll(allocations);
         }

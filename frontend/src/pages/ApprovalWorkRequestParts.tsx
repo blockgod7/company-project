@@ -204,7 +204,7 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
       <div><span>신청부서</span><strong>{departmentTitle}</strong></div>
       <div><span>신청자</span><strong>{user.empName}</strong></div>
       <div><span>작성일</span><strong>{today()}</strong></div>
-      {mode === "request" && <div className="work-form-common-date"><span>근무일자</span><input required type="date" value={commonWorkDate} onChange={(event) => setWorkRows(workRows, event.target.value)} /></div>}
+      {mode === "request" && <div className="work-form-common-date"><span>근무일자</span><input required aria-label="근무일자" type="date" value={commonWorkDate} onChange={(event) => setWorkRows(workRows, event.target.value)} /></div>}
     </div>
     {mode !== "change" ? (
       <section className="work-form-section">

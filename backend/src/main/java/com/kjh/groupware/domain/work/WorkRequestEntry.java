@@ -6,6 +6,7 @@ import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.global.entity.BaseEntity;
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -54,9 +55,13 @@ public class WorkRequestEntry extends BaseEntity {
         this.status = PENDING;
     }
 
-    public void approve(LocalDate today) { status = workDate.isBefore(today) ? COMPLETED : PLANNED; }
-    public void complete() { if (PLANNED.equals(status)) status = COMPLETED; }
+    public LocalDateTime scheduledEnd() {
+        return workDate.atTime(endTime).plusDays(endTime.isAfter(startTime) ? 0 : 1);
+    }
+    public boolean hasEndedAt(LocalDateTime now) { return !scheduledEnd().isAfter(now); }
+    public void approve(LocalDateTime now) { status = hasEndedAt(now) ? COMPLETED : PLANNED; }
+    public void complete(LocalDateTime now) { if (PLANNED.equals(status) && hasEndedAt(now)) status = COMPLETED; }
     public void markCancelPending() { status = CANCEL_PENDING; }
-    public void restoreAfterChange(LocalDate today) { if (CANCEL_PENDING.equals(status)) approve(today); }
+    public void restoreAfterChange(LocalDateTime now) { if (CANCEL_PENDING.equals(status)) approve(now); }
     public void cancel(ApprovalDocument changeApproval) { status = CANCELED; canceledByApproval = changeApproval; }
 }

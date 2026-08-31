@@ -86,9 +86,9 @@ public class WorkRequestService {
         Emp actor = document.getRequester();
         boolean delegate = permissionService.hasPermission(actor, EmployeePermissionService.WORK_REQUEST_DELEGATE);
         for (JsonNode row : rows) {
-            WorkRequestEntry source = entryRepository.findById(row.path("sourceWorkEntryId").asLong())
+            WorkRequestEntry source = entryRepository.findByIdForUpdate(row.path("sourceWorkEntryId").asLong())
                 .orElseThrow(() -> bad("WORK_ENTRY_NOT_FOUND", "원 근무 일정을 찾을 수 없습니다."));
-            if (!WorkRequestEntry.PLANNED.equals(source.getStatus())) throw bad("WORK_ENTRY_NOT_CHANGEABLE", "근무예정 상태만 변경하거나 취소할 수 있습니다.");
+            if (!WorkRequestEntry.PLANNED.equals(source.getStatus()) || source.hasEndedAt(workNow())) throw bad("WORK_ENTRY_NOT_CHANGEABLE", "근무예정 상태만 변경하거나 취소할 수 있습니다.");
             if (!actor.getEmpId().equals(source.getEmp().getEmpId()) && !delegate) throw BusinessException.forbidden("WORK_DELEGATE_REQUIRED", "다른 직원의 근무 변경·취소에는 대리신청 권한이 필요합니다.");
             if (!actor.getEmpId().equals(source.getEmp().getEmpId()) && !sameDepartment(actor, source.getEmp())) throw BusinessException.forbidden("WORK_DEPT_SCOPE_REQUIRED", "같은 소속 부서 직원의 근무만 변경하거나 취소할 수 있습니다.");
             String action = required(row, "actionType", "처리구분");
@@ -111,10 +111,10 @@ public class WorkRequestService {
 
     @Transactional
     public void onFinalApproval(ApprovalDocument document) {
-        LocalDate today = LocalDate.now();
+        LocalDateTime now = workNow();
         if (isEntryTemplate(document.getTemplateCode())) {
             for (WorkRequestEntry entry : entryRepository.findByApprovalOrderByWorkEntryIdAsc(document)) {
-                entry.approve(today); if (WorkRequestEntry.COMPLETED.equals(entry.getStatus())) compTimeLedgerService.grantFromCompletedWork(entry);
+                entry.approve(now); if (WorkRequestEntry.COMPLETED.equals(entry.getStatus())) compTimeLedgerService.grantFromCompletedWork(entry);
             }
         }
         if (CHANGE_TEMPLATE.equals(document.getTemplateCode())) {
@@ -124,7 +124,7 @@ public class WorkRequestService {
                     int minutes = duration(change.getNewStartTime(), change.getNewEndTime());
                     WorkRequestEntry replacement = new WorkRequestEntry(document, source.getEmp(), document.getRequester(), source.getWorkType(),
                         change.getNewWorkDate(), change.getNewStartTime(), change.getNewEndTime(), minutes, change.getNewWorkContent(), "Y".equals(change.getNewCompTimeYn()));
-                    replacement.approve(today); entryRepository.save(replacement);
+                    replacement.approve(now); entryRepository.save(replacement);
                     if (WorkRequestEntry.COMPLETED.equals(replacement.getStatus())) compTimeLedgerService.grantFromCompletedWork(replacement);
                 }
             }
@@ -136,20 +136,27 @@ public class WorkRequestService {
         if (isEntryTemplate(document.getTemplateCode())) entryRepository.deleteByApproval(document);
         if (CHANGE_TEMPLATE.equals(document.getTemplateCode())) {
             for (WorkRequestChange change : changeRepository.findByApprovalOrderByWorkChangeIdAsc(document)) {
-                change.getSource().restoreAfterChange(LocalDate.now());
+                change.getSource().restoreAfterChange(workNow());
                 if (WorkRequestEntry.COMPLETED.equals(change.getSource().getStatus())) compTimeLedgerService.grantFromCompletedWork(change.getSource());
                 change.resolve(rejected);
             }
         }
     }
 
-    @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
     @Transactional
     public void completePastSchedules() {
-        for (WorkRequestEntry entry : entryRepository.dueForCompletion(LocalDate.now())) {
-            entry.complete(); compTimeLedgerService.grantFromCompletedWork(entry);
+        completePastSchedules(workNow());
+    }
+
+    void completePastSchedules(LocalDateTime now) {
+        for (WorkRequestEntry entry : entryRepository.dueForCompletion(now.toLocalDate())) {
+            entry.complete(now);
+            if (WorkRequestEntry.COMPLETED.equals(entry.getStatus())) compTimeLedgerService.grantFromCompletedWork(entry);
         }
     }
+
+    private LocalDateTime workNow() { return LocalDateTime.now(ZoneId.of("Asia/Seoul")); }
 
     @Transactional(readOnly = true)
     public List<WorkScheduleResponse> mine(LocalDate from, LocalDate to) {

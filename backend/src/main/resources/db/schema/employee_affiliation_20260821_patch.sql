@@ -26,7 +26,7 @@ WHERE dept_code = 'MOBILITY_PRETREAT';
 -- PDF 표기와 DB 이름이 다른 직원도 사번으로 식별한다.
 -- C9035: PDF 강동수 / DB 조성진
 -- E9096: PDF 최성락 / DB 최성진
--- E9024: PDF 장지혁 / DB 이정민
+-- E9024: 과거 PDF 매핑 대신 2026-08-31 사용자 확인을 적용: 이정민 / 인사총무(HR_ADMIN).
 -- E9089: PDF 오혁진 / DB 최현준 (기존 소속과 같아 아래 이동 목록에는 없음)
 -- E9037: PDF 김종현 / DB 김종현a
 WITH affiliation_map(emp_no, dept_code) AS (
@@ -98,7 +98,7 @@ WITH affiliation_map(emp_no, dept_code) AS (
         ('E9094', 'VCB_CHEONGJU'),
         ('E9095', 'VCB_CHEONGJU'),
         ('E9099', 'VCB_CHEONGJU'),
-        ('E9024', 'VCB_CHEONGJU')
+        ('E9024', 'HR_ADMIN')
 )
 UPDATE emp employee
 SET dept_id = department.dept_id,

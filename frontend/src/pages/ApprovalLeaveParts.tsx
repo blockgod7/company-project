@@ -185,6 +185,7 @@ function leaveAbsenceDayValue(type: string) {
   return ["오전반차", "오후반차", "공가(오전)", "공가(오후)"].includes(type) ? 0.5 : 1;
 }
 function compTimeExpiryNotice(summary: CompTimeSummary | null) {
+  if (todayDate().split("-")[1] !== "12") return "";
   const dateValue = (value: string) => {
     const [year, month, day] = value.split("-").map(Number);
     return Date.UTC(year, month - 1, day);
