@@ -7,6 +7,7 @@ import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.ApprovalResponse;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.notification.NotificationService;
+import com.kjh.groupware.domain.work.WorkRequestService;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
@@ -34,6 +35,7 @@ public class ApprovalDraftService {
     private final ApprovalEquipmentProposalService equipmentProposalService;
     private final ApprovalLeaveUsageService leaveUsageService;
     private final CompTimeLedgerService compTimeLedgerService;
+    private final WorkRequestService workRequestService;
     private final ApprovalDelegationService delegationService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
@@ -45,8 +47,12 @@ public class ApprovalDraftService {
         boolean draft = Boolean.TRUE.equals(request.draft());
         linePolicyService.validateLineSelection(requester, request, !draft);
         validateRequiredFields(template, request, !draft);
-        if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+        boolean leaveDocument = ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())
+            || ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode());
+        if (!draft && leaveDocument) {
             validateLeaveReceiver(request);
+        }
+        if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
             leaveUsageService.assertSelectableLeaveDates(request.formDataJson(), requester);
             leaveUsageService.assertNoCompletedLeaveOverlap(requester, null, request.formDataJson());
             leaveUsageService.assertSufficientAnnualLeave(requester, null, request.formDataJson());
@@ -55,8 +61,13 @@ public class ApprovalDraftService {
             leaveUsageService.assertLeaveCancelTargetsApproved(requester, null, request.formDataJson());
         }
 
+        String formDataJson = !draft && leaveDocument
+            ? leaveUsageService.normalizeLeaveFormData(requester, null, template.getTemplateCode(), request.formDataJson())
+            : request.formDataJson();
+
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
-        String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
+        String content = leaveDocument ? summarizeFormData(formDataJson)
+            : request.content() == null ? summarizeFormData(formDataJson) : request.content();
         String documentNo = draft ? null : generateDocumentNo(template.getTemplateCode());
         ApprovalDocument document = documentRepository.save(ApprovalDocument.builder()
             .documentNo(documentNo)
@@ -65,17 +76,22 @@ public class ApprovalDraftService {
             .templateCode(template.getTemplateCode())
             .templateVersion(template.getVersion())
             .templateSnapshotJson(templateSnapshot(template))
-            .formDataJson(request.formDataJson())
-            .searchText(buildSearchText(documentNo, title, requester, template, request.formDataJson()))
+            .formDataJson(formDataJson)
+            .searchText(buildSearchText(documentNo, title, requester, template, formDataJson))
             .priority(request.priority())
             .requester(requester)
             .build());
+
+        if (!draft && ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            leaveUsageService.assertRequiredEvidence(document, formDataJson);
+        }
 
         if (draft) {
             document.saveAsDraft();
             linePolicyService.createLines(document, request, false);
         } else {
             linePolicyService.createLines(document, request, true);
+            workRequestService.prepareSubmission(document);
             document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
             compTimeLedgerService.reserveForSubmission(document);
             delegationService.applyAutoDelegationForAbsenceDocument(requester, document, request.formDataJson());
@@ -150,17 +166,28 @@ public class ApprovalDraftService {
 
         ApprovalTemplate template = activeTemplate(request.templateCode());
         validateRequiredFields(template, request, true);
-        if (ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+        boolean leaveDocument = ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())
+            || ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode());
+        if (leaveDocument) {
             validateLeaveReceiver(request);
-            leaveUsageService.assertSelectableLeaveDates(request.formDataJson());
+        }
+        if (ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())) {
+            leaveUsageService.assertSelectableLeaveDates(request.formDataJson(), requester);
             leaveUsageService.assertNoCompletedLeaveOverlap(requester, document.getApprovalId(), request.formDataJson());
             leaveUsageService.assertSufficientAnnualLeave(requester, document.getApprovalId(), request.formDataJson());
+            leaveUsageService.assertRequiredEvidence(document, request.formDataJson());
         }
         if (ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode())) {
             leaveUsageService.assertLeaveCancelTargetsApproved(requester, document.getApprovalId(), request.formDataJson());
         }
+        String formDataJson = leaveDocument
+            ? leaveUsageService.normalizeLeaveFormData(
+                requester, document.getApprovalId(), template.getTemplateCode(), request.formDataJson()
+            )
+            : request.formDataJson();
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
-        String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
+        String content = leaveDocument ? summarizeFormData(formDataJson)
+            : request.content() == null ? summarizeFormData(formDataJson) : request.content();
         String documentNo = hasText(document.getDocumentNo()) ? document.getDocumentNo() : generateDocumentNo(template.getTemplateCode());
         document.updateDraft(
             title,
@@ -168,13 +195,14 @@ public class ApprovalDraftService {
             template.getTemplateCode(),
             template.getVersion(),
             templateSnapshot(template),
-            request.formDataJson(),
-            buildSearchText(documentNo, title, requester, template, request.formDataJson()),
+            formDataJson,
+            buildSearchText(documentNo, title, requester, template, formDataJson),
             request.priority()
         );
         lineRepository.deleteByDocument(document);
         lineRepository.flush();
         linePolicyService.createLines(document, request, true);
+        workRequestService.prepareSubmission(document);
         document.submit(documentNo, buildSearchText(documentNo, title, requester, template, request.formDataJson()), linePolicyService.hasAgreement(request));
         compTimeLedgerService.reserveForSubmission(document);
         delegationService.applyAutoDelegationForAbsenceDocument(requester, document, request.formDataJson());
@@ -193,7 +221,7 @@ public class ApprovalDraftService {
                         .templateName("휴가 취소계")
                         .version(1)
                         .description("승인 완료된 휴가 취소 신청")
-                        .fieldsJson("[]")
+                        .fieldsJson(ApprovalLeaveUsageService.LEAVE_CANCEL_FIELDS_JSON)
                         .activeYn("Y")
                         .sortOrder(0)
                         .build();
@@ -204,7 +232,7 @@ public class ApprovalDraftService {
 
     private void validateLeaveReceiver(ApprovalRequest request) {
         if (request.receiverEmpIds() == null || request.receiverEmpIds().size() != 1) {
-            throw BusinessException.badRequest("LEAVE_RECEIVER_REQUIRED", "휴가계 수신자를 1명 지정해 주세요.");
+            throw BusinessException.badRequest("LEAVE_RECEIVER_REQUIRED", "휴가 문서 수신자를 1명 지정해 주세요.");
         }
     }
 
@@ -289,6 +317,9 @@ public class ApprovalDraftService {
             case "LEAVE_CANCEL" -> "LVC";
             case "PURCHASE" -> "PUR";
             case "TRAINING_REQUEST", "TRAINING_REPORT" -> "EDU";
+            case WorkRequestService.TEMPLATE -> "WRK";
+            case WorkRequestService.EMERGENCY_TEMPLATE -> "EMG";
+            case WorkRequestService.CHANGE_TEMPLATE -> "WRC";
             case ApprovalEquipmentProposal.TEMPLATE_CODE -> "EQP";
             case ApprovalEquipmentProposal.MOLD_FIXTURE_TEMPLATE_CODE -> "MFP";
             default -> "APP";

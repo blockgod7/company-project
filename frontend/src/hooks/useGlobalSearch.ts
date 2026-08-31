@@ -6,16 +6,20 @@ import type { GlobalSearchTarget } from "../utils/search";
 
 type UseGlobalSearchOptions = {
   clearApprovalLaunch: () => void;
-  setRoute: (route: Route) => void;
-  canViewPreview: boolean;
+  navigateToRoute: (route: Route) => void;
+  navigateToItem: (item: GlobalSearchItem) => void;
 };
 
-export function useGlobalSearch({ clearApprovalLaunch, setRoute, canViewPreview }: UseGlobalSearchOptions) {
+export const GLOBAL_SEARCH_TYPES = ["menus", "departments", "employees", "notices", "boards", "approvals"] as const;
+
+export function useGlobalSearch({ clearApprovalLaunch, navigateToRoute, navigateToItem }: UseGlobalSearchOptions) {
   const [target, setTarget] = useState<GlobalSearchTarget | null>(null);
   const [keyword, setKeyword] = useState("");
   const [result, setResult] = useState<GlobalSearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([...GLOBAL_SEARCH_TYPES]);
+  const [status, setStatus] = useState("ALL");
 
   const total = useMemo(
     () => result?.groups.reduce((sum, group) => sum + group.totalCount, 0) ?? 0,
@@ -35,28 +39,26 @@ export function useGlobalSearch({ clearApprovalLaunch, setRoute, canViewPreview 
       keyword: itemKeyword,
       nonce: Date.now()
     });
-    setRoute(item.route);
+    navigateToItem(item);
   }
 
   async function submit(event?: FormEvent) {
     event?.preventDefault();
     const trimmedKeyword = keyword.trim();
     setError("");
-    setRoute("search");
+    navigateToRoute("search");
     if (trimmedKeyword.length < 2) {
       setResult(null);
-      setError("寃?됱뼱??2湲???댁긽 ?낅젰??二쇱꽭??");
+      setError("검색어는 2글자 이상 입력해 주세요.");
       return;
     }
     setLoading(true);
     try {
-      const searchResult = await api<GlobalSearchResponse>(`/global-search?keyword=${encodeURIComponent(trimmedKeyword)}&limit=20`);
-      setResult(canViewPreview ? searchResult : {
-        ...searchResult,
-        groups: searchResult.groups.filter((group) => group.code !== "pdm")
-      });
+      const params = new URLSearchParams({ keyword: trimmedKeyword, limit: "10", status });
+      selectedTypes.forEach((type) => params.append("types", type));
+      setResult(await api<GlobalSearchResponse>(`/global-search?${params.toString()}`));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "?꾩뿭 寃??以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.");
+      setError(err instanceof Error ? err.message : "통합검색 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -68,6 +70,12 @@ export function useGlobalSearch({ clearApprovalLaunch, setRoute, canViewPreview 
     setError("");
   }
 
+  function toggleType(type: string) {
+    setSelectedTypes((current) => current.includes(type)
+      ? current.length === 1 ? current : current.filter((item) => item !== type)
+      : [...current, type]);
+  }
+
   return {
     target,
     keyword,
@@ -75,6 +83,10 @@ export function useGlobalSearch({ clearApprovalLaunch, setRoute, canViewPreview 
     result,
     loading,
     error,
+    selectedTypes,
+    toggleType,
+    status,
+    setStatus,
     total,
     resetTarget,
     openItem,

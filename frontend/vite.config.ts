@@ -6,7 +6,9 @@ export default defineConfig({
   root: import.meta.dirname,
   plugins: [react()],
   server: {
-    port: 5173
+    host: "127.0.0.1",
+    port: 5174,
+    strictPort: true
   },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),

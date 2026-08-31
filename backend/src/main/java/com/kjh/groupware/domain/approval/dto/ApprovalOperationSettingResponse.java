@@ -5,9 +5,13 @@ public record ApprovalOperationSettingResponse(
     long reminderFixedDelayMs,
     long deletedDocumentRetentionDays,
     boolean permanentDeleteEnabled,
+    Long leaveDefaultReceiverEmpId,
+    String leaveDefaultReceiverName,
     long fallbackDecisionDueHours,
     long fallbackReminderFixedDelayMs,
     long fallbackDeletedDocumentRetentionDays,
-    boolean fallbackPermanentDeleteEnabled
+    boolean fallbackPermanentDeleteEnabled,
+    Long fallbackLeaveDefaultReceiverEmpId,
+    String fallbackLeaveDefaultReceiverName
 ) {
 }

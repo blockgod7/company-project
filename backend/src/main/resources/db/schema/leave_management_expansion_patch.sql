@@ -39,12 +39,8 @@ CREATE TABLE IF NOT EXISTS emp_permission (
 
 CREATE INDEX IF NOT EXISTS idx_emp_permission_active ON emp_permission(permission_code, active_yn, emp_id);
 
-INSERT INTO emp_permission (emp_id, permission_code, active_yn, reason)
-SELECT emp_id, permission_code, 'Y', '기본 권한자'
-FROM emp
-CROSS JOIN (VALUES ('LEAVE_ADMIN'), ('EMPLOYEE_ADMIN')) AS permissions(permission_code)
-WHERE login_id IN ('e0015', 'e7016')
-ON CONFLICT (emp_id, permission_code) DO UPDATE SET active_yn = 'Y', revoked_at = NULL, revoked_by = NULL;
+-- Initial and delegated authorities are assigned by leave_authority_policy_202608_patch.sql.
+-- Do not re-grant person-specific permissions whenever this historical patch is rerun.
 
 CREATE TABLE IF NOT EXISTS emp_employment_history (
     employment_history_id BIGSERIAL PRIMARY KEY,
@@ -302,16 +298,22 @@ INSERT INTO leave_policy (
     ('병가', '병가', 'Y', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('산재요양', '산재요양', 'Y', 'SEPARATE', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('무급휴가', '무급휴가', 'Y', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
-    ('특별유급휴가', '특별유급휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
+    ('특별유급휴가', '특별유급휴가', 'N', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '운영 제외 휴가 유형'),
     ('배우자 출산휴가', '배우자 출산휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', 20.0, 50, 120, 'ALL', 'N', 4, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('출산전후휴가', '출산전후휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'FEMALE', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('여성휴가', '여성휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'FEMALE', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('유산·사산휴가', '유산·사산휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'FEMALE', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
     ('난임치료휴가', '난임치료휴가', 'Y', 'PAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
-    ('가족돌봄휴가', '가족돌봄휴가', 'Y', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
+    ('가족돌봄휴가', '가족돌봄휴가', 'N', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '운영 제외 휴가 유형'),
     ('육아휴직', '육아휴직', 'Y', 'SEPARATE', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책'),
-    ('자녀돌봄휴가', '자녀돌봄휴가', 'Y', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '초기 통합 휴가 정책')
+    ('자녀돌봄휴가', '자녀돌봄휴가', 'N', 'UNPAID', 0.0, 'FULL_DAY', NULL, NULL, NULL, 'ALL', 'N', NULL, 'Y', '2026-01-01', '운영 제외 휴가 유형')
 ON CONFLICT (leave_type, effective_from) DO NOTHING;
+
+-- Removed from new leave requests while preserving policy and approval history.
+UPDATE leave_policy
+SET active_yn = 'N', change_reason = '운영 제외 휴가 유형', updated_at = NOW()
+WHERE leave_type IN ('자녀돌봄휴가', '특별유급휴가', '가족돌봄휴가')
+  AND active_yn <> 'N';
 
 CREATE TABLE IF NOT EXISTS comp_time_credit (
     credit_id BIGSERIAL PRIMARY KEY,
@@ -435,6 +437,30 @@ UPDATE bereavement_policy SET family_relation = CASE replace(trim(family_relatio
     WHEN '형제자매' THEN 'SIBLING' ELSE upper(trim(family_relation)) END;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_bereavement_policy_type_relation_from
     ON bereavement_policy(event_type, family_relation, effective_from);
+
+-- Confirmed company-paid death leave defaults. Existing relation policies are preserved
+-- so rerunning this patch never overwrites leave-admin changes.
+INSERT INTO bereavement_policy (
+    event_type, family_relation, allowed_days, pay_type, evidence_required_yn,
+    effective_from, effective_to, active_yn, change_reason, last_changed_by
+)
+SELECT
+    'DEATH', defaults.family_relation, defaults.allowed_days, 'PAID', 'N',
+    DATE '2026-01-01', NULL, 'Y', '사내 사망 경조휴가 기본 기준', NULL
+FROM (VALUES
+    ('SPOUSE', 5.0::numeric),
+    ('PARENT', 5.0::numeric),
+    ('SPOUSE_PARENT', 5.0::numeric),
+    ('GRANDPARENT', 3.0::numeric),
+    ('CHILD', 3.0::numeric),
+    ('SIBLING', 1.0::numeric)
+) AS defaults(family_relation, allowed_days)
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM bereavement_policy existing
+    WHERE existing.event_type = 'DEATH'
+      AND existing.family_relation = defaults.family_relation
+);
 
 CREATE TABLE IF NOT EXISTS scheduled_job_run (
     job_name VARCHAR(80) PRIMARY KEY,

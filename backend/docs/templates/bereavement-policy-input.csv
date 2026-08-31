@@ -1,8 +1,8 @@
 event_type,event_type_label,family_relation,family_relation_label,allowed_days,pay_type,evidence_required,effective_from,effective_to,change_reason,confirmed_by,confirmed_at
 MARRIAGE,결혼,SELF,본인,,,,,,,,
-DEATH,사망,SPOUSE,배우자,,,,,,,,
-DEATH,사망,CHILD,자녀,,,,,,,,
-DEATH,사망,PARENT,부모,,,,,,,,
-DEATH,사망,SPOUSE_PARENT,배우자 부모,,,,,,,,
-DEATH,사망,GRANDPARENT,조부모,,,,,,,,
-DEATH,사망,SIBLING,형제자매,,,,,,,,
+DEATH,사망,SPOUSE,배우자,5,PAID,N,2026-01-01,,사내 사망 경조휴가 기본 기준,요청자 확정,2026-08-11
+DEATH,사망,CHILD,자녀,3,PAID,N,2026-01-01,,사내 사망 경조휴가 기본 기준,요청자 확정,2026-08-11
+DEATH,사망,PARENT,부모,5,PAID,N,2026-01-01,,사내 사망 경조휴가 기본 기준,요청자 확정,2026-08-11
+DEATH,사망,SPOUSE_PARENT,배우자 부모,5,PAID,N,2026-01-01,,사내 사망 경조휴가 기본 기준,요청자 확정,2026-08-11
+DEATH,사망,GRANDPARENT,조부모,3,PAID,N,2026-01-01,,사내 사망 경조휴가 기본 기준,요청자 확정,2026-08-11
+DEATH,사망,SIBLING,형제자매,1,PAID,N,2026-01-01,,사내 사망 경조휴가 기본 기준,요청자 확정,2026-08-11

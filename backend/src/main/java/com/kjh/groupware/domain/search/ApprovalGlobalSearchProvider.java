@@ -26,6 +26,9 @@ public class ApprovalGlobalSearchProvider implements GlobalSearchProvider {
     private final ApprovalDelegationService delegationService;
 
     @Override
+    public String code() { return "approvals"; }
+
+    @Override
     public int order() {
         return 10;
     }

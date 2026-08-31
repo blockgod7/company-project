@@ -2,17 +2,22 @@ package com.kjh.groupware.domain.approval;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kjh.groupware.domain.approval.dto.LeaveExclusionResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageSelectionResponse;
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.file.AttachFileRepository;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -30,6 +35,9 @@ public class ApprovalLeaveUsageService {
 
     static final String LEAVE_TEMPLATE_CODE = "LEAVE";
     static final String LEAVE_CANCEL_TEMPLATE_CODE = "LEAVE_CANCEL";
+    static final String LEAVE_CANCEL_FIELDS_JSON = """
+        [{"name":"startDate","label":"취소 시작일","type":"date","required":false,"systemManaged":true},{"name":"endDate","label":"취소 종료일","type":"date","required":false,"systemManaged":true},{"name":"days","label":"취소 일수","type":"number","required":false,"systemManaged":true},{"name":"annualLeaveDays","label":"복원 연차일수","type":"number","required":false,"systemManaged":true},{"name":"leaveType","label":"취소 구분","type":"text","required":false,"systemManaged":true},{"name":"leaveSelectionsJson","label":"원본 휴가별 취소 항목","type":"json","required":true}]
+        """.strip();
     private final ApprovalDocumentRepository documentRepository;
     private final CurrentEmpProvider currentEmpProvider;
     private final ObjectMapper objectMapper;
@@ -40,18 +48,28 @@ public class ApprovalLeaveUsageService {
     private final LeavePolicyService leavePolicyService;
     private final LeavePolicyOverrideService leavePolicyOverrideService;
     private final BereavementPolicyRepository bereavementPolicyRepository;
+    private final AttachFileRepository attachFileRepository;
 
     private static final Set<String> LEAVE_TYPES = Set.of(
         "연차", "하계휴가", "오전반차", "오후반차", "공가", "공가(오전)", "공가(오후)",
-        "경조", "대체휴무", "병가", "산재요양", "무급휴가", "특별유급휴가", "배우자 출산휴가",
-        "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "가족돌봄휴가", "육아휴직", "자녀돌봄휴가"
+        "경조", "대체휴무", "병가", "산재요양", "무급휴가", "배우자 출산휴가",
+        "출산전후휴가", "여성휴가", "유산·사산휴가", "난임치료휴가", "육아휴직", "조퇴", "공상"
     );
     private static final Set<String> CROSS_YEAR_TYPES = Set.of();
-    private static final Set<String> REASON_REQUIRED_TYPES = Set.of("공가", "공가(오전)", "공가(오후)", "무급휴가", "특별유급휴가");
+    private static final Set<String> REASON_REQUIRED_TYPES = Set.of("공가", "공가(오전)", "공가(오후)", "무급휴가", "공상");
 
     @Transactional(readOnly = true)
     public LeaveUsageResponse myUsage() {
-        return usageFor(currentEmpProvider.getCurrentEmp(), null, LocalDate.now().getYear());
+        return myUsage(null);
+    }
+
+    @Transactional(readOnly = true)
+    public LeaveUsageResponse myUsage(Integer requestedYear) {
+        int balanceYear = requestedYear == null ? LocalDate.now().getYear() : requestedYear;
+        if (balanceYear < 1900 || balanceYear > 2100) {
+            throw BusinessException.badRequest("LEAVE_YEAR_INVALID", "Leave balance year is invalid");
+        }
+        return usageFor(currentEmpProvider.getCurrentEmp(), null, balanceYear);
     }
 
     @Transactional(readOnly = true)
@@ -134,10 +152,13 @@ public class ApprovalLeaveUsageService {
             LocalDate firstDate = selections.stream().filter(item -> entry.getKey().equals(item.type()))
                 .map(item -> parseDate(item.date())).findFirst().orElse(LocalDate.now());
             LeavePolicy policy = leavePolicyService.resolve(entry.getKey(), firstDate);
-            if (policy != null && policy.getMaxDays() != null && entry.getValue().compareTo(policy.getMaxDays()) > 0) {
+            BigDecimal effectiveMaxDays = "배우자 출산휴가".equals(entry.getKey())
+                ? null
+                : policy == null ? null : policy.getMaxDays();
+            if (effectiveMaxDays != null && entry.getValue().compareTo(effectiveMaxDays) > 0) {
                 throw BusinessException.badRequest(
                     "LEAVE_POLICY_MAX_DAYS_EXCEEDED",
-                    entry.getKey() + "은 한 신청에서 최대 " + formatDay(policy.getMaxDays()) + "일까지 사용할 수 있습니다."
+                    entry.getKey() + "은 한 신청에서 최대 " + formatDay(effectiveMaxDays) + "일까지 사용할 수 있습니다."
                 );
             }
         }
@@ -150,6 +171,37 @@ public class ApprovalLeaveUsageService {
         if (selectedTypes.stream().anyMatch(REASON_REQUIRED_TYPES::contains)
             && fields.path("leaveReason").asText("").isBlank()) {
             throw BusinessException.badRequest("LEAVE_REASON_REQUIRED", "선택한 휴가의 구체적인 신청 사유를 입력해 주세요.");
+        }
+        if (selectedTypes.contains("조퇴")) {
+            String startTime = fields.path("earlyLeaveStartTime").asText("").trim();
+            try {
+                LocalTime.parse(startTime);
+            } catch (Exception ex) {
+                throw BusinessException.badRequest("EARLY_LEAVE_START_TIME_REQUIRED", "조퇴 시작 시간을 입력해 주세요.");
+            }
+            if (requester != null) {
+                String expectedPayType = "MANAGEMENT".equals(requester.getWorkCategory()) ? "관리직 · 유급" : "현장직 · 무급";
+                if (!expectedPayType.equals(fields.path("earlyLeavePayType").asText(""))) {
+                    throw BusinessException.badRequest("EARLY_LEAVE_PAY_TYPE_INVALID", "직원 직군에 맞는 조퇴 급여 구분을 다시 확인해 주세요.");
+                }
+            }
+        }
+        if (requester != null && selectedTypes.contains("무급휴가")) {
+            int year = selections.stream().filter(item -> "무급휴가".equals(item.type()))
+                .map(item -> parseDate(item.date()).getYear()).findFirst().orElse(LocalDate.now().getYear());
+            LeaveUsageResponse usage = usageFor(requester, null, year);
+            BigDecimal effectiveRemaining = new BigDecimal(usage.remainingAnnualDays())
+                .subtract(new BigDecimal(usage.reservedAnnualDays()));
+            if (effectiveRemaining.compareTo(BigDecimal.TEN) >= 0) {
+                throw BusinessException.badRequest(
+                    "UNPAID_LEAVE_ANNUAL_BALANCE_NOT_ELIGIBLE",
+                    "무급휴가는 결재 중 휴가를 반영한 잔여연차가 10일 미만일 때만 신청할 수 있습니다. 현재 "
+                        + formatDay(effectiveRemaining) + "일"
+                );
+            }
+        }
+        if (selectedTypes.contains("병가")) {
+            assertContinuousSickLeave(selections);
         }
         if ((selectedTypes.contains("배우자 출산휴가") || selectedTypes.contains("출산전후휴가"))
             && fields.path("expectedBirthDate").asText("").isBlank()
@@ -172,6 +224,53 @@ public class ApprovalLeaveUsageService {
                 ));
             if (BigDecimal.valueOf(dates.size()).compareTo(bereavement.getAllowedDays()) > 0) {
                 throw BusinessException.badRequest("BEREAVEMENT_DAYS_EXCEEDED", "경조휴가는 기준표상 최대 " + formatDay(bereavement.getAllowedDays()) + "일입니다.");
+            }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void assertRequiredEvidence(ApprovalDocument document, String formDataJson) {
+        List<LeaveUsageSelectionResponse> selections = selectionsFrom(formDataJson, null, null);
+        JsonNode fields = formFields(formDataJson);
+        boolean required = selections.stream().anyMatch(selection -> {
+            if (Set.of("병가", "난임치료휴가").contains(selection.type())) return true;
+            LeavePolicy policy = leavePolicyService.resolve(selection.type(), parseDate(selection.date()));
+            return policy != null && policy.isEvidenceRequired();
+        });
+        if (!required && selections.stream().anyMatch(selection -> "경조".equals(selection.type()))) {
+            String event = fields.path("familyEventType").asText("").trim();
+            String relation = fields.path("familyRelation").asText("").trim();
+            LocalDate date = selections.stream().filter(selection -> "경조".equals(selection.type()))
+                .map(selection -> parseDate(selection.date())).min(LocalDate::compareTo).orElse(LocalDate.now());
+            if (!event.isBlank() && !relation.isBlank()) {
+                required = bereavementPolicyRepository.findEffective(
+                    BereavementCatalog.normalizeEvent(event), BereavementCatalog.normalizeRelation(relation), date
+                ).stream().findFirst().map(BereavementPolicy::isEvidenceRequired).orElse(false);
+            }
+        }
+        if (required && !attachFileRepository.existsByTargetTypeAndTargetIdAndDeletedYn(
+            "APPROVAL_DOCUMENT", document.getApprovalId(), "N"
+        )) {
+            throw BusinessException.badRequest(
+                "LEAVE_EVIDENCE_ATTACHMENT_REQUIRED",
+                "선택한 휴가에 필요한 증빙서류를 첨부파일에 1개 이상 등록해 주세요. 첨부 여부만 확인합니다."
+            );
+        }
+    }
+
+    private void assertContinuousSickLeave(List<LeaveUsageSelectionResponse> selections) {
+        List<LocalDate> sickDates = selections.stream().filter(item -> "병가".equals(item.type()))
+            .map(item -> parseDate(item.date())).distinct().sorted().toList();
+        if (sickDates.isEmpty()) return;
+        LocalDate first = sickDates.getFirst();
+        LocalDate last = sickDates.getLast();
+        if (ChronoUnit.DAYS.between(first, last) + 1 < 14) {
+            throw BusinessException.badRequest("SICK_LEAVE_MINIMUM_PERIOD", "병가는 달력 기준 연속 14일 이상 신청해야 합니다.");
+        }
+        Set<LocalDate> selected = new HashSet<>(sickDates);
+        for (LocalDate date = first; !date.isAfter(last); date = date.plusDays(1)) {
+            if (!isNonWorkingDay(date) && !selected.contains(date)) {
+                throw BusinessException.badRequest("SICK_LEAVE_NOT_CONTINUOUS", "병가 기간 안의 모든 근무일을 연속으로 선택해 주세요.");
             }
         }
     }
@@ -207,7 +306,7 @@ public class ApprovalLeaveUsageService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void assertLeaveCancelTargetsApproved(ApprovalDocument document) {
         if (!LEAVE_CANCEL_TEMPLATE_CODE.equals(document.getTemplateCode())) {
             return;
@@ -215,23 +314,183 @@ public class ApprovalLeaveUsageService {
         assertLeaveCancelTargetsApproved(document.getRequester(), document.getApprovalId(), document.getFormDataJson());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void assertLeaveCancelTargetsApproved(Emp requester, Long excludeApprovalId, String formDataJson) {
-        LeaveUsageResponse usage = usageFor(requester, excludeApprovalId, LocalDate.now().getYear());
-        Set<String> approvedDates = new HashSet<>();
-        usage.selections().forEach(selection -> approvedDates.add(selectionKey(selection)));
-        List<LeaveUsageSelectionResponse> cancelSelections = selectionsFrom(formDataJson, null, null);
+        List<LeaveUsageSelectionResponse> cancelSelections = selectionsFrom(formDataJson, null, null, true);
         if (cancelSelections.isEmpty()) {
-            throw BusinessException.badRequest("LEAVE_CANCEL_DATE_REQUIRED", "Leave cancel date is required");
+            throw BusinessException.badRequest("LEAVE_CANCEL_DATE_REQUIRED", "취소할 휴가 날짜를 한 개 이상 선택해 주세요.");
         }
+        if (cancelSelections.stream().anyMatch(selection -> selection.approvalId() == null)) {
+            throw BusinessException.badRequest(
+                "LEAVE_CANCEL_SOURCE_REQUIRED",
+                "휴가 취소계에는 각 취소 항목의 원본 휴가 문서가 필요합니다. 승인된 휴가에서 다시 선택해 주세요."
+            );
+        }
+        Set<String> requestTargets = new HashSet<>();
+        Set<Integer> requestYears = new HashSet<>();
         for (LeaveUsageSelectionResponse selection : cancelSelections) {
-            if (!approvedDates.contains(selectionKey(selection))) {
+            requestYears.add(parseDate(selection.date()).getYear());
+            if (!requestTargets.add(targetSelectionKey(selection))) {
+                throw BusinessException.badRequest(
+                    "LEAVE_CANCEL_TARGET_DUPLICATED",
+                    selection.date() + " " + selection.type() + " 취소 항목이 중복되었습니다."
+                );
+            }
+        }
+        if (requestYears.size() > 1) {
+            throw BusinessException.badRequest(
+                "LEAVE_CANCEL_YEAR_MIXED",
+                "한 휴가 취소계에는 같은 연도의 휴가만 선택할 수 있습니다."
+            );
+        }
+        lockReferencedLeaveDocuments(requester, cancelSelections);
+        LeaveUsageResponse usage = usageFor(requester, excludeApprovalId, requestYears.iterator().next());
+        Set<String> approvedTargets = usage.selections().stream()
+            .map(this::targetSelectionKey)
+            .collect(java.util.stream.Collectors.toSet());
+        Set<String> approvedLegacyTargets = usage.selections().stream()
+            .map(this::selectionKey)
+            .collect(java.util.stream.Collectors.toSet());
+        Set<String> pendingTargets = usage.pendingCancelSelections().stream()
+            .map(this::targetSelectionKey)
+            .collect(java.util.stream.Collectors.toSet());
+        Set<String> pendingLegacyTargets = usage.pendingCancelSelections().stream()
+            .map(this::selectionKey)
+            .collect(java.util.stream.Collectors.toSet());
+        for (LeaveUsageSelectionResponse selection : cancelSelections) {
+            boolean referenced = selection.approvalId() != null;
+            boolean alreadyPending = referenced
+                ? pendingTargets.contains(targetSelectionKey(selection))
+                    || pendingLegacyTargets.contains(selectionKey(selection))
+                : pendingLegacyTargets.contains(selectionKey(selection));
+            if (alreadyPending) {
+                throw BusinessException.badRequest(
+                    "LEAVE_CANCEL_ALREADY_PENDING",
+                    selection.date() + " already has a leave cancellation in progress"
+                );
+            }
+            boolean approved = referenced
+                ? approvedTargets.contains(targetSelectionKey(selection))
+                : approvedLegacyTargets.contains(selectionKey(selection));
+            if (!approved) {
                 throw BusinessException.badRequest(
                     "LEAVE_CANCEL_DATE_NOT_APPROVED",
                     selection.date() + " is not an approved leave date"
                 );
             }
         }
+    }
+
+    @Transactional(readOnly = true)
+    public String normalizeLeaveFormData(
+        Emp requester,
+        Long excludeApprovalId,
+        String templateCode,
+        String formDataJson
+    ) {
+        boolean cancellation = LEAVE_CANCEL_TEMPLATE_CODE.equals(templateCode);
+        if (!cancellation && !LEAVE_TEMPLATE_CODE.equals(templateCode)) {
+            return formDataJson;
+        }
+        JsonNode parsed;
+        try {
+            parsed = formDataJson == null || formDataJson.isBlank()
+                ? objectMapper.createObjectNode()
+                : objectMapper.readTree(formDataJson);
+        } catch (Exception ex) {
+            throw BusinessException.badRequest("APPROVAL_FORM_DATA_INVALID", "휴가 신청 항목 형식을 확인해 주세요.");
+        }
+        ObjectNode root = parsed != null && parsed.isObject()
+            ? (ObjectNode) parsed.deepCopy()
+            : objectMapper.createObjectNode();
+        ObjectNode fields = root.path("fields").isObject()
+            ? (ObjectNode) root.path("fields")
+            : root.putObject("fields");
+        List<LeaveUsageSelectionResponse> selections = selectionsFrom(formDataJson, null, null, cancellation).stream()
+            .sorted(java.util.Comparator.comparing(LeaveUsageSelectionResponse::date)
+                .thenComparing(LeaveUsageSelectionResponse::type))
+            .toList();
+        if (selections.isEmpty()) {
+            return root.toString();
+        }
+
+        int balanceYear = parseDate(selections.getFirst().date()).getYear();
+        LeaveUsageResponse usage = usageFor(requester, excludeApprovalId, balanceYear);
+        BigDecimal annualDays = selections.stream()
+            .map(selection -> daysFor(selection.type(), parseDate(selection.date())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal absenceDays = selections.stream()
+            .map(selection -> absenceDaysFor(selection.type()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal currentRemaining = new BigDecimal(usage.remainingAnnualDays());
+        BigDecimal resultingRemaining = cancellation
+            ? currentRemaining.add(annualDays)
+            : currentRemaining.subtract(annualDays);
+
+        ArrayNode normalizedSelections = objectMapper.createArrayNode();
+        for (LeaveUsageSelectionResponse selection : selections) {
+            ObjectNode item = normalizedSelections.addObject();
+            item.put("date", selection.date());
+            item.put("type", selection.type());
+            item.put("days", formatDay(daysFor(selection.type(), parseDate(selection.date()))));
+            if (cancellation) {
+                ApprovalDocument source = documentRepository.findById(selection.approvalId())
+                    .orElseThrow(() -> BusinessException.badRequest(
+                        "LEAVE_CANCEL_SOURCE_NOT_FOUND", "원본 휴가 문서를 찾을 수 없습니다."
+                    ));
+                item.put("sourceApprovalId", source.getApprovalId());
+                item.put("sourceDocumentNo", source.getDocumentNo());
+            }
+        }
+        String startDate = selections.stream().map(LeaveUsageSelectionResponse::date).min(String::compareTo).orElse("");
+        String endDate = selections.stream().map(LeaveUsageSelectionResponse::date).max(String::compareTo).orElse("");
+        String leaveSummary = selections.stream()
+            .map(selection -> selection.date().substring(5).replace('-', '/') + " " + selection.type())
+            .distinct()
+            .collect(java.util.stream.Collectors.joining(", "));
+        fields.put("startDate", startDate);
+        fields.put("endDate", endDate);
+        fields.put("days", formatDay(absenceDays));
+        fields.put("annualLeaveDays", formatDay(annualDays));
+        fields.put("usedAnnualDays", usage.usedAnnualDays());
+        fields.put("totalAnnualDays", usage.totalAnnualDays());
+        fields.put("remainingAnnualDays", formatDay(resultingRemaining));
+        fields.put("leaveType", leaveSummary);
+        fields.put("leaveSelectionsJson", normalizedSelections.toString());
+        return root.toString();
+    }
+
+    private void lockReferencedLeaveDocuments(Emp requester, List<LeaveUsageSelectionResponse> selections) {
+        selections.stream()
+            .map(LeaveUsageSelectionResponse::approvalId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .sorted()
+            .forEach(approvalId -> {
+                ApprovalDocument source = documentRepository.findByIdForUpdate(approvalId)
+                    .orElseThrow(() -> BusinessException.badRequest(
+                        "LEAVE_CANCEL_SOURCE_NOT_FOUND", "The original leave document was not found"
+                    ));
+                if (!source.getRequester().getEmpId().equals(requester.getEmpId())
+                    || !LEAVE_TEMPLATE_CODE.equals(source.getTemplateCode())
+                    || !ApprovalDocument.STATUS_APPROVED.equals(source.getStatus())
+                    || "Y".equals(source.getDeletedYn())) {
+                    throw BusinessException.badRequest(
+                        "LEAVE_CANCEL_SOURCE_INVALID", "The original leave document cannot be canceled"
+                    );
+                }
+                Set<String> sourceSelections = selectionsFor(source).stream()
+                    .map(this::selectionKey)
+                    .collect(java.util.stream.Collectors.toSet());
+                boolean matches = selections.stream()
+                    .filter(selection -> approvalId.equals(selection.approvalId()))
+                    .allMatch(selection -> sourceSelections.contains(selectionKey(selection)));
+                if (!matches) {
+                    throw BusinessException.badRequest(
+                        "LEAVE_CANCEL_SOURCE_MISMATCH", "The selected leave date does not match the original document"
+                    );
+                }
+            });
     }
 
     @Transactional(readOnly = true)
@@ -314,7 +573,9 @@ public class ApprovalLeaveUsageService {
             .map(selection -> parseDate(selection.date()))
             .filter(date -> !date.isBefore(eventEarliest) && !date.isAfter(latest))
             .toList();
+        boolean multipleBirth = "Y".equalsIgnoreCase(fields.path("multipleBirthYn").asText("N"));
         BigDecimal maxDays = policyOverride != null ? policyOverride.getOverrideMaxDays()
+            : multipleBirth ? new BigDecimal("25")
             : policy != null && policy.getMaxDays() != null ? policy.getMaxDays() : new BigDecimal("20");
         if (BigDecimal.valueOf(occupiedDates.size() + requested.size()).compareTo(maxDays) > 0) {
             throw BusinessException.badRequest(
@@ -388,14 +649,32 @@ public class ApprovalLeaveUsageService {
             LEAVE_CANCEL_TEMPLATE_CODE,
             ApprovalDocument.STATUS_APPROVED
         );
-        Set<String> canceledSelections = new HashSet<>();
+        List<ApprovalDocument> pendingCancelDocuments = documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatusIn(
+            requester,
+            "N",
+            LEAVE_CANCEL_TEMPLATE_CODE,
+            List.of(ApprovalDocument.STATUS_IN_PROGRESS)
+        );
+        Set<String> canceledTargetSelections = new HashSet<>();
+        Set<String> legacyCanceledSelections = new HashSet<>();
         for (ApprovalDocument document : cancelDocuments) {
             if (excludeApprovalId != null && excludeApprovalId.equals(document.getApprovalId())) {
                 continue;
             }
             for (LeaveUsageSelectionResponse selection : selectionsFor(document)) {
-                canceledSelections.add(selectionKey(selection));
+                if (selection.approvalId() == null) {
+                    legacyCanceledSelections.add(selectionKey(selection));
+                } else {
+                    canceledTargetSelections.add(targetSelectionKey(selection));
+                }
             }
+        }
+        List<LeaveUsageSelectionResponse> pendingCancelSelections = new ArrayList<>();
+        for (ApprovalDocument document : pendingCancelDocuments) {
+            if (excludeApprovalId != null && excludeApprovalId.equals(document.getApprovalId())) {
+                continue;
+            }
+            pendingCancelSelections.addAll(selectionsFor(document));
         }
         List<LeaveExclusionResponse> exclusions = exclusionRepository.findByDocumentRequesterOrderByLeaveDateAsc(requester)
             .stream()
@@ -422,7 +701,8 @@ public class ApprovalLeaveUsageService {
                 if (excludedDates.contains(document.getApprovalId() + "|" + selection.date())) {
                     continue;
                 }
-                if (canceledSelections.contains(selectionKey(selection))) {
+                if (canceledTargetSelections.contains(targetSelectionKey(document.getApprovalId(), selection))
+                    || legacyCanceledSelections.contains(selectionKey(selection))) {
                     continue;
                 }
                 selections.add(selection);
@@ -459,19 +739,35 @@ public class ApprovalLeaveUsageService {
             formatDay(remainingAnnualDays),
             selections,
             occupiedSelections,
-            exclusions
+            exclusions,
+            balanceYear,
+            pendingCancelSelections
         );
     }
 
     List<LeaveUsageSelectionResponse> selectionsFor(ApprovalDocument document) {
-        return selectionsFrom(document.getFormDataJson(), document.getApprovalId(), document.getDocumentNo());
+        return selectionsFrom(
+            document.getFormDataJson(),
+            document.getApprovalId(),
+            document.getDocumentNo(),
+            LEAVE_CANCEL_TEMPLATE_CODE.equals(document.getTemplateCode())
+        );
     }
 
     private List<LeaveUsageSelectionResponse> selectionsFrom(String formDataJson, Long approvalId, String documentNo) {
+        return selectionsFrom(formDataJson, approvalId, documentNo, false);
+    }
+
+    private List<LeaveUsageSelectionResponse> selectionsFrom(
+        String formDataJson,
+        Long approvalId,
+        String documentNo,
+        boolean sourceReferences
+    ) {
         JsonNode fields = formFields(formDataJson);
         JsonNode rawSelections = fields.path("leaveSelectionsJson");
         if (rawSelections.isMissingNode() || rawSelections.asText("").isBlank()) {
-            return fallbackSelection(approvalId, documentNo, fields);
+            return fallbackSelection(sourceReferences ? null : approvalId, sourceReferences ? null : documentNo, fields);
         }
         try {
             JsonNode parsed = objectMapper.readTree(rawSelections.asText());
@@ -485,18 +781,31 @@ public class ApprovalLeaveUsageService {
                     continue;
                 }
                 String type = normalizedType(node.path("type").asText("연차"));
+                Long resolvedApprovalId = sourceReferences ? positiveLong(node.path("sourceApprovalId")) : approvalId;
+                String sourceDocumentNo = node.path("sourceDocumentNo").asText("").trim();
+                String resolvedDocumentNo = sourceReferences
+                    ? (sourceDocumentNo.isBlank() ? null : sourceDocumentNo)
+                    : documentNo;
                 selections.add(new LeaveUsageSelectionResponse(
                     date,
                     type,
                     formatDay(daysFor(type, parseDate(date))),
-                    approvalId,
-                    documentNo
+                    resolvedApprovalId,
+                    resolvedDocumentNo
                 ));
             }
             return selections;
         } catch (Exception ex) {
             return List.of();
         }
+    }
+
+    private Long positiveLong(JsonNode node) {
+        if (node == null || !node.canConvertToLong()) {
+            return null;
+        }
+        long value = node.asLong();
+        return value > 0 ? value : null;
     }
 
     private List<LeaveUsageSelectionResponse> fallbackSelection(Long approvalId, String documentNo, JsonNode fields) {
@@ -548,6 +857,12 @@ public class ApprovalLeaveUsageService {
         return BigDecimal.ZERO;
     }
 
+    private BigDecimal absenceDaysFor(String type) {
+        return Set.of("오전반차", "오후반차", "공가(오전)", "공가(오후)").contains(type)
+            ? new BigDecimal("0.5")
+            : BigDecimal.ONE;
+    }
+
     private boolean overlaps(String existingType, String requestedType) {
         String existingSlot = slotFor(existingType);
         String requestedSlot = slotFor(requestedType);
@@ -556,6 +871,14 @@ public class ApprovalLeaveUsageService {
 
     private String selectionKey(LeaveUsageSelectionResponse selection) {
         return selection.date() + "|" + selection.type();
+    }
+
+    private String targetSelectionKey(LeaveUsageSelectionResponse selection) {
+        return targetSelectionKey(selection.approvalId(), selection);
+    }
+
+    private String targetSelectionKey(Long approvalId, LeaveUsageSelectionResponse selection) {
+        return (approvalId == null ? "legacy" : approvalId) + "|" + selectionKey(selection);
     }
 
     private String slotFor(String type) {

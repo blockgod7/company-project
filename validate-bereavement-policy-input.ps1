@@ -33,7 +33,7 @@ for ($index = 0; $index -lt $rows.Count; $index++) {
         -or -not [string]::IsNullOrWhiteSpace($row.effective_from)
     if (-not $isPolicyEntered) { continue }
 
-    $days = 0m
+    $days = [decimal]0
     if (-not [decimal]::TryParse($row.allowed_days, [ref]$days) -or $days -lt [decimal]0.5) {
         $errors.Add("line ${line}: allowed_days must be at least 0.5")
     }

@@ -19,7 +19,7 @@ VALUES
      '[{"name":"category","label":"품의 구분","type":"select","options":["예산","구매","계약","수리","기타"]},{"name":"amount","label":"예상 금액","type":"number"},{"name":"vendor","label":"거래처/대상","type":"text"},{"name":"reason","label":"품의 사유","type":"textarea"},{"name":"alternatives","label":"검토 내용","type":"textarea"},{"name":"schedule","label":"진행 일정","type":"text"}]',
      '{"sections":["meta","fields","approvalLines","signatures"]}', 'N', 90),
     ('LEAVE', '휴가계', 1, '연차, 반차, 교육, 병가 등 근태 신청',
-     '[{"name":"leaveType","label":"휴가 구분","type":"select","options":["연차","하계휴가","오전반차","오후반차","공가","공가(오전)","공가(오후)","경조","산휴","출장","외근","기타","대체휴무","병가","교육","휴무","육아휴직","자녀돌봄휴가"]},{"name":"startDate","label":"시작일","type":"date"},{"name":"endDate","label":"종료일","type":"date"},{"name":"days","label":"사용 일수","type":"number"},{"name":"contact","label":"비상 연락처","type":"text"},{"name":"reason","label":"신청 사유","type":"textarea"},{"name":"handover","label":"업무 인수인계","type":"textarea"}]',
+     '[{"name":"leaveType","label":"휴가 구분","type":"select","options":["연차","오전반차","오후반차","하계휴가","공가","공가(오전)","공가(오후)","경조","산휴","출장","외근","기타","대체휴무","병가","교육","휴무","육아휴직"]},{"name":"startDate","label":"시작일","type":"date"},{"name":"endDate","label":"종료일","type":"date"},{"name":"days","label":"사용 일수","type":"number"},{"name":"contact","label":"비상 연락처","type":"text"},{"name":"reason","label":"신청 사유","type":"textarea"},{"name":"handover","label":"업무 인수인계","type":"textarea"}]',
      '{"sections":["meta","fields","approvalLines","signatures"]}', 'Y', 30),
     ('PURCHASE', '구매요구서', 1, '구매 품목, 요구일, BU 비용분할을 작성하는 구매요구서',
      '[{"name":"requiredDate","label":"요구일","type":"date","required":true},{"name":"purchaseItemsJson","label":"품목 내역","type":"table","required":true},{"name":"buSplit","label":"BU 비용분할","type":"percent-split","required":true},{"name":"deliveryDate","label":"입고일","type":"date"}]',
@@ -184,15 +184,30 @@ AND NOT EXISTS (
       AND er.use_yn = 'Y'
 );
 
-INSERT INTO menu (menu_name, menu_path, parent_menu_id, sort_order)
+INSERT INTO menu (menu_code, menu_name, menu_path, parent_menu_id, sort_order, portal_code, icon_key, implementation_status, required_permission_code, searchable_yn, use_yn)
 VALUES
-    ('대시보드', '/', NULL, 1),
-    ('공지사항', '/notices', NULL, 2),
-    ('게시판', '/boards', NULL, 3),
-    ('조직도', '/organization', NULL, 4),
-    ('알림', '/notifications', NULL, 5),
-    ('감사 로그', '/admin/audit-logs', NULL, 99)
-ON CONFLICT DO NOTHING;
+    ('EMPLOYEE_HOME', '홈', '/portal/employee/home', NULL, 1, 'EMPLOYEE', 'home', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('NOTICES', '공지사항', '/portal/employee/notices', NULL, 2, 'EMPLOYEE', 'book-open', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('BOARDS', '게시판', '/portal/employee/boards', NULL, 3, 'EMPLOYEE', 'message-square', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('APPROVALS', '전자결재', '/portal/employee/approvals', NULL, 4, 'EMPLOYEE', 'clipboard-check', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('PDM', '도면관리', '/planned-features/PDM', NULL, 5, 'EMPLOYEE', 'folder-kanban', 'PLANNED', NULL, 'Y', 'Y'),
+    ('EQUIPMENT', '설비관리', '/planned-features/EQUIPMENT', NULL, 6, 'EMPLOYEE', 'wrench', 'PLANNED', NULL, 'Y', 'Y'),
+    ('ORGANIZATION', '조직도', '/portal/employee/organization', NULL, 7, 'EMPLOYEE', 'building-2', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('NOTIFICATIONS', '알림', '/portal/employee/notifications', NULL, 8, 'EMPLOYEE', 'bell', 'IMPLEMENTED', NULL, 'Y', 'Y'),
+    ('ADMIN_HOME', '관리 홈', '/portal/admin/home', NULL, 1, 'ADMIN', 'shield', 'IMPLEMENTED', 'ADMIN_PORTAL', 'Y', 'Y'),
+    ('APPROVAL_ADMIN', '전자결재 관리', '/portal/admin/approvals', NULL, 2, 'ADMIN', 'clipboard-check', 'IMPLEMENTED', 'APPROVAL_MANAGE', 'Y', 'Y'),
+    ('EMPLOYEES', '직원 관리', '/portal/admin/employees', NULL, 3, 'ADMIN', 'user-cog', 'IMPLEMENTED', 'EMPLOYEE_MANAGE', 'Y', 'Y'),
+    ('AUDIT_LOGS', '감사 로그', '/portal/admin/audit-logs', NULL, 4, 'ADMIN', 'scroll-text', 'IMPLEMENTED', 'SYSTEM_ADMIN', 'Y', 'Y')
+ON CONFLICT (menu_code) DO UPDATE SET
+    menu_name = EXCLUDED.menu_name,
+    menu_path = EXCLUDED.menu_path,
+    sort_order = EXCLUDED.sort_order,
+    portal_code = EXCLUDED.portal_code,
+    icon_key = EXCLUDED.icon_key,
+    implementation_status = EXCLUDED.implementation_status,
+    required_permission_code = EXCLUDED.required_permission_code,
+    searchable_yn = EXCLUDED.searchable_yn,
+    use_yn = EXCLUDED.use_yn;
 
 INSERT INTO board (board_code, board_name, dept_id, use_yn, created_by)
 VALUES

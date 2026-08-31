@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Set;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,6 +25,8 @@ import lombok.NoArgsConstructor;
 public class Emp extends BaseEntity {
 
     private static final int MAX_LOGIN_FAIL_COUNT = 5;
+    private static final Set<String> MANAGEMENT_POSITIONS = Set.of("기원", "기장", "대리", "과장", "차장", "부장");
+    private static final Set<String> FIELD_POSITIONS = Set.of("조장", "반장");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,6 +50,9 @@ public class Emp extends BaseEntity {
 
     @Column(name = "phone", length = 50)
     private String phone;
+
+    @Column(name = "extension_number", length = 20)
+    private String extensionNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dept_id")
@@ -76,6 +82,15 @@ public class Emp extends BaseEntity {
 
     @Column(name = "employment_type", nullable = false, length = 20)
     private String employmentType;
+
+    @Column(name = "work_category", nullable = false, length = 20)
+    private String workCategory;
+
+    @Column(name = "shift_type", length = 20)
+    private String shiftType;
+
+    @Column(name = "shift_anchor_date")
+    private LocalDate shiftAnchorDate;
 
     @Column(name = "contract_start_date")
     private LocalDate contractStartDate;
@@ -150,6 +165,7 @@ public class Emp extends BaseEntity {
         String genderCode,
         String email,
         String phone,
+        String extensionNumber,
         Dept dept,
         String positionName,
         String jobTitle,
@@ -165,6 +181,7 @@ public class Emp extends BaseEntity {
         emp.genderCode = genderCode;
         emp.email = email;
         emp.phone = phone;
+        emp.extensionNumber = extensionNumber;
         emp.dept = dept;
         emp.positionName = positionName;
         emp.jobTitle = jobTitle;
@@ -172,6 +189,7 @@ public class Emp extends BaseEntity {
         emp.roleCode = "USER";
         emp.hireDate = hireDate;
         emp.employmentType = employmentType;
+        emp.workCategory = workCategoryForPosition(positionName, "FIELD");
         emp.contractStartDate = contractStartDate;
         emp.contractEndDate = contractEndDate;
         emp.status = "ACTIVE";
@@ -188,6 +206,7 @@ public class Emp extends BaseEntity {
         String genderCode,
         String email,
         String phone,
+        String extensionNumber,
         Dept dept,
         String positionName,
         String jobTitle,
@@ -201,14 +220,37 @@ public class Emp extends BaseEntity {
         this.genderCode = genderCode;
         this.email = email;
         this.phone = phone;
+        this.extensionNumber = extensionNumber;
         this.dept = dept;
         this.positionName = positionName;
+        this.workCategory = workCategoryForPosition(positionName, this.workCategory);
         this.jobTitle = jobTitle;
         this.manager = manager;
         this.hireDate = hireDate;
         this.employmentType = employmentType;
         this.contractStartDate = contractStartDate;
         this.contractEndDate = contractEndDate;
+    }
+
+    public void updateWorkCategory(String workCategory) {
+        this.workCategory = workCategory;
+    }
+
+    public void updateShift(String shiftType, LocalDate shiftAnchorDate) {
+        this.shiftType = shiftType;
+        this.shiftAnchorDate = "A".equals(shiftType) || "B".equals(shiftType) ? shiftAnchorDate : null;
+    }
+
+    public void updateGender(String genderCode) {
+        this.genderCode = genderCode;
+    }
+
+    private static String workCategoryForPosition(String positionName, String currentWorkCategory) {
+        if (positionName == null) return currentWorkCategory;
+        String normalized = positionName.trim();
+        if (MANAGEMENT_POSITIONS.contains(normalized) || normalized.endsWith("이사")) return "MANAGEMENT";
+        if (FIELD_POSITIONS.contains(normalized)) return "FIELD";
+        return currentWorkCategory;
     }
 
     public void markLeave() {

@@ -19,6 +19,7 @@ public class ApprovalOperationSetting extends BaseEntity {
     public static final String KEY_REMINDER_FIXED_DELAY_MS = "REMINDER_FIXED_DELAY_MS";
     public static final String KEY_DELETED_DOCUMENT_RETENTION_DAYS = "DELETED_DOCUMENT_RETENTION_DAYS";
     public static final String KEY_PERMANENT_DELETE_ENABLED = "PERMANENT_DELETE_ENABLED";
+    public static final String KEY_LEAVE_DEFAULT_RECEIVER_EMP_ID = "LEAVE_DEFAULT_RECEIVER_EMP_ID";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 100)

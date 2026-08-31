@@ -3,7 +3,6 @@ package com.kjh.groupware.domain.approval;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kjh.groupware.domain.approval.dto.CompTimeCreditResponse;
 import com.kjh.groupware.domain.approval.dto.CompTimeExpiryRequest;
-import com.kjh.groupware.domain.approval.dto.CompTimeGrantRequest;
 import com.kjh.groupware.domain.approval.dto.CompTimeSummaryResponse;
 import com.kjh.groupware.domain.approval.dto.LeaveUsageSelectionResponse;
 import com.kjh.groupware.domain.emp.Emp;
@@ -16,10 +15,10 @@ import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import com.kjh.groupware.domain.work.WorkRequestEntry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -30,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompTimeLedgerService {
     public static final String LEAVE_TYPE = "대체휴무";
     private static final BigDecimal ONE_DAY = BigDecimal.ONE;
+    private static final int COMP_TIME_MINIMUM_MINUTES = 240;
 
     private final CompTimeCreditRepository creditRepository;
     private final CompTimeAllocationRepository allocationRepository;
@@ -54,31 +54,23 @@ public class CompTimeLedgerService {
     }
 
     @Transactional
-    public CompTimeCreditResponse grant(CompTimeGrantRequest request, String ipAddress, String userAgent) {
-        Emp manager = requireManager();
-        Emp emp = requireEmpForUpdate(request.empId());
-        LocalDate today = LocalDate.now();
-        if (request.workDate().isAfter(today)) {
-            throw BusinessException.badRequest("COMP_TIME_WORK_DATE_FUTURE", "대체휴무 근무일은 오늘 이후일 수 없습니다.");
-        }
-        if (creditRepository.existsByEmpEmpIdAndWorkDate(emp.getEmpId(), request.workDate())) {
-            throw BusinessException.badRequest("COMP_TIME_WORK_DATE_DUPLICATED", "같은 근무일에는 대체휴무를 한 번만 적립할 수 있습니다.");
-        }
-        LocalDate expiresOn = request.expiresOn() == null
-            ? YearMonth.from(request.workDate()).plusMonths(1).atEndOfMonth()
-            : request.expiresOn();
-        if (expiresOn.isBefore(today) || expiresOn.isBefore(request.workDate())) {
-            throw BusinessException.badRequest("COMP_TIME_EXPIRY_INVALID", "만료일은 근무일과 오늘보다 빠를 수 없습니다.");
-        }
-        CompTimeCredit credit = creditRepository.saveAndFlush(new CompTimeCredit(
-            emp, request.workDate(), request.grantedDays(), request.reason().trim(), manager, expiresOn
-        ));
-        notificationService.notifyEmp(
-            emp.getEmpId(), "대체휴무 적립", request.workDate() + " 근무분 " + day(request.grantedDays())
-                + "일이 적립되었습니다. 만료일: " + expiresOn, "COMP_TIME", credit.getCreditId()
-        );
-        audit(manager, AuditActionType.CREATE, credit, null, request.reason().trim(), ipAddress, userAgent);
-        return CompTimeCreditResponse.from(credit, today);
+    public void grantFromCompletedWork(WorkRequestEntry entry) {
+        if (!WorkRequestEntry.COMPLETED.equals(entry.getStatus()) || !"Y".equals(entry.getCompTimeYn()) || entry.getWorkMinutes() == null
+            || entry.getWorkMinutes() < COMP_TIME_MINIMUM_MINUTES) return;
+        // Serialize credits for the same employee before checking the existing daily limit.
+        empRepository.findByIdForUpdate(entry.getEmp().getEmpId())
+            .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
+        if (creditRepository.existsBySourceWorkEntryWorkEntryId(entry.getWorkEntryId())) return;
+        if (creditRepository.existsByEmpEmpIdAndWorkDate(entry.getEmp().getEmpId(), entry.getWorkDate())) return;
+        BigDecimal days = ONE_DAY;
+        LocalDate expiry = entry.getWorkDate().getMonthValue() == 12 && entry.getWorkDate().getDayOfMonth() >= 15
+            ? LocalDate.of(entry.getWorkDate().getYear() + 1, 1, 31)
+            : LocalDate.of(entry.getWorkDate().getYear(), 12, 31);
+        CompTimeCredit credit = creditRepository.save(new CompTimeCredit(entry.getEmp(), entry.getWorkDate(), days,
+            "승인 근무신청 자동 적립", entry.getRequester(), expiry, entry));
+        notificationService.notifyEmp(entry.getEmp().getEmpId(), "대체휴무 적립",
+            entry.getWorkDate() + " 근무분 " + day(days) + "일이 자동 적립되었습니다. 만료일: " + expiry,
+            "COMP_TIME", credit.getCreditId());
     }
 
     @Transactional
@@ -88,6 +80,12 @@ public class CompTimeLedgerService {
             .orElseThrow(() -> BusinessException.notFound("COMP_TIME_CREDIT_NOT_FOUND", "대체휴무 적립 내역을 찾을 수 없습니다."));
         if (!request.expiresOn().isAfter(credit.getExpiresOn())) {
             throw BusinessException.badRequest("COMP_TIME_EXPIRY_NOT_EXTENDED", "새 만료일은 기존 만료일보다 늦어야 합니다.");
+        }
+        LocalDate maximumExpiry = credit.getWorkDate().getMonthValue() == 12 && credit.getWorkDate().getDayOfMonth() >= 15
+            ? LocalDate.of(credit.getWorkDate().getYear() + 1, 1, 31)
+            : LocalDate.of(credit.getWorkDate().getYear(), 12, 31);
+        if (request.expiresOn().isAfter(maximumExpiry)) {
+            throw BusinessException.badRequest("COMP_TIME_EXPIRY_LIMIT", "대체휴무 만료일은 적용 가능한 최종 사용기한을 넘길 수 없습니다.");
         }
         LocalDate before = credit.getExpiresOn();
         credit.extendExpiry(request.expiresOn());
@@ -255,7 +253,8 @@ public class CompTimeLedgerService {
             List<CompTimeAllocation> allocations = allocationRepository
                 .findByApprovalRequesterEmpIdAndLeaveDateAndStatusOrderByAllocationIdAsc(
                     cancelDocument.getRequester().getEmpId(), leaveDate, CompTimeAllocation.USED
-                );
+                ).stream().filter(allocation -> selection.approvalId() == null
+                    || selection.approvalId().equals(allocation.getApproval().getApprovalId())).toList();
             allocations.forEach(allocation -> allocation.restore(cancelDocument, reason));
             restored.addAll(allocations);
         }
@@ -291,11 +290,6 @@ public class CompTimeLedgerService {
 
     private Emp requireEmp(Long empId) {
         return empRepository.findById(empId)
-            .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
-    }
-
-    private Emp requireEmpForUpdate(Long empId) {
-        return empRepository.findByIdForUpdate(empId)
             .orElseThrow(() -> BusinessException.notFound("EMP_NOT_FOUND", "직원을 찾을 수 없습니다."));
     }
 

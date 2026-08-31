@@ -124,6 +124,21 @@ $currentPatchFiles = @(
     ,"annual_leave_management_patch.sql"
     ,"approval_holiday_management_patch.sql"
     ,"leave_management_expansion_patch.sql"
+    ,"leave_authority_policy_202608_patch.sql"
+    ,"employee_work_category_202608_patch.sql"
+    ,"approval_leave_cancel_template_patch.sql"
+    ,"approval_leave_cancel_source_backfill_patch.sql"
+    ,"portal_menu_personalization_202608_patch.sql"
+    ,"employee_contact_extension_202608_patch.sql"
+    ,"annual_leave_calculation_revision_202608_patch.sql"
+    ,"contract_employee_terms_202608_patch.sql"
+    ,"work_request_management_202608_patch.sql"
+    ,"work_request_type_20260831_patch.sql"
+) | ForEach-Object { Join-Path $schemaDir $_ }
+
+$postSeedPatchFiles = @(
+    "approval_leave_default_receiver_setting_patch.sql",
+    "employee_affiliation_20260821_patch.sql"
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 
 if ($Recreate) {
@@ -161,6 +176,10 @@ END
 
 if (-not $SkipSeed) {
     Invoke-PsqlFile -Database $DbName -User $DbUser -Password $DbPassword -File $seedFile
+}
+
+foreach ($file in $postSeedPatchFiles) {
+    Invoke-PsqlFile -Database $DbName -User $DbUser -Password $DbPassword -File $file
 }
 
 Write-Host "Local PostgreSQL setup completed."

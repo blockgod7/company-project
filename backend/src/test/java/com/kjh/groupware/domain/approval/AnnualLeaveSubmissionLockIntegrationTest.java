@@ -49,7 +49,8 @@ class AnnualLeaveSubmissionLockIntegrationTest {
             mock(com.kjh.groupware.global.security.CurrentEmpProvider.class),
             mock(com.kjh.groupware.domain.emp.EmployeePermissionService.class),
             mock(com.kjh.groupware.domain.notification.NotificationService.class),
-            mock(ScheduledJobStatusService.class)
+            mock(ScheduledJobStatusService.class),
+            mock(ApprovedAnnualLeaveUsageReader.class)
         );
         requester = mock(Emp.class);
         when(requester.getEmpId()).thenReturn(1L);
@@ -78,6 +79,7 @@ class AnnualLeaveSubmissionLockIntegrationTest {
                     emp_name varchar(100) not null,
                     email varchar(150),
                     phone varchar(50),
+                    extension_number varchar(20),
                     dept_id bigint,
                     position_name varchar(50),
                     job_title varchar(50),
@@ -87,6 +89,9 @@ class AnnualLeaveSubmissionLockIntegrationTest {
                     retire_date date,
                     gender_code varchar(10) not null,
                     employment_type varchar(20) not null,
+                    work_category varchar(20) not null,
+                    shift_type varchar(20),
+                    shift_anchor_date date,
                     contract_start_date date,
                     contract_end_date date,
                     rehire_date date,
@@ -146,9 +151,9 @@ class AnnualLeaveSubmissionLockIntegrationTest {
                 """).executeUpdate();
             sharedEntityManager.createNativeQuery("""
                 insert into emp (
-                    emp_id, emp_no, emp_name, role_code, hire_date, gender_code, employment_type,
+                    emp_id, emp_no, emp_name, role_code, hire_date, gender_code, employment_type, work_category,
                     status, login_fail_count, account_locked_yn, account_status, must_change_password_yn, use_yn
-                ) values (1, 'LOCK-TEST', 'Lock Test', 'USER', date '2020-01-01', 'MALE', 'REGULAR',
+                ) values (1, 'LOCK-TEST', 'Lock Test', 'USER', date '2020-01-01', 'MALE', 'REGULAR', 'FIELD',
                     'ACTIVE', 0, 'N', 'ACTIVE', 'N', 'Y')
                 """).executeUpdate();
             sharedEntityManager.createNativeQuery("""

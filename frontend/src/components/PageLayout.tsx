@@ -34,7 +34,7 @@ export function ContentTable({ rows, pinnedLabel = "고정", metricLabel = "조�
 }) {
   return (
     <div className="table-wrap">
-      <table className="content-table">
+      <table className="content-table standard-content-table">
         <thead>
           <tr>
             <th className="col-no">번호</th>
@@ -49,16 +49,16 @@ export function ContentTable({ rows, pinnedLabel = "고정", metricLabel = "조�
           {rows.map((row) => (
             <tr key={row.id} className={row.pinned ? "pinned-row" : ""}>
               <td className="col-no">{row.id}</td>
-              <td>
-                <button className="title-link" onClick={row.onOpen}>
+              <td className="standard-primary-cell">
+                <button className="title-link" title={row.title} onClick={row.onOpen}>
                   {row.pinned && <span className="pin-label"><Flag size={14} /> {pinnedLabel}</span>}
                   <span>{row.title}</span>
                 </button>
               </td>
-              <td className="col-writer">{row.writer}</td>
-              <td className="col-date">{row.date}</td>
+              <td className="col-writer" title={row.writer}>{row.writer}</td>
+              <td className="col-date"><time title={row.date}>{row.date}</time></td>
               <td className="col-attach">{row.hasAttachment ? <Paperclip size={16} /> : <span className="dash">-</span>}</td>
-              <td className="col-views"><Eye size={15} /> {row.views}</td>
+              <td className="col-views"><Eye size={15} /> {typeof row.views === "number" ? row.views.toLocaleString("ko-KR") : row.views}</td>
             </tr>
           ))}
         </tbody>

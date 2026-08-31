@@ -6,8 +6,10 @@ import {
   ChevronRight,
   ClipboardCheck,
   FolderKanban,
+  LayoutGrid,
   MessageSquare,
   Search,
+  Users,
   Shield,
   X
 } from "lucide-react";
@@ -23,7 +25,20 @@ type GlobalSearchPageProps = {
   onSubmit: (event?: FormEvent) => void;
   onOpen: (item: GlobalSearchItem, keyword: string) => void;
   onClear: () => void;
+  selectedTypes: string[];
+  onToggleType: (type: string) => void;
+  status: string;
+  onStatusChange: (status: string) => void;
 };
+
+const SEARCH_TYPE_OPTIONS = [
+  ["menus", "메뉴"],
+  ["departments", "부서"],
+  ["employees", "직원"],
+  ["notices", "공지"],
+  ["boards", "게시글"],
+  ["approvals", "결재·휴가"]
+] as const;
 
 export function GlobalSearchPage({
   keyword,
@@ -34,9 +49,16 @@ export function GlobalSearchPage({
   total,
   onSubmit,
   onOpen,
-  onClear
+  onClear,
+  selectedTypes,
+  onToggleType,
+  status,
+  onStatusChange
 }: GlobalSearchPageProps) {
   function groupIcon(code: string) {
+    if (code === "menus") return LayoutGrid;
+    if (code === "departments") return Building2;
+    if (code === "employees") return Users;
     if (code === "approvals") return ClipboardCheck;
     if (code === "boards") return MessageSquare;
     if (code === "notices") return BookOpen;
@@ -65,13 +87,29 @@ export function GlobalSearchPage({
 
       <div className="search-page-toolbar">
         <strong>전체 결과 <b>{total}</b>건</strong>
-        <select defaultValue="relevance" aria-label="정렬">
-          <option value="relevance">정확도순</option>
-          <option value="latest">최신순</option>
+        <select value={status} onChange={(event) => onStatusChange(event.target.value)} aria-label="상태 필터">
+          <option value="ALL">모든 상태</option>
+          <option value="IN_PROGRESS">진행 중</option>
+          <option value="APPROVED">승인 완료</option>
+          <option value="REJECTED">반려</option>
+          <option value="ACTIVE">재직·사용 중</option>
+          <option value="PLANNED">예정 기능</option>
         </select>
       </div>
 
+      <div className="search-type-filters" aria-label="자료 종류 필터">
+        {SEARCH_TYPE_OPTIONS.map(([code, label]) => (
+          <button key={code} type="button" className={selectedTypes.includes(code) ? "active" : ""} onClick={() => onToggleType(code)}>
+            {label}
+          </button>
+        ))}
+        <small>필터 변경 후 검색 버튼을 눌러 적용하세요.</small>
+      </div>
+
       {error && <p className="global-search-error">{error}</p>}
+      {result && result.failedProviders.length > 0 && (
+        <p className="global-search-warning">일부 검색 영역을 불러오지 못했습니다: {result.failedProviders.join(", ")}</p>
+      )}
 
       {result ? (
         result.groups.length ? (

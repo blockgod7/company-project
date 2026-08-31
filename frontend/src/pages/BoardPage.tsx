@@ -4,6 +4,7 @@ import { BoardEditor } from "../components/BoardEditors";
 import type { BoardForm } from "../components/BoardEditors";
 import { AttachmentBox, CommentBox, ReadDetail } from "../components/ContentTools";
 import { Empty } from "../components/Empty";
+import { ListState } from "../components/ListState";
 import { ContentTable, DetailPage, ListSummary, Toolbar } from "../components/PageLayout";
 import { loadAttachmentPresence, uploadAttachments } from "../utils/attachments";
 import type { AttachmentPresence, DraftAttachment } from "../utils/attachments";
@@ -22,22 +23,44 @@ export function BoardPage({ user, target }: { user: User; target: GlobalSearchTa
   const [form, setForm] = useState<BoardForm>({ title: "", content: "", draft: false });
   const [attachments, setAttachments] = useState<AttachmentPresence>({});
   const [pendingFiles, setPendingFiles] = useState<DraftAttachment[]>([]);
+  const [boardLoading, setBoardLoading] = useState(true);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [boardError, setBoardError] = useState("");
+  const [postsError, setPostsError] = useState("");
   const canEdit = selected ? user.roleCode === "ADMIN" || selected.writerEmpId === user.empId : false;
 
   async function loadBoards() {
-    const data = await api<Board[]>("/boards");
-    setBoards(data);
-    if (!boardId || !data.some((board) => board.boardId === boardId)) {
-      setBoardId(data[0]?.boardId ?? null);
+    setBoardLoading(true);
+    setBoardError("");
+    try {
+      const data = await api<Board[]>("/boards");
+      setBoards(data);
+      if (!boardId || !data.some((board) => board.boardId === boardId)) {
+        setBoardId(data[0]?.boardId ?? null);
+      }
+      if (data.length === 0) setPostsLoading(false);
+    } catch (reason) {
+      setBoardError(reason instanceof Error ? reason.message : "잠시 후 다시 시도해 주세요.");
+      setPostsLoading(false);
+    } finally {
+      setBoardLoading(false);
     }
   }
 
   async function loadPosts(id = boardId) {
     if (!id) return;
-    const page = await api<PageResponse<BoardPost>>(`/boards/${id}/posts?size=20`);
-    setPosts(page.content);
-    const nextAttachments = await loadAttachmentPresence("BOARD_POST", page.content.map((post) => post.postId));
-    setAttachments(nextAttachments);
+    setPostsLoading(true);
+    setPostsError("");
+    try {
+      const page = await api<PageResponse<BoardPost>>(`/boards/${id}/posts?size=20`);
+      setPosts(page.content);
+      const nextAttachments = await loadAttachmentPresence("BOARD_POST", page.content.map((post) => post.postId));
+      setAttachments(nextAttachments);
+    } catch (reason) {
+      setPostsError(reason instanceof Error ? reason.message : "잠시 후 다시 시도해 주세요.");
+    } finally {
+      setPostsLoading(false);
+    }
   }
 
   async function loadPost(id: number) {
@@ -122,7 +145,14 @@ export function BoardPage({ user, target }: { user: User; target: GlobalSearchTa
       {mode === "list" && (
         <>
           <ListSummary count={posts.length} text="게시글" />
-          {posts.length ? (
+          <ListState
+            loading={boardLoading || postsLoading}
+            error={boardError || postsError}
+            hasData={posts.length > 0}
+            onRetry={boardError || !boardId ? loadBoards : () => loadPosts()}
+            empty={<Empty text="게시글이 없습니다." />}
+            recoveryScope={boardId}
+          >
             <ContentTable
               rows={posts.map((post) => ({
                 id: post.postId,
@@ -136,7 +166,7 @@ export function BoardPage({ user, target }: { user: User; target: GlobalSearchTa
               }))}
               pinnedLabel="임시"
             />
-          ) : <Empty text="게시글이 없습니다." />}
+          </ListState>
         </>
       )}
       {mode === "detail" && selected && (

@@ -12,6 +12,7 @@ import com.kjh.groupware.domain.emp.EmployeePermissionService;
 import com.kjh.groupware.domain.equipment.EquipmentManagementService;
 import com.kjh.groupware.domain.file.AttachFile;
 import com.kjh.groupware.domain.notification.NotificationService;
+import com.kjh.groupware.domain.work.WorkRequestService;
 import com.kjh.groupware.global.audit.AuditActionType;
 import com.kjh.groupware.global.audit.AuditLogService;
 import com.kjh.groupware.global.exception.BusinessException;
@@ -48,6 +49,7 @@ public class ApprovalWorkflowService {
     private final EquipmentManagementService equipmentManagementService;
     private final ObjectMapper objectMapper;
     private final EmployeePermissionService employeePermissionService;
+    private final WorkRequestService workRequestService;
 
     @Transactional
     public ApprovalResponse act(Long approvalId, String action, ApprovalActionRequest request, String ipAddress, String userAgent) {
@@ -119,6 +121,7 @@ public class ApprovalWorkflowService {
             .forEach(line -> line.skip("REJECTED"));
         document.reject();
         compTimeLedgerService.releasePending(document, "전자결재 반려");
+        workRequestService.onRejectedOrWithdrawn(document, true);
         equipmentManagementService.onApprovalResolved(document, false);
         notificationService.notifyEmp(document.getRequester().getEmpId(), "전자결재 반려", "상신한 문서가 반려되었습니다.", "APPROVAL", document.getApprovalId());
         notifyPreviousApprovers(document, lines, currentLine, "전자결재 반려", "상신한 문서가 반려되었습니다.");
@@ -138,6 +141,7 @@ public class ApprovalWorkflowService {
         lines.forEach(line -> line.skip("WITHDRAWN"));
         document.withdraw(request == null ? null : request.comment());
         compTimeLedgerService.releasePending(document, "전자결재 회수");
+        workRequestService.onRejectedOrWithdrawn(document, false);
         auditApproval(requester, AuditActionType.WITHDRAW, document, request == null ? null : request.comment(), true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), requester);
     }
@@ -387,6 +391,7 @@ public class ApprovalWorkflowService {
         leaveUsageService.assertLeaveCancelTargetsApproved(document);
         document.approve();
         compTimeLedgerService.consumeOnFinalApproval(document);
+        workRequestService.onFinalApproval(document);
         equipmentManagementService.onApprovalResolved(document, true);
         pdfService.generateForFinalApproval(document);
         openPostApprovalLines(document, lines);
@@ -551,7 +556,7 @@ public class ApprovalWorkflowService {
                         .templateName("휴가 취소계")
                         .version(1)
                         .description("승인 완료된 휴가 취소 신청")
-                        .fieldsJson("[]")
+                        .fieldsJson(ApprovalLeaveUsageService.LEAVE_CANCEL_FIELDS_JSON)
                         .activeYn("Y")
                         .sortOrder(0)
                         .build();

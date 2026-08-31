@@ -1,3 +1,7 @@
+param(
+    [switch]$NoBrowser
+)
+
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -6,7 +10,13 @@ $frontend = Join-Path $root "frontend"
 $maven = Join-Path $root ".tools\apache-maven-3.9.9\bin\mvn.cmd"
 $m2repo = Join-Path $root ".m2repo"
 $logDir = Join-Path $root "tmp\logs"
+$runDir = Join-Path $root "tmp\run"
 $npm = "C:\Program Files\nodejs\npm.cmd"
+$frontendHost = "127.0.0.1"
+$frontendPort = 5174
+$backendPort = 8080
+$frontendUrl = "http://${frontendHost}:${frontendPort}/"
+$backendUrl = "http://127.0.0.1:${backendPort}/api/v1/health"
 $javaHome = @(
     (Join-Path $root ".tools\jdk-21"),
     "C:\Program Files\Eclipse Adoptium\jdk-21.0.11.10-hotspot",
@@ -26,11 +36,47 @@ if (-not (Test-Path $npm)) {
     throw "Node npm executable was not found: $npm"
 }
 
-New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+New-Item -ItemType Directory -Force -Path $logDir, $runDir | Out-Null
 $backendLog = Join-Path $logDir "backend.log"
 $frontendLog = Join-Path $logDir "frontend.log"
 $backendErr = Join-Path $logDir "backend.err.log"
 $frontendErr = Join-Path $logDir "frontend.err.log"
+$backendPidFile = Join-Path $runDir "backend-launcher.pid"
+$frontendPidFile = Join-Path $runDir "frontend-launcher.pid"
+
+function Test-HttpContent {
+    param(
+        [string]$Url,
+        [string]$ExpectedText
+    )
+    try {
+        $response = Invoke-WebRequest -UseBasicParsing $Url -TimeoutSec 2
+        return $response.StatusCode -eq 200 -and $response.Content.Contains($ExpectedText)
+    } catch {
+        return $false
+    }
+}
+
+function Get-PortOwnerPid {
+    param([int]$Port)
+    $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($listener) { return $listener.OwningProcess }
+    return $null
+}
+
+function Assert-ServicePort {
+    param(
+        [string]$Name,
+        [int]$Port,
+        [bool]$Ready
+    )
+    if ($Ready) { return }
+    $ownerPid = Get-PortOwnerPid -Port $Port
+    if ($ownerPid) {
+        throw "$Name cannot start because port $Port is already used by PID $ownerPid. Stop that process or run .\stop-web.ps1 if it belongs to this project."
+    }
+}
 
 $backendCommand = @"
 if ('$javaHome') {
@@ -43,22 +89,37 @@ Set-Location '$backend'
 
 $frontendCommand = @"
 Set-Location '$frontend'
-& '$npm' run dev -- --host localhost *> '$frontendLog'
+& '$npm' run dev -- --host $frontendHost --port $frontendPort --strictPort *> '$frontendLog'
 "@
 
-Write-Host "Starting Groupware backend on http://localhost:8080"
-Start-Process -FilePath $powershell -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $backendCommand
+$backendReady = Test-HttpContent -Url $backendUrl -ExpectedText '"status":"OK"'
+$frontendReady = Test-HttpContent -Url $frontendUrl -ExpectedText '<title>SCHUNK Groupware</title>'
+Assert-ServicePort -Name "Backend" -Port $backendPort -Ready $backendReady
+Assert-ServicePort -Name "Frontend" -Port $frontendPort -Ready $frontendReady
+
+if ($backendReady) {
+    Write-Host "Backend is already running: $backendUrl"
+} else {
+    Write-Host "Starting Groupware backend: $backendUrl"
+    $backendProcess = Start-Process -FilePath $powershell -WindowStyle Hidden -PassThru -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $backendCommand
+    Set-Content -LiteralPath $backendPidFile -Value $backendProcess.Id -Encoding ascii
+}
 
 Start-Sleep -Seconds 2
 
-Write-Host "Starting Groupware frontend on http://localhost:5173"
-Start-Process -FilePath $powershell -WindowStyle Hidden -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $frontendCommand
+if ($frontendReady) {
+    Write-Host "Frontend is already running: $frontendUrl"
+} else {
+    Write-Host "Starting Groupware frontend: $frontendUrl"
+    $frontendProcess = Start-Process -FilePath $powershell -WindowStyle Hidden -PassThru -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $frontendCommand
+    Set-Content -LiteralPath $frontendPidFile -Value $frontendProcess.Id -Encoding ascii
+}
 
 function Wait-Http($Url, $Name, $Seconds) {
     for ($i = 0; $i -lt $Seconds; $i++) {
         try {
             $response = Invoke-WebRequest -UseBasicParsing $Url -TimeoutSec 2
-            if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+            if ($response.StatusCode -eq 200) {
                 Write-Host "$Name is ready: $Url"
                 return $true
             }
@@ -70,13 +131,13 @@ function Wait-Http($Url, $Name, $Seconds) {
     return $false
 }
 
-$frontendReady = Wait-Http "http://localhost:5173/" "Frontend" 30
-$backendReady = Wait-Http "http://localhost:8080/api/v1/health" "Backend" 45
+$frontendReady = Wait-Http $frontendUrl "Frontend" 30
+$backendReady = Wait-Http $backendUrl "Backend" 45
 
-if ($frontendReady) {
-    Start-Process "http://localhost:5173/"
-} else {
+if (-not $frontendReady) {
     Write-Host "Frontend log: $frontendLog"
+} elseif (-not $NoBrowser) {
+    Start-Process $frontendUrl
 }
 
 if (-not $backendReady) {
@@ -85,5 +146,6 @@ if (-not $backendReady) {
 }
 
 Write-Host "Groupware launch requested."
-Write-Host "Login: admin / admin1234"
+Write-Host "Frontend: $frontendUrl"
+Write-Host "Backend: $backendUrl"
 Write-Host "Backend requires PostgreSQL DB_URL/DB_USERNAME/DB_PASSWORD or the default local groupware database."

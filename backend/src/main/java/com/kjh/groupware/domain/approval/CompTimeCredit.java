@@ -16,6 +16,7 @@ import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.kjh.groupware.domain.work.WorkRequestEntry;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -63,6 +64,10 @@ public class CompTimeCredit extends BaseEntity {
     @Column(name = "expiration_notified_at")
     private LocalDateTime expirationNotifiedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_work_entry_id")
+    private WorkRequestEntry sourceWorkEntry;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
@@ -76,6 +81,12 @@ public class CompTimeCredit extends BaseEntity {
         this.reason = reason;
         this.grantedBy = grantedBy;
         this.expiresOn = expiresOn;
+    }
+
+    public CompTimeCredit(Emp emp, LocalDate workDate, BigDecimal grantedDays, String reason, Emp grantedBy,
+                          LocalDate expiresOn, WorkRequestEntry sourceWorkEntry) {
+        this(emp, workDate, grantedDays, reason, grantedBy, expiresOn);
+        this.sourceWorkEntry = sourceWorkEntry;
     }
 
     public BigDecimal availableDays() {

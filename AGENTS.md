@@ -21,13 +21,15 @@
 - Update the closest owning AGENTS.md only when structure, contracts, commands, or durable workflow guidance changes.
 - Add child AGENTS.md files only at durable responsibility boundaries with distinct rules, commands, or ownership.
 - Use Windows/PowerShell commands for this repository unless the task states otherwise.
-- `.\start-web.ps1` starts the backend and frontend and opens a browser; run it only when runtime verification is intended.
+- `.\start-web.ps1` starts the current backend on port 8080 and frontend on `127.0.0.1:5174`; port 5173 remains available for the remote comparison project.
+- `.\stop-web.ps1` stops only the current-project process trees recorded by `start-web.ps1`; run startup scripts only when runtime verification is intended.
 - `graphify-out/GRAPH_REPORT.md` exists, but it was built from an older commit during this review; verify against current HEAD before relying on it.
 
 ## Verification
 - General doc-only check: `git diff --check`.
 - Command/path availability checks should include `.tools\apache-maven-3.9.9\bin\mvn.cmd`, `backend\pom.xml`, `frontend\package.json`, and `frontend\.env.example` before citing backend or frontend commands.
 - Full runtime checks require local services such as PostgreSQL and are not automatic for doc-only edits.
+- `.\verify-leave-work.ps1 -BackupFile <dump> -JavaHome <Java21>` runs leave/work acceptance on a new isolated PostgreSQL cluster, API 8081 and UI 5175; it never connects to the source DB and stops only its own services. See `backend/docs/leave-work-readiness-20260831.md` for fixture/date prerequisites.
 
 ## Child DOX Index
 - `backend/AGENTS.md` - Spring Boot API, domain modules, backend commands, and backend documentation rules.

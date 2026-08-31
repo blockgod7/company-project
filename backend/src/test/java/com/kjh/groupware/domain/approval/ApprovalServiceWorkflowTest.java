@@ -73,6 +73,7 @@ class ApprovalServiceWorkflowTest {
     private final ApprovalLeaveLifecycleCancellationRepository lifecycleCancellationRepository = mock(ApprovalLeaveLifecycleCancellationRepository.class);
     private final EmployeePermissionService employeePermissionService = mock(EmployeePermissionService.class);
     private final CompTimeLedgerService compTimeLedgerService = mock(CompTimeLedgerService.class);
+    private final com.kjh.groupware.domain.work.WorkRequestService workRequestService = mock(com.kjh.groupware.domain.work.WorkRequestService.class);
     private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService, employeePermissionService);
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final AtomicReference<Emp> currentEmp = new AtomicReference<>();
@@ -268,7 +269,8 @@ class ApprovalServiceWorkflowTest {
             lifecycleCancellationRepository,
             mock(LeavePolicyService.class),
             mock(LeavePolicyOverrideService.class),
-            mock(BereavementPolicyRepository.class)
+            mock(BereavementPolicyRepository.class),
+            mock(com.kjh.groupware.domain.file.AttachFileRepository.class)
         );
         draftService = new ApprovalDraftService(
             documentRepository,
@@ -282,6 +284,7 @@ class ApprovalServiceWorkflowTest {
             equipmentProposalService,
             leaveUsageService,
             compTimeLedgerService,
+            workRequestService,
             delegationService,
             jdbcTemplate,
             new ObjectMapper()
@@ -304,7 +307,8 @@ class ApprovalServiceWorkflowTest {
             compTimeLedgerService,
             equipmentManagementService,
             new ObjectMapper(),
-            employeePermissionService
+            employeePermissionService,
+            workRequestService
         );
 
         service = new ApprovalService(
@@ -885,7 +889,8 @@ class ApprovalServiceWorkflowTest {
         currentEmp.set(emps.get(1L));
         ApprovalDocument cancel = createdDocument(draftService.create(leaveCancelRequest(
             "2026-06-23",
-            "\\uC5F0\\uCC28"
+            "\\uC5F0\\uCC28",
+            leave.getApprovalId()
         ), "127.0.0.1", "test").approvalId());
         assertThat(cancel.getDocumentNo()).startsWith("LVC-" + Year.now().getValue() + "-");
 
@@ -898,6 +903,22 @@ class ApprovalServiceWorkflowTest {
         assertThat(usage.usedAnnualDays()).isEqualTo("0");
         assertThat(usage.remainingAnnualDays()).isEqualTo("16");
         assertThat(usage.selections()).isEmpty();
+    }
+
+    @Test
+    void leaveCancelSubmissionRequiresOneReceiver() {
+        stubLeaveCancelTemplate();
+        currentEmp.set(emps.get(1L));
+
+        assertThatThrownBy(() -> draftService.create(leaveCancelRequest(
+            "2026-06-23",
+            "\\uC5F0\\uCC28",
+            101L,
+            List.of()
+        ), "127.0.0.1", "test"))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("LEAVE_RECEIVER_REQUIRED")
+            );
     }
 
     private ApprovalRequest request(
@@ -1016,14 +1037,19 @@ class ApprovalServiceWorkflowTest {
         );
     }
 
-    private ApprovalRequest leaveCancelRequest(String date, String escapedType) {
+    private ApprovalRequest leaveCancelRequest(String date, String escapedType, Long sourceApprovalId) {
+        return leaveCancelRequest(date, escapedType, sourceApprovalId, List.of(2L));
+    }
+
+    private ApprovalRequest leaveCancelRequest(String date, String escapedType, Long sourceApprovalId, List<Long> receiverEmpIds) {
         String shortDate = date.substring(5).replace("-0", "/").replace("-", "/");
         String formDataJson = "{\"content\":\"cancel\",\"fields\":{\"startDate\":\"" + date
             + "\",\"endDate\":\"" + date
             + "\",\"days\":\"1\",\"annualLeaveDays\":\"1\",\"leaveType\":\"" + shortDate + " " + escapedType
             + "\",\"leaveSelectionsJson\":\"[{\\\"date\\\":\\\"" + date
             + "\\\",\\\"type\\\":\\\"" + escapedType
-            + "\\\",\\\"days\\\":1}]\"}}";
+            + "\\\",\\\"days\\\":1,\\\"sourceApprovalId\\\":" + sourceApprovalId
+            + ",\\\"sourceDocumentNo\\\":\\\"LEV-2026-0001\\\"}]\"}}";
         return new ApprovalRequest(
             "Leave cancel",
             "content",
@@ -1032,7 +1058,7 @@ class ApprovalServiceWorkflowTest {
             "NORMAL",
             List.of(),
             List.of(4L),
-            List.of(),
+            receiverEmpIds,
             List.of(),
             List.of(),
             false

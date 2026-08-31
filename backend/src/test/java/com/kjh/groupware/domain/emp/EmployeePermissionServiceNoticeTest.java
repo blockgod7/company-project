@@ -6,6 +6,8 @@ import static org.mockito.Mockito.when;
 
 import com.kjh.groupware.domain.dept.Dept;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
+import com.kjh.groupware.global.audit.AuditLogService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 class EmployeePermissionServiceNoticeTest {
@@ -13,7 +15,9 @@ class EmployeePermissionServiceNoticeTest {
     private final EmployeePermissionService service = new EmployeePermissionService(
         mock(EmpPermissionRepository.class),
         mock(EmpRepository.class),
-        mock(CurrentEmpProvider.class)
+        mock(CurrentEmpProvider.class),
+        mock(AuditLogService.class),
+        new ObjectMapper()
     );
 
     @Test

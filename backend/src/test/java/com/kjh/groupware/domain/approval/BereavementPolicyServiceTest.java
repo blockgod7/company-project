@@ -29,7 +29,7 @@ class BereavementPolicyServiceTest {
     void canonicalizesKoreanAliasesAndRejectsOverlappingActivePolicy() {
         Emp manager = mock(Emp.class);
         when(current.getCurrentEmp()).thenReturn(manager);
-        when(permissions.hasPermission(manager, EmployeePermissionService.LEAVE_ADMIN)).thenReturn(true);
+        when(permissions.hasPermission(manager, EmployeePermissionService.LEAVE_POLICY_ADMIN)).thenReturn(true);
         when(repository.findOverlaps(
             "DEATH", "PARENT", null,
             LocalDate.of(2026, 8, 1), LocalDate.of(9999, 12, 31)
@@ -53,5 +53,19 @@ class BereavementPolicyServiceTest {
                 assertThat(exception.getCode()).isEqualTo("BEREAVEMENT_RELATION_INVALID")
             );
         assertThat(BereavementCatalog.eventLabel("MARRIAGE")).isEqualTo("결혼");
+    }
+
+    @Test
+    void deathPolicyRequiresRelationshipToDeceased() {
+        assertThatThrownBy(() -> BereavementCatalog.validateCombination("DEATH", "SELF"))
+            .isInstanceOfSatisfying(BusinessException.class, exception ->
+                assertThat(exception.getCode()).isEqualTo("BEREAVEMENT_RELATION_NOT_ALLOWED")
+            );
+
+        BereavementCatalog.validateCombination("DEATH", "SPOUSE");
+        BereavementCatalog.validateCombination("DEATH", "PARENT");
+        BereavementCatalog.validateCombination("DEATH", "GRANDPARENT");
+        BereavementCatalog.validateCombination("DEATH", "CHILD");
+        BereavementCatalog.validateCombination("DEATH", "SIBLING");
     }
 }

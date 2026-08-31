@@ -24,6 +24,11 @@ public final class BereavementCatalog {
         new Item("SIBLING", "형제자매")
     );
 
+    private static final java.util.Set<String> DEATH_RELATIONS = java.util.Set.of(
+        "SPOUSE", "CHILD", "PARENT", "SPOUSE_PARENT", "GRANDPARENT", "SIBLING"
+    );
+    private static final java.util.Set<String> MARRIAGE_RELATIONS = java.util.Set.of("SELF", "CHILD");
+
     private static final Map<String, String> EVENT_ALIASES = Map.ofEntries(
         Map.entry("MARRIAGE", "MARRIAGE"), Map.entry("결혼", "MARRIAGE"),
         Map.entry("BIRTH", "BIRTH"), Map.entry("출산", "BIRTH"),
@@ -63,6 +68,27 @@ public final class BereavementCatalog {
 
     public static String relationLabel(String code) {
         return label(FAMILY_RELATIONS, code);
+    }
+
+    public static void validateCombination(String eventType, String familyRelation) {
+        if ("BIRTH".equals(eventType)) {
+            throw BusinessException.badRequest(
+                "BEREAVEMENT_BIRTH_REMOVED",
+                "출산은 경조휴가가 아닌 전용 출산휴가를 신청해 주세요."
+            );
+        }
+        if ("MARRIAGE".equals(eventType) && !MARRIAGE_RELATIONS.contains(familyRelation)) {
+            throw BusinessException.badRequest(
+                "BEREAVEMENT_RELATION_NOT_ALLOWED",
+                "결혼 경조휴가는 본인 또는 자녀 관계만 선택할 수 있습니다."
+            );
+        }
+        if ("DEATH".equals(eventType) && !DEATH_RELATIONS.contains(familyRelation)) {
+            throw BusinessException.badRequest(
+                "BEREAVEMENT_RELATION_NOT_ALLOWED",
+                "사망 경조휴가는 상신자와 고인의 관계를 선택해 주세요."
+            );
+        }
     }
 
     private static String normalize(String value, Map<String, String> aliases) {

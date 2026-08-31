@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kjh.groupware.domain.emp.Emp;
+import com.kjh.groupware.domain.file.AttachFileRepository;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.math.BigDecimal;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class ApprovalLeaveUsageServiceTest {
 
@@ -29,6 +31,7 @@ class ApprovalLeaveUsageServiceTest {
     private final LeavePolicyService leavePolicyService = mock(LeavePolicyService.class);
     private final LeavePolicyOverrideService leavePolicyOverrideService = mock(LeavePolicyOverrideService.class);
     private final BereavementPolicyRepository bereavementPolicyRepository = mock(BereavementPolicyRepository.class);
+    private final AttachFileRepository attachFileRepository = mock(AttachFileRepository.class);
 
     private ApprovalLeaveUsageService service;
     private Emp requester;
@@ -48,6 +51,9 @@ class ApprovalLeaveUsageServiceTest {
         when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatusIn(
             requester, "N", ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, List.of(ApprovalDocument.STATUS_IN_PROGRESS)
         )).thenReturn(List.of());
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatusIn(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE, List.of(ApprovalDocument.STATUS_IN_PROGRESS)
+        )).thenReturn(List.of());
         when(exclusionRepository.findByDocumentRequesterOrderByLeaveDateAsc(requester)).thenReturn(List.of());
         when(lifecycleCancellationRepository.findByEmpAndActiveYn(requester, "Y")).thenReturn(List.of());
         service = new ApprovalLeaveUsageService(
@@ -60,7 +66,8 @@ class ApprovalLeaveUsageServiceTest {
             lifecycleCancellationRepository,
             leavePolicyService,
             leavePolicyOverrideService,
-            bereavementPolicyRepository
+            bereavementPolicyRepository,
+            attachFileRepository
         );
     }
 
@@ -102,6 +109,36 @@ class ApprovalLeaveUsageServiceTest {
     void weekendCannotBeSelected() {
         assertThatThrownBy(() -> service.assertSelectableLeaveDates(formData("2026-08-01", "연차")))
             .isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getCode()).isEqualTo("LEAVE_WEEKEND_NOT_ALLOWED"));
+    }
+
+    @Test
+    void sickLeaveRequiresAtLeastFourteenCalendarDays() {
+        assertThatThrownBy(() -> service.assertSelectableLeaveDates(formData("2026-08-03", "병가")))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("SICK_LEAVE_MINIMUM_PERIOD"));
+    }
+
+    @Test
+    void unpaidLeaveIsBlockedWhenEffectiveAnnualBalanceIsTenOrMore() {
+        assertThatThrownBy(() -> service.assertSelectableLeaveDates(formData("2026-08-03", "무급휴가"), requester))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("LEAVE_REASON_REQUIRED"));
+
+        String withReason = "{\"fields\":{\"leaveReason\":\"개인 사정\",\"leaveSelectionsJson\":"
+            + new ObjectMapper().valueToTree("[{\"date\":\"2026-08-03\",\"type\":\"무급휴가\",\"days\":0}]") + "}}";
+        assertThatThrownBy(() -> service.assertSelectableLeaveDates(withReason, requester))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("UNPAID_LEAVE_ANNUAL_BALANCE_NOT_ELIGIBLE"));
+    }
+
+    @Test
+    void requiredLeaveEvidenceChecksAttachmentPresenceOnly() {
+        ApprovalDocument draft = document(301L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_DRAFT, formData("2026-08-03", "병가"));
+
+        assertThatThrownBy(() -> service.assertRequiredEvidence(draft, draft.getFormDataJson()))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("LEAVE_EVIDENCE_ATTACHMENT_REQUIRED"));
     }
 
     @Test
@@ -177,8 +214,175 @@ class ApprovalLeaveUsageServiceTest {
         order.verify(annualLeaveService).totalDays(requester, 2026);
     }
 
+    @Test
+    void cancellationRemovesOnlyTheReferencedOriginalDocument() {
+        ApprovalDocument first = document(101L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_APPROVED, formData("2026-08-03", "\uC5F0\uCC28"));
+        ApprovalDocument second = document(102L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_APPROVED, formData("2026-08-03", "\uC5F0\uCC28"));
+        ApprovalDocument cancellation = document(201L, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_APPROVED, cancelFormData("2026-08-03", "\uC5F0\uCC28", 101L));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalDocument.STATUS_APPROVED
+        )).thenReturn(List.of(first, second));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE, ApprovalDocument.STATUS_APPROVED
+        )).thenReturn(List.of(cancellation));
+
+        var usage = service.myUsage(2026);
+
+        assertThat(usage.selections()).singleElement().satisfies(selection ->
+            assertThat(selection.approvalId()).isEqualTo(102L)
+        );
+        assertThat(usage.usedAnnualDays()).isEqualTo("1");
+    }
+
+    @Test
+    void sameDateHalfDayCancellationsRemainIndividuallyAddressable() {
+        String sameDateHalves = "{\"fields\":{\"leaveSelectionsJson\":\"["
+            + "{\\\"date\\\":\\\"2026-08-03\\\",\\\"type\\\":\\\"\\uC624\\uC804\\uBC18\\uCC28\\\",\\\"days\\\":0.5},"
+            + "{\\\"date\\\":\\\"2026-08-03\\\",\\\"type\\\":\\\"\\uC624\\uD6C4\\uBC18\\uCC28\\\",\\\"days\\\":0.5}]\"}}";
+        ApprovalDocument source = document(101L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_APPROVED, sameDateHalves);
+        ApprovalDocument cancellation = document(201L, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_APPROVED, cancelFormData("2026-08-03", "\uC624\uC804\uBC18\uCC28", 101L));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalDocument.STATUS_APPROVED
+        )).thenReturn(List.of(source));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE, ApprovalDocument.STATUS_APPROVED
+        )).thenReturn(List.of(cancellation));
+
+        var usage = service.myUsage(2026);
+
+        assertThat(usage.selections()).singleElement().satisfies(selection -> {
+            assertThat(selection.type()).isEqualTo("\uC624\uD6C4\uBC18\uCC28");
+            assertThat(selection.days()).isEqualTo("0.5");
+        });
+        assertThat(usage.usedAnnualDays()).isEqualTo("0.5");
+    }
+
+    @Test
+    void duplicatePendingCancellationIsRejected() {
+        ApprovalDocument source = document(101L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_APPROVED, formData("2026-08-03", "\uC5F0\uCC28"));
+        ApprovalDocument pending = document(201L, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_IN_PROGRESS, cancelFormData("2026-08-03", "\uC5F0\uCC28", 101L));
+        when(documentRepository.findByIdForUpdate(101L)).thenReturn(Optional.of(source));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalDocument.STATUS_APPROVED
+        )).thenReturn(List.of(source));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatusIn(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE, List.of(ApprovalDocument.STATUS_IN_PROGRESS)
+        )).thenReturn(List.of(pending));
+
+        assertThatThrownBy(() -> service.assertLeaveCancelTargetsApproved(
+            requester, null, cancelFormData("2026-08-03", "\uC5F0\uCC28", 101L)
+        )).isInstanceOfSatisfying(BusinessException.class, ex ->
+            assertThat(ex.getCode()).isEqualTo("LEAVE_CANCEL_ALREADY_PENDING")
+        );
+    }
+
+    @Test
+    void newCancellationRequiresAnExplicitSourceDocument() {
+        assertThatThrownBy(() -> service.assertLeaveCancelTargetsApproved(
+            requester, null, formData("2026-08-03", "\uC5F0\uCC28")
+        )).isInstanceOfSatisfying(BusinessException.class, ex ->
+            assertThat(ex.getCode()).isEqualTo("LEAVE_CANCEL_SOURCE_REQUIRED")
+        );
+    }
+
+    @Test
+    void cancellationRejectsDuplicateTargetsInsideTheSameDocument() {
+        String duplicateTargets = "{\"fields\":{\"leaveSelectionsJson\":\"["
+            + "{\\\"date\\\":\\\"2026-08-03\\\",\\\"type\\\":\\\"\uC5F0\uCC28\\\",\\\"sourceApprovalId\\\":101},"
+            + "{\\\"date\\\":\\\"2026-08-03\\\",\\\"type\\\":\\\"\uC5F0\uCC28\\\",\\\"sourceApprovalId\\\":101}]\"}}";
+
+        assertThatThrownBy(() -> service.assertLeaveCancelTargetsApproved(requester, null, duplicateTargets))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("LEAVE_CANCEL_TARGET_DUPLICATED")
+            );
+    }
+
+    @Test
+    void serverNormalizesClientCalculatedLeaveSummaryFields() throws Exception {
+        String tampered = "{\"fields\":{\"days\":\"99\",\"annualLeaveDays\":\"99\","
+            + "\"usedAnnualDays\":\"99\",\"totalAnnualDays\":\"99\",\"remainingAnnualDays\":\"99\","
+            + "\"leaveSelectionsJson\":\"[{\\\"date\\\":\\\"2026-08-03\\\",\\\"type\\\":\\\"\uC5F0\uCC28\\\"}]\"}}";
+
+        String normalized = service.normalizeLeaveFormData(
+            requester, null, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, tampered
+        );
+        var fields = new ObjectMapper().readTree(normalized).path("fields");
+
+        assertThat(fields.path("days").asText()).isEqualTo("1");
+        assertThat(fields.path("annualLeaveDays").asText()).isEqualTo("1");
+        assertThat(fields.path("usedAnnualDays").asText()).isEqualTo("0");
+        assertThat(fields.path("totalAnnualDays").asText()).isEqualTo("10");
+        assertThat(fields.path("remainingAnnualDays").asText()).isEqualTo("9");
+        assertThat(fields.path("startDate").asText()).isEqualTo("2026-08-03");
+        assertThat(fields.path("endDate").asText()).isEqualTo("2026-08-03");
+    }
+
+    @Test
+    void legacyPendingCancellationAlsoBlocksReferencedDuplicate() {
+        ApprovalDocument source = document(101L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_APPROVED, formData("2026-08-03", "\uC5F0\uCC28"));
+        ApprovalDocument legacyPending = document(201L, ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_IN_PROGRESS, formData("2026-08-03", "\uC5F0\uCC28"));
+        when(documentRepository.findByIdForUpdate(101L)).thenReturn(Optional.of(source));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalDocument.STATUS_APPROVED
+        )).thenReturn(List.of(source));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatusIn(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE, List.of(ApprovalDocument.STATUS_IN_PROGRESS)
+        )).thenReturn(List.of(legacyPending));
+
+        assertThatThrownBy(() -> service.assertLeaveCancelTargetsApproved(
+            requester, null, cancelFormData("2026-08-03", "\uC5F0\uCC28", 101L)
+        )).isInstanceOfSatisfying(BusinessException.class, ex ->
+            assertThat(ex.getCode()).isEqualTo("LEAVE_CANCEL_ALREADY_PENDING")
+        );
+    }
+
+    @Test
+    void usageCanBeLoadedForRequestedBalanceYear() {
+        ApprovalDocument source = document(101L, ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE,
+            ApprovalDocument.STATUS_APPROVED, formData("2025-08-04", "\uC5F0\uCC28"));
+        when(documentRepository.findByRequesterAndDeletedYnAndTemplateCodeAndStatus(
+            requester, "N", ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE, ApprovalDocument.STATUS_APPROVED
+        )).thenReturn(List.of(source));
+        when(annualLeaveService.totalDays(requester, 2025)).thenReturn(new BigDecimal("12"));
+
+        var usage = service.myUsage(2025);
+
+        assertThat(usage.balanceYear()).isEqualTo(2025);
+        assertThat(usage.usedAnnualDays()).isEqualTo("1");
+        assertThat(usage.totalAnnualDays()).isEqualTo("12");
+    }
+
     private String formData(String date, String type) {
         return "{\"fields\":{\"leaveSelectionsJson\":\"[{\\\"date\\\":\\\"" + date
             + "\\\",\\\"type\\\":\\\"" + type + "\\\",\\\"days\\\":1}]\"}}";
+    }
+
+    private String cancelFormData(String date, String type, long sourceApprovalId) {
+        return "{\"fields\":{\"leaveSelectionsJson\":\"[{\\\"date\\\":\\\"" + date
+            + "\\\",\\\"type\\\":\\\"" + type + "\\\",\\\"days\\\":1,\\\"sourceApprovalId\\\":"
+            + sourceApprovalId + ",\\\"sourceDocumentNo\\\":\\\"LEV-2026-0001\\\"}]\"}}";
+    }
+
+    private ApprovalDocument document(Long approvalId, String templateCode, String status, String formDataJson) {
+        ApprovalDocument document = ApprovalDocument.builder()
+            .title("Leave")
+            .content("content")
+            .documentNo(templateCode + "-" + approvalId)
+            .templateCode(templateCode)
+            .formDataJson(formDataJson)
+            .requester(requester)
+            .build();
+        ReflectionTestUtils.setField(document, "approvalId", approvalId);
+        ReflectionTestUtils.setField(document, "status", status);
+        return document;
     }
 }

@@ -51,4 +51,9 @@ public class EmpEmploymentHistory extends BaseEntity {
     public void close(LocalDate endDate) {
         this.endDate = endDate;
     }
+
+    public void revise(LocalDate startDate, String employmentType) {
+        this.startDate = startDate;
+        this.employmentType = employmentType;
+    }
 }

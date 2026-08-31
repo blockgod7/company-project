@@ -1,6 +1,7 @@
 package com.kjh.groupware.domain.approval;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -13,6 +14,7 @@ import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineResponse;
 import com.kjh.groupware.domain.approval.dto.ApprovalDefaultLineStepRequest;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmpRepository;
+import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.util.List;
 import java.util.Optional;
@@ -79,6 +81,23 @@ class ApprovalDefaultLineServiceTest {
         ApprovalDefaultLineResponse response = service.renamePersonal(20L, new ApprovalDefaultLineRenameRequest("CEO final"));
 
         assertThat(response.lineName()).isEqualTo("CEO final");
+    }
+
+    @Test
+    void receiverCannotOverlapApprovalInDefaultLine() {
+        ApprovalDefaultLineRequest request = new ApprovalDefaultLineRequest(
+            "Invalid line",
+            null,
+            List.of(
+                new ApprovalDefaultLineStepRequest(1, 2L, ApprovalLine.TYPE_APPROVAL, true),
+                new ApprovalDefaultLineStepRequest(2, 2L, ApprovalLine.TYPE_RECEIVER, true)
+            )
+        );
+
+        assertThatThrownBy(() -> service.savePersonal(request))
+            .isInstanceOfSatisfying(BusinessException.class, ex ->
+                assertThat(ex.getCode()).isEqualTo("DEFAULT_LINE_RECEIVER_OVERLAP")
+            );
     }
 
     private ApprovalDefaultLineRequest request(String lineName) {

@@ -16,11 +16,9 @@ type LoginPageProps = {
   message: string;
 };
 
-const defaultLoginPassword = import.meta.env.VITE_LOGIN_DEFAULT_PASSWORD ?? "";
-
 export function LoginPage({ onLogin, message }: LoginPageProps) {
   const [loginId, setLoginId] = useState("");
-  const [password, setPassword] = useState(defaultLoginPassword);
+  const [password, setPassword] = useState("");
   const [loginOptions, setLoginOptions] = useState<LoginOption[]>([]);
   const [error, setError] = useState("");
 
@@ -57,7 +55,7 @@ export function LoginPage({ onLogin, message }: LoginPageProps) {
             테스트 계정
             <select value={loginId} onChange={(event) => {
               setLoginId(event.target.value);
-              setPassword(defaultLoginPassword);
+              setPassword("");
             }}>
               <option value="">계정 선택</option>
               {loginOptions.map((option) => (
@@ -73,7 +71,7 @@ export function LoginPage({ onLogin, message }: LoginPageProps) {
           </label>
           <label>
             비밀번호
-            <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
           </label>
           {(message || error) && <p className="error">{error || message}</p>}
           <button className="primary" type="submit">LOGIN</button>

@@ -12,6 +12,7 @@ public record EmployeeManagementResponse(
     String genderCode,
     String email,
     String phone,
+    String extensionNumber,
     Long deptId,
     String deptName,
     String positionName,
@@ -24,6 +25,9 @@ public record EmployeeManagementResponse(
     LocalDate rehireDate,
     LocalDate employmentStartDate,
     String employmentType,
+    String workCategory,
+    String shiftType,
+    LocalDate shiftAnchorDate,
     LocalDate contractStartDate,
     LocalDate contractEndDate,
     String status,
@@ -34,11 +38,12 @@ public record EmployeeManagementResponse(
     public static EmployeeManagementResponse from(Emp emp, List<String> permissions) {
         return new EmployeeManagementResponse(
             emp.getEmpId(), emp.getEmpNo(), emp.getLoginId(), emp.getEmpName(), emp.getGenderCode(),
-            emp.getEmail(), emp.getPhone(), emp.getDept() == null ? null : emp.getDept().getDeptId(),
+            emp.getEmail(), emp.getPhone(), emp.getExtensionNumber(), emp.getDept() == null ? null : emp.getDept().getDeptId(),
             emp.getDept() == null ? null : emp.getDept().getDeptName(), emp.getPositionName(), emp.getJobTitle(),
             emp.getManager() == null ? null : emp.getManager().getEmpId(), emp.getManager() == null ? null : emp.getManager().getEmpName(),
             emp.getRoleCode(), emp.getHireDate(), emp.getRetireDate(), emp.getRehireDate(), emp.currentEmploymentStartDate(),
-            emp.getEmploymentType(), emp.getContractStartDate(), emp.getContractEndDate(), emp.getStatus(), emp.getAccountStatus(),
+            emp.getEmploymentType(), emp.getWorkCategory(), emp.getShiftType(), emp.getShiftAnchorDate(),
+            emp.getContractStartDate(), emp.getContractEndDate(), emp.getStatus(), emp.getAccountStatus(),
             emp.isRehired(), permissions
         );
     }

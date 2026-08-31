@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AnnualLeaveService {
 
     private static final BigDecimal FIFTEEN = new BigDecimal("15.0");
+    private static final BigDecimal ELEVEN = new BigDecimal("11.0");
     private static final BigDecimal MAX_DAYS = new BigDecimal("30.0");
 
     private final EmpAnnualLeaveRepository leaveRepository;
@@ -32,6 +33,7 @@ public class AnnualLeaveService {
     private final EmployeePermissionService permissionService;
     private final NotificationService notificationService;
     private final ScheduledJobStatusService scheduledJobStatusService;
+    private final ApprovedAnnualLeaveUsageReader approvedUsageReader;
 
     @Transactional
     public BigDecimal totalDays(Emp emp, int year) {
@@ -51,6 +53,25 @@ public class AnnualLeaveService {
     @Transactional
     public void initializeEmployee(Emp emp) {
         ensure(emp, LocalDate.now().getYear());
+    }
+
+    @Transactional
+    public void recalculateForEmploymentChange(Emp emp, Emp actor) {
+        int year = LocalDate.now().getYear();
+        EmpAnnualLeave leave = leaveRepository.findByEmpEmpIdAndLeaveYear(emp.getEmpId(), year).orElse(null);
+        if (leave != null && leave.isManual()) {
+            return;
+        }
+        Calculation calculation = calculate(emp, year);
+        if (leave == null) {
+            leave = leaveRepository.save(new EmpAnnualLeave(emp, year, calculation.days()));
+        }
+        BigDecimal before = leave.getFinalDays();
+        leave.recalculate(calculation.days(), calculation.basis(), calculation.confirmationStatus());
+        ledgerRepository.save(new AnnualLeaveLedger(
+            leave, "EMPLOYMENT_CHANGE_RECALCULATE", before, calculation.days(),
+            "고용 형태 또는 근로 시작일 변경에 따른 자동 재계산", "EMPLOYEE", emp.getEmpId(), actor
+        ));
     }
 
     @Transactional
@@ -137,6 +158,9 @@ public class AnnualLeaveService {
         Calculation calculation = calculate(emp, year);
         EmpAnnualLeave leave = leaveRepository.findByEmpEmpIdAndLeaveYear(emp.getEmpId(), year)
             .orElseGet(() -> leaveRepository.save(new EmpAnnualLeave(emp, year, calculation.days())));
+        if (leave.isManual()) {
+            return;
+        }
         BigDecimal before = leave.getFinalDays();
         leave.recalculate(calculation.days(), calculation.basis(), calculation.confirmationStatus());
         ledgerRepository.save(new AnnualLeaveLedger(
@@ -167,34 +191,34 @@ public class AnnualLeaveService {
             return new Calculation(FIFTEEN, "계약직 기본 15일 · 관리자 최종 확인", "CONTRACT_CONFIRM_REQUIRED");
         }
         if (year == start.getYear()) {
-            int fullMonths = Math.max(0, 12 - start.getMonthValue());
-            return new Calculation(BigDecimal.valueOf(fullMonths), "입사 당해 완전 근무 가능월 " + fullMonths + "개월", confirmationStatus(emp));
+            int fullMonths = Math.max(0, 12 - start.getMonthValue() + (start.getDayOfMonth() == 1 ? 1 : 0));
+            return new Calculation(BigDecimal.valueOf(fullMonths), "입사 당해 전체 근무월 " + fullMonths + "개월", confirmationStatus(emp));
         }
 
         long firstYearWorkedDays = ChronoUnit.DAYS.between(start, LocalDate.of(start.getYear() + 1, 1, 1));
         boolean firstYearEightyPercent = firstYearWorkedDays * 100 >= 365L * 80;
         if (year == start.getYear() + 1) {
-            if (firstYearEightyPercent) {
-                return new Calculation(FIFTEEN, "입사 당해 출근 인정일 8할 이상 · 15일", confirmationStatus(emp));
-            }
-            BigDecimal prorated = roundToHalf(FIFTEEN.multiply(BigDecimal.valueOf(firstYearWorkedDays)).divide(BigDecimal.valueOf(365), 6, RoundingMode.HALF_UP));
-            BigDecimal monthly = BigDecimal.valueOf(Math.max(0, start.getMonthValue() - 1));
-            BigDecimal total = prorated.add(monthly).min(MAX_DAYS);
-            return new Calculation(total, "15×" + firstYearWorkedDays + "/365=" + prorated.toPlainString()
-                + " + 입사월 전 월차 " + monthly.toPlainString(), confirmationStatus(emp));
+            BigDecimal baseDays = firstYearEightyPercent
+                ? FIFTEEN
+                : ceilToHalf(FIFTEEN.multiply(BigDecimal.valueOf(firstYearWorkedDays))
+                    .divide(BigDecimal.valueOf(365), 6, RoundingMode.HALF_UP));
+            BigDecimal approvedUsedDays = approvedUsageReader.approvedAnnualDays(emp, start.getYear());
+            BigDecimal total = baseDays.add(ELEVEN).subtract(approvedUsedDays)
+                .max(BigDecimal.ZERO).min(MAX_DAYS);
+            return new Calculation(total, "입사 다음 해: 기본 " + baseDays.stripTrailingZeros().toPlainString()
+                + "일 + 가산 11일 - 전년도 승인 사용 " + approvedUsedDays.stripTrailingZeros().toPlainString() + "일",
+                confirmationStatus(emp));
         }
 
-        int recognizedTenure = year - start.getYear() - (firstYearEightyPercent ? 0 : 1);
+        int growthYears = Math.max(0, year - start.getYear() - 2);
         BigDecimal total;
-        if (recognizedTenure <= 1) {
-            total = FIFTEEN;
-        } else if (recognizedTenure <= 10) {
-            total = BigDecimal.valueOf(14L + recognizedTenure);
+        if (growthYears <= 10) {
+            total = BigDecimal.valueOf(15L + growthYears);
         } else {
-            total = BigDecimal.valueOf(24L + ((recognizedTenure - 10) / 2));
+            total = BigDecimal.valueOf(25L + ((growthYears - 10) / 2));
         }
         total = total.min(MAX_DAYS);
-        return new Calculation(total, "인정 근속 " + Math.max(recognizedTenure, 0) + "년 · 회사 근속 가산식", confirmationStatus(emp));
+        return new Calculation(total, "근속 가산 기준연수 " + growthYears + "년", confirmationStatus(emp));
     }
 
     private String confirmationStatus(Emp emp) {
@@ -203,6 +227,11 @@ public class AnnualLeaveService {
 
     private BigDecimal roundToHalf(BigDecimal value) {
         return value.multiply(BigDecimal.valueOf(2)).setScale(0, RoundingMode.HALF_UP)
+            .divide(BigDecimal.valueOf(2), 1, RoundingMode.UNNECESSARY);
+    }
+
+    private BigDecimal ceilToHalf(BigDecimal value) {
+        return value.multiply(BigDecimal.valueOf(2)).setScale(0, RoundingMode.CEILING)
             .divide(BigDecimal.valueOf(2), 1, RoundingMode.UNNECESSARY);
     }
 

@@ -7,18 +7,22 @@ import com.kjh.groupware.domain.dept.Dept;
 import com.kjh.groupware.domain.dept.DeptRepository;
 import com.kjh.groupware.domain.emp.dto.EmployeeAccountIssueRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeCreateRequest;
+import com.kjh.groupware.domain.emp.dto.EmployeeGenderRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeLeaveRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeLeaveImpactResponse;
 import com.kjh.groupware.domain.emp.dto.EmployeeManagementResponse;
 import com.kjh.groupware.domain.emp.dto.EmployeeRehireRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeRetireRequest;
 import com.kjh.groupware.domain.emp.dto.EmployeeUpdateRequest;
+import com.kjh.groupware.domain.emp.dto.EmployeeWorkCategoryRequest;
+import com.kjh.groupware.domain.emp.dto.EmployeeShiftRequest;
 import com.kjh.groupware.domain.emp.dto.TemporaryPasswordResponse;
 import com.kjh.groupware.global.exception.BusinessException;
 import com.kjh.groupware.global.security.CurrentEmpProvider;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -44,13 +48,13 @@ public class EmployeeManagementService {
 
     @Transactional(readOnly = true)
     public List<EmployeeManagementResponse> findAll() {
-        permissionService.requireEmployeeAdmin();
-        return empRepository.findAllByOrderByEmpNameAsc().stream().map(this::response).toList();
+        permissionService.requireEmployeeOrWorkCategoryAdmin();
+        return empRepository.findAllEmployeesForManagement().stream().map(this::response).toList();
     }
 
     @Transactional(readOnly = true)
     public EmployeeManagementResponse findOne(Long empId) {
-        permissionService.requireEmployeeAdmin();
+        permissionService.requireEmployeeOrWorkCategoryAdmin();
         return response(find(empId));
     }
 
@@ -75,7 +79,7 @@ public class EmployeeManagementService {
             throw BusinessException.badRequest("EMP_NO_DUPLICATED", "이미 사용 중인 사번입니다.");
         }
         Emp emp = Emp.pending(
-            request.empNo().trim(), request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()),
+            request.empNo().trim(), request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()), normalize(request.extensionNumber()),
             dept(request.deptId()), normalize(request.positionName()), normalize(request.jobTitle()), manager(request.managerEmpId()),
             request.hireDate(), request.employmentType(), request.contractStartDate(), request.contractEndDate()
         );
@@ -91,11 +95,59 @@ public class EmployeeManagementService {
         Emp emp = find(empId);
         permissionService.assertCanEditTarget(actor, emp);
         validateEmployment(request.employmentType(), request.contractStartDate(), request.contractEndDate());
+        java.time.LocalDate previousEmploymentStartDate = emp.currentEmploymentStartDate();
+        String previousEmploymentType = emp.getEmploymentType();
+        java.time.LocalDate previousContractStartDate = emp.getContractStartDate();
+        java.time.LocalDate previousContractEndDate = emp.getContractEndDate();
         emp.updateProfile(
-            request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()),
+            request.empName().trim(), request.genderCode(), normalize(request.email()), normalize(request.phone()), normalize(request.extensionNumber()),
             dept(request.deptId()), normalize(request.positionName()), normalize(request.jobTitle()), manager(request.managerEmpId()),
             request.hireDate(), request.employmentType(), request.contractStartDate(), request.contractEndDate()
         );
+        boolean calculationInputChanged = !Objects.equals(previousEmploymentStartDate, emp.currentEmploymentStartDate())
+            || !Objects.equals(previousEmploymentType, emp.getEmploymentType())
+            || !Objects.equals(previousContractStartDate, emp.getContractStartDate())
+            || !Objects.equals(previousContractEndDate, emp.getContractEndDate());
+        if (calculationInputChanged) {
+            employmentHistoryRepository.findFirstByEmpEmpIdAndEndDateIsNullOrderByStartDateDesc(empId)
+                .ifPresent(history -> history.revise(emp.currentEmploymentStartDate(), emp.getEmploymentType()));
+            annualLeaveService.recalculateForEmploymentChange(emp, actor);
+        }
+        return response(emp);
+    }
+
+    @Transactional
+    public EmployeeManagementResponse updateWorkCategory(Long empId, EmployeeWorkCategoryRequest request) {
+        permissionService.requireWorkCategoryAdmin();
+        Emp emp = find(empId);
+        if ("ADMIN".equals(emp.getRoleCode()) && !"ADMIN".equals(currentEmpProvider.getCurrentEmp().getRoleCode())) {
+            throw BusinessException.forbidden("SYSTEM_ADMIN_PROTECTED", "시스템관리자 계정은 변경할 수 없습니다.");
+        }
+        emp.updateWorkCategory(request.workCategory());
+        return response(emp);
+    }
+
+    @Transactional
+    public EmployeeManagementResponse updateShift(Long empId, EmployeeShiftRequest request) {
+        permissionService.requireWorkRequestAdmin();
+        String type = request.shiftType() == null || request.shiftType().isBlank() ? null : request.shiftType().trim();
+        if (type != null && !List.of("A", "B", "DAY_FIXED").contains(type)) {
+            throw BusinessException.badRequest("SHIFT_TYPE_INVALID", "교대유형은 A조, B조, 주간전담 중에서 선택해 주세요.");
+        }
+        if (("A".equals(type) || "B".equals(type)) && request.shiftAnchorDate() == null) {
+            throw BusinessException.badRequest("SHIFT_ANCHOR_REQUIRED", "A/B조는 2주 교대 기준일이 필요합니다.");
+        }
+        Emp emp = find(empId);
+        emp.updateShift(type, request.shiftAnchorDate());
+        return response(emp);
+    }
+
+    @Transactional
+    public EmployeeManagementResponse updateGender(Long empId, EmployeeGenderRequest request) {
+        Emp actor = currentEmpProvider.getCurrentEmp();
+        Emp emp = find(empId);
+        permissionService.assertCanEditTarget(actor, emp);
+        emp.updateGender(request.genderCode());
         return response(emp);
     }
 
@@ -110,6 +162,7 @@ public class EmployeeManagementService {
         employmentHistoryRepository.findFirstByEmpEmpIdAndEndDateIsNullOrderByStartDateDesc(empId)
             .ifPresent(history -> history.close(request.retireDate()));
         emp.retire(request.retireDate());
+        permissionService.revokeAllForRetirement(emp, actor);
         leaveLifecycleService.cancelForRetirement(emp, request.retireDate());
         emp.deactivateAccount();
         refreshTokenRepository.deleteByEmp(emp);

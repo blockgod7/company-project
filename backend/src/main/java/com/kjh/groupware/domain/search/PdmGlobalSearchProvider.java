@@ -19,6 +19,9 @@ public class PdmGlobalSearchProvider implements GlobalSearchProvider {
     private final PdmService pdmService;
 
     @Override
+    public String code() { return "pdm"; }
+
+    @Override
     public int order() {
         return 40;
     }

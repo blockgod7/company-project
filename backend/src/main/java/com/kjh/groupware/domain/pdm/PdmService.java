@@ -57,6 +57,7 @@ public class PdmService {
     private final PdmDrawingRevisionRepository revisionRepository;
     private final PdmFolderRepository folderRepository;
     private final PdmDrawingPermissionRepository permissionRepository;
+    private final PdmPermissionPolicy permissionPolicy;
     private final PdmDownloadRequestRepository downloadRequestRepository;
     private final PdmDownloadLogRepository downloadLogRepository;
     private final ApprovalDocumentRepository approvalDocumentRepository;
@@ -69,6 +70,7 @@ public class PdmService {
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
 
+    private final PdmFolderService folderService;
     @Transactional(readOnly = true)
     public PageResponse<PdmDrawingResponse> drawings(String category, String keyword, int page, int size) {
         Emp current = currentEmpProvider.getCurrentEmp();
@@ -90,163 +92,56 @@ public class PdmService {
     public PdmDrawingDetailResponse detail(Long drawingId) {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDrawing drawing = drawing(drawingId);
-        assertCanView(current, drawing);
+        permissionPolicy.assertCanView(current, drawing);
         return new PdmDrawingDetailResponse(
             PdmDrawingResponse.from(drawing),
             revisionRepository.findByDrawingOrderByRevisionOrderDescRevisionIdDesc(drawing).stream()
                 .filter(revision -> !"Y".equals(revision.getVoidYn()))
                 .map(PdmRevisionResponse::from)
                 .toList(),
-            permissions(current, drawing)
+            permissionPolicy.permissions(current, drawing)
         );
     }
 
     @Transactional
+
     public List<PdmFolderResponse> folders() {
-        ensureFolderRowsForDrawingPaths(currentEmpProvider.getCurrentEmp());
-        return folderRepository.findAllByOrderByCategoryAscCompanyNameAscProjectNameAscBusinessUnitAscProcessNameAscFolderKindAscSortOrderAscFolderNameAsc().stream()
-            .map(PdmFolderResponse::from)
-            .toList();
+        return folderService.folders();
     }
 
-    @Transactional(readOnly = true)
+    public PdmFolderResponse createFolder(PdmFolderRequest request) {
+        return folderService.createFolder(request);
+    }
+
+    public List<PdmFolderResponse> moveFolder(Long folderId, PdmFolderMoveRequest request) {
+        return folderService.moveFolder(folderId, request);
+    }
+
+    public PdmFolderResponse renameFolder(Long folderId, PdmFolderRequest request) {
+        return folderService.renameFolder(folderId, request);
+    }
+
+    public List<PdmFolderResponse> renameFolderPath(PdmFolderPathRenameRequest request) {
+        return folderService.renameFolderPath(request);
+    }
+
+    public List<PdmFolderResponse> deleteFolderPath(PdmFolderPathRequest request) {
+        return folderService.deleteFolderPath(request);
+    }
     public PdmPermissionResponse effectivePermission(String category, Long drawingId) {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDrawing drawing = drawingId == null ? null : drawing(drawingId);
         String normalizedCategory = drawing != null ? drawing.getCategory() : (hasText(category) ? requireCategory(category) : null);
-        boolean admin = isAdmin(current);
-        boolean register = admin || (normalizedCategory != null && hasPermission(current, normalizedCategory, drawing, "register"));
-        boolean revise = admin || (drawing != null && hasPermission(current, drawing, "revise"));
-        boolean view = admin || (drawing != null ? canView(current, drawing) : normalizedCategory != null && hasPermission(current, normalizedCategory, null, "view"));
-        boolean requestDownload = admin || (drawing != null && hasPermission(current, drawing, "downloadRequest"));
-        boolean approveDownload = admin || (drawing != null && hasPermission(current, drawing, "downloadApprove"));
+        boolean admin = permissionPolicy.isAdmin(current);
+        boolean register = admin || (normalizedCategory != null && permissionPolicy.hasPermission(current, normalizedCategory, drawing, "register"));
+        boolean revise = admin || (drawing != null && permissionPolicy.hasPermission(current, drawing, "revise"));
+        boolean view = admin || (drawing != null ? canView(current, drawing) : normalizedCategory != null && permissionPolicy.hasPermission(current, normalizedCategory, null, "view"));
+        boolean requestDownload = admin || (drawing != null && permissionPolicy.hasPermission(current, drawing, "downloadRequest"));
+        boolean approveDownload = admin || (drawing != null && permissionPolicy.hasPermission(current, drawing, "downloadApprove"));
         return new PdmPermissionResponse(admin, register, revise, view, requestDownload, approveDownload);
     }
 
     @Transactional
-    public PdmFolderResponse createFolder(PdmFolderRequest request) {
-        Emp current = currentEmpProvider.getCurrentEmp();
-        String category = requireCategory(request.category());
-        assertCanRegister(current, category, null);
-        PdmFolder folder = PdmFolder.builder()
-            .category(category)
-            .companyName(blankToNull(request.companyName()))
-            .projectName(blankToNull(request.projectName()))
-            .businessUnit(blankToNull(request.businessUnit()))
-            .processName(blankToNull(request.processName()))
-            .folderKind(requireText(request.folderKind(), "PDM_FOLDER_KIND_REQUIRED", "폴더 구분을 입력해 주세요."))
-            .folderName(requireText(request.folderName(), "PDM_FOLDER_NAME_REQUIRED", "폴더명을 입력해 주세요."))
-            .sortOrder(nextFolderSortOrder(category, request))
-            .createdBy(current)
-            .build();
-        return PdmFolderResponse.from(folderRepository.save(folder));
-    }
-
-    @Transactional
-    public List<PdmFolderResponse> moveFolder(Long folderId, PdmFolderMoveRequest request) {
-        Emp current = currentEmpProvider.getCurrentEmp();
-        PdmFolder folder = folderRepository.findById(folderId)
-            .orElseThrow(() -> BusinessException.notFound("PDM_FOLDER_NOT_FOUND", "폴더를 찾을 수 없습니다."));
-        assertCanRegister(current, folder.getCategory(), null);
-        String direction = requireText(request.direction(), "PDM_FOLDER_MOVE_DIRECTION_REQUIRED", "이동 방향을 입력해 주세요.").toUpperCase();
-        int delta = switch (direction) {
-            case "UP" -> -1;
-            case "DOWN" -> 1;
-            default -> throw BusinessException.badRequest("PDM_FOLDER_MOVE_DIRECTION_INVALID", "지원하지 않는 이동 방향입니다.");
-        };
-        List<PdmFolder> siblings = folderRepository.findAll().stream()
-            .filter(candidate -> sameFolderOrderScope(folder, candidate))
-            .sorted(folderOrderComparator())
-            .toList();
-        int index = siblings.indexOf(folder);
-        int targetIndex = index + delta;
-        if (index < 0 || targetIndex < 0 || targetIndex >= siblings.size()) {
-            return folders();
-        }
-        PdmFolder target = siblings.get(targetIndex);
-        int currentOrder = safeSortOrder(folder);
-        folder.updateSortOrder(safeSortOrder(target));
-        target.updateSortOrder(currentOrder);
-        return folders();
-    }
-
-    @Transactional
-    public PdmFolderResponse renameFolder(Long folderId, PdmFolderRequest request) {
-        Emp current = currentEmpProvider.getCurrentEmp();
-        PdmFolder folder = folderRepository.findById(folderId)
-            .orElseThrow(() -> BusinessException.notFound("PDM_FOLDER_NOT_FOUND", "폴더를 찾을 수 없습니다."));
-        assertCanRegister(current, folder.getCategory(), null);
-        List<PdmFolderResponse> updated = renameFolderPath(new PdmFolderPathRenameRequest(
-            folder.getCategory(),
-            folder.getFolderKind(),
-            folder.getFolderName(),
-            request.folderName(),
-            folder.getCompanyName(),
-            folder.getProjectName(),
-            folder.getBusinessUnit(),
-            folder.getProcessName()
-        ));
-        return updated.stream()
-            .filter(item -> item.folderId().equals(folderId))
-            .findFirst()
-            .orElseGet(() -> PdmFolderResponse.from(folder));
-    }
-
-    @Transactional
-    public List<PdmFolderResponse> renameFolderPath(PdmFolderPathRenameRequest request) {
-        Emp current = currentEmpProvider.getCurrentEmp();
-        String category = requireCategory(request.category());
-        String folderKind = requireText(request.folderKind(), "PDM_FOLDER_KIND_REQUIRED", "폴더 구분을 입력해 주세요.").toUpperCase();
-        String oldName = requireText(request.folderName(), "PDM_FOLDER_NAME_REQUIRED", "폴더명을 입력해 주세요.");
-        String newName = requireText(request.newFolderName(), "PDM_FOLDER_NAME_REQUIRED", "폴더명을 입력해 주세요.");
-        assertCanRegister(current, category, null);
-
-        int changed = 0;
-        for (PdmFolder folder : folderRepository.findAll()) {
-            if (!folderInRenameScope(folder, category, folderKind, oldName, request)) {
-                continue;
-            }
-            renameFolderInScope(folder, folderKind, oldName, newName);
-            changed++;
-        }
-        for (PdmDrawing drawing : drawingRepository.findAll()) {
-            if (!drawingInPath(drawing, category, folderKind, oldName, request)) {
-                continue;
-            }
-            renameDrawingInScope(drawing, folderKind, oldName, newName);
-            changed++;
-        }
-        if (changed == 0) {
-            throw BusinessException.notFound("PDM_FOLDER_PATH_NOT_FOUND", "수정할 폴더 경로를 찾을 수 없습니다.");
-        }
-        return folders();
-    }
-
-    @Transactional
-    public List<PdmFolderResponse> deleteFolderPath(PdmFolderPathRequest request) {
-        Emp current = currentEmpProvider.getCurrentEmp();
-        String category = requireCategory(request.category());
-        String folderKind = requireText(request.folderKind(), "PDM_FOLDER_KIND_REQUIRED", "폴더 구분을 입력해 주세요.").toUpperCase();
-        String folderName = requireText(request.folderName(), "PDM_FOLDER_NAME_REQUIRED", "폴더명을 입력해 주세요.");
-        assertCanRegister(current, category, null);
-
-        long drawingCount = drawingRepository.findAll().stream()
-            .filter(drawing -> drawingInPath(drawing, category, folderKind, folderName, request))
-            .count();
-        if (drawingCount > 0) {
-            throw BusinessException.badRequest("PDM_FOLDER_NOT_EMPTY", "도면이 들어 있는 폴더는 삭제할 수 없습니다. 도면을 먼저 이동하거나 정리해 주세요.");
-        }
-        List<PdmFolder> targets = folderRepository.findAll().stream()
-            .filter(folder -> folderInDeleteScope(folder, category, folderKind, folderName, request))
-            .toList();
-        if (targets.isEmpty()) {
-            throw BusinessException.notFound("PDM_FOLDER_PATH_NOT_FOUND", "삭제할 폴더 경로를 찾을 수 없습니다.");
-        }
-        folderRepository.deleteAll(targets);
-        return folders();
-    }
-
-    @Transactional(readOnly = true)
     public PdmDuplicateCheckResponse duplicate(String drawingNo) {
         if (!hasText(drawingNo)) {
             return new PdmDuplicateCheckResponse(false, null, null, null, null);
@@ -286,7 +181,7 @@ public class PdmService {
     ) {
         Emp current = currentEmpProvider.getCurrentEmp();
         String normalizedCategory = requireCategory(category);
-        assertCanRegister(current, normalizedCategory, null);
+        permissionPolicy.assertCanRegister(current, normalizedCategory, null);
         String normalizedDrawingNo = requireText(drawingNo, "DRAWING_NO_REQUIRED", "도면번호를 입력해 주세요.");
         if (drawingRepository.existsByDrawingNoIgnoreCase(normalizedDrawingNo)) {
             throw BusinessException.badRequest("PDM_DRAWING_NO_DUPLICATED", "이미 등록된 도면번호입니다. 새 리비전으로 등록하세요.");
@@ -325,7 +220,7 @@ public class PdmService {
     ) {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDrawing drawing = drawing(drawingId);
-        assertCanRevise(current, drawing);
+        permissionPolicy.assertCanRevise(current, drawing);
         PdmDrawingRevision revision = createRevision(drawing, revisionLabel, revisionOrder, revisionDate, receivedDate, changeNote, current);
         attachFile(revision, file, ipAddress, userAgent);
         markLatest(drawing);
@@ -336,7 +231,7 @@ public class PdmService {
     public PdmDrawingDetailResponse voidDrawing(Long drawingId, String ipAddress, String userAgent) {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDrawing drawing = drawing(drawingId);
-        assertCanRevise(current, drawing);
+        permissionPolicy.assertCanRevise(current, drawing);
         drawing.voidDrawing();
         auditLogService.record(current.getEmpId(), AuditActionType.UPDATE, "pdm_drawing", drawing.getDrawingId(), ipAddress, userAgent);
         return detail(drawing.getDrawingId());
@@ -346,7 +241,7 @@ public class PdmService {
     public PdmDrawingDetailResponse updateDrawingStatus(Long drawingId, String status, String ipAddress, String userAgent) {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDrawing drawing = drawing(drawingId);
-        assertCanRevise(current, drawing);
+        permissionPolicy.assertCanRevise(current, drawing);
         drawing.changeStatus(requireStatus(status));
         auditLogService.record(current.getEmpId(), AuditActionType.UPDATE, "pdm_drawing", drawing.getDrawingId(), ipAddress, userAgent);
         return detail(drawing.getDrawingId());
@@ -357,7 +252,7 @@ public class PdmService {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDrawingRevision revision = revision(revisionId);
         PdmDrawing drawing = revision.getDrawing();
-        assertCanRevise(current, drawing);
+        permissionPolicy.assertCanRevise(current, drawing);
         if ("Y".equals(revision.getVoidYn())) {
             throw BusinessException.badRequest("PDM_REVISION_ALREADY_DELETED", "이미 삭제된 리비전입니다.");
         }
@@ -392,7 +287,7 @@ public class PdmService {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDrawingRevision revision = revision(revisionId);
         PdmDrawing drawing = revision.getDrawing();
-        assertCanRequestDownload(current, drawing);
+        permissionPolicy.assertCanRequestDownload(current, drawing);
         assertRevisionUsable(revision, "PDM_REVISION_DELETED", "삭제된 리비전은 다운로드 요청할 수 없습니다.");
         assertDrawingNotVoided(drawing);
         if (revision.getFile() == null) {
@@ -436,7 +331,7 @@ public class PdmService {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDownloadRequest request = downloadRequestRepository.findById(requestId)
             .orElseThrow(() -> BusinessException.notFound("PDM_DOWNLOAD_REQUEST_NOT_FOUND", "다운로드 요청을 찾을 수 없습니다."));
-        if (!request.getRequester().getEmpId().equals(current.getEmpId()) && !isAdmin(current)) {
+        if (!request.getRequester().getEmpId().equals(current.getEmpId()) && !permissionPolicy.isAdmin(current)) {
             throw BusinessException.forbidden("PDM_DOWNLOAD_REQUEST_FORBIDDEN", "본인의 다운로드 요청만 사용할 수 있습니다.");
         }
         if (!ApprovalDocument.STATUS_APPROVED.equals(request.getApproval().getStatus())) {
@@ -471,7 +366,7 @@ public class PdmService {
         Emp current = currentEmpProvider.getCurrentEmp();
         PdmDrawingRevision revision = revision(revisionId);
         PdmDrawing drawing = revision.getDrawing();
-        assertCanView(current, drawing);
+        permissionPolicy.assertCanView(current, drawing);
         assertRevisionUsable(revision, "PDM_REVISION_DELETED", "삭제된 리비전은 열람할 수 없습니다.");
         AttachFile file = revision.getFile();
         if (file == null || "Y".equals(file.getDeletedYn())) {
@@ -497,10 +392,10 @@ public class PdmService {
     @Transactional(readOnly = true)
     public List<PdmPermissionAdminResponse> permissions() {
         Emp current = currentEmpProvider.getCurrentEmp();
-        assertCanManagePermissions(current);
+        permissionPolicy.assertCanManagePermissions(current);
         Map<String, PdmDrawingPermission> latestByTarget = new LinkedHashMap<>();
         permissionRepository.findAll(Sort.by(Sort.Order.desc("permissionId"))).stream()
-            .filter(permission -> isAdmin(current) || canManagerViewPermission(current, permission))
+            .filter(permission -> permissionPolicy.isAdmin(current) || permissionPolicy.canManagerViewPermission(current, permission))
             .forEach(permission -> latestByTarget.putIfAbsent(permissionTargetKey(permission), permission));
         return latestByTarget.values().stream()
             .map(PdmPermissionAdminResponse::from)
@@ -510,7 +405,7 @@ public class PdmService {
     @Transactional
     public PdmPermissionAdminResponse savePermission(PdmPermissionRequest request) {
         Emp current = currentEmpProvider.getCurrentEmp();
-        assertCanManagePermissions(current);
+        permissionPolicy.assertCanManagePermissions(current);
         PdmDrawing drawing = request.drawingId() == null ? null : drawing(request.drawingId());
         Dept dept = request.deptId() == null ? null : deptRepository.findById(request.deptId())
             .orElseThrow(() -> BusinessException.notFound("DEPT_NOT_FOUND", "부서를 찾을 수 없습니다."));
@@ -520,8 +415,8 @@ public class PdmService {
             throw BusinessException.badRequest("PDM_PERMISSION_TARGET_REQUIRED", "권한 대상 사용자 또는 부서를 선택해 주세요.");
         }
         String category = blankToNull(request.category());
-        if (!isAdmin(current)) {
-            assertManagerCanAssignPermission(current, category, drawing, dept, emp, request);
+        if (!permissionPolicy.isAdmin(current)) {
+            permissionPolicy.assertManagerCanAssignPermission(current, category, drawing, dept, emp, request);
         }
         PdmDrawingPermission permission;
         if (request.permissionId() == null) {
@@ -533,7 +428,7 @@ public class PdmService {
         } else {
             permission = permissionRepository.findById(request.permissionId())
                 .orElseThrow(() -> BusinessException.notFound("PDM_PERMISSION_NOT_FOUND", "도면 권한을 찾을 수 없습니다."));
-            if (!isAdmin(current) && (!canManagerViewPermission(current, permission) || permission.getEmp() == null)) {
+            if (!permissionPolicy.isAdmin(current) && (!permissionPolicy.canManagerViewPermission(current, permission) || permission.getEmp() == null)) {
                 throw BusinessException.forbidden("PDM_PERMISSION_MANAGER_TARGET_FORBIDDEN", "부서장은 자기 부서 직원 권한만 수정할 수 있습니다.");
             }
         }
@@ -615,43 +510,8 @@ public class PdmService {
         }
     }
 
-    private PdmPermissionResponse permissions(Emp emp, PdmDrawing drawing) {
-        boolean admin = isAdmin(emp);
-        boolean register = admin || hasPermission(emp, drawing, "register");
-        boolean revise = admin || hasPermission(emp, drawing, "revise");
-        boolean view = admin || hasPermission(emp, drawing, "view");
-        boolean requestDownload = admin || hasPermission(emp, drawing, "downloadRequest");
-        boolean approveDownload = admin || hasPermission(emp, drawing, "downloadApprove");
-        return new PdmPermissionResponse(admin, register, revise, view, requestDownload, approveDownload);
-    }
-
-    private void assertCanRegister(Emp emp, String category, PdmDrawing drawing) {
-        if (!isAdmin(emp) && !hasPermission(emp, category, drawing, "register")) {
-            throw BusinessException.forbidden("PDM_REGISTER_FORBIDDEN", "도면 등록 권한이 없습니다.");
-        }
-    }
-
-    private void assertCanRevise(Emp emp, PdmDrawing drawing) {
-        if (!isAdmin(emp) && !hasPermission(emp, drawing, "revise")) {
-            throw BusinessException.forbidden("PDM_REVISE_FORBIDDEN", "도면 개정 권한이 없습니다.");
-        }
-    }
-
-    private void assertCanView(Emp emp, PdmDrawing drawing) {
-        if (!canView(emp, drawing)) {
-            throw BusinessException.forbidden("PDM_VIEW_FORBIDDEN", "도면 조회 권한이 없습니다.");
-        }
-    }
-
     public boolean canView(Emp emp, PdmDrawing drawing) {
-        return isAdmin(emp) || drawing.getCreatedByEmpId().equals(emp.getEmpId()) || hasPermission(emp, drawing, "view");
-    }
-
-    private void assertCanRequestDownload(Emp emp, PdmDrawing drawing) {
-        assertCanView(emp, drawing);
-        if (!isAdmin(emp) && !hasPermission(emp, drawing, "downloadRequest")) {
-            throw BusinessException.forbidden("PDM_DOWNLOAD_REQUEST_FORBIDDEN", "도면 다운로드 요청 권한이 없습니다.");
-        }
+        return permissionPolicy.canView(emp, drawing);
     }
 
     private void assertRevisionUsable(PdmDrawingRevision revision, String code, String message) {
@@ -664,24 +524,6 @@ public class PdmService {
         if (PdmDrawing.STATUS_VOIDED.equals(drawing.getStatus())) {
             throw BusinessException.badRequest("PDM_DRAWING_VOIDED", "폐기된 도면은 다운로드 요청하거나 다운로드할 수 없습니다.");
         }
-    }
-
-    private boolean hasPermission(Emp emp, PdmDrawing drawing, String action) {
-        return hasPermission(emp, drawing.getCategory(), drawing, action);
-    }
-
-    private boolean hasPermission(Emp emp, String category, PdmDrawing drawing, String action) {
-        return permissionRepository.findEffective(emp, emp.getDept()).stream()
-            .filter(permission -> permission.getDrawing() == null || (drawing != null && permission.getDrawing().getDrawingId().equals(drawing.getDrawingId())))
-            .filter(permission -> permission.getCategory() == null || permission.getCategory().equals(category))
-            .anyMatch(permission -> switch (action) {
-                case "register" -> "Y".equals(permission.getCanRegisterYn());
-                case "revise" -> "Y".equals(permission.getCanReviseYn());
-                case "view" -> "Y".equals(permission.getCanViewYn());
-                case "downloadRequest" -> "Y".equals(permission.getCanDownloadRequestYn());
-                case "downloadApprove" -> "Y".equals(permission.getCanDownloadApproveYn());
-                default -> false;
-            });
     }
 
     private String requireCategory(String category) {
@@ -705,266 +547,6 @@ public class PdmService {
         return normalized;
     }
 
-    private boolean folderInRenameScope(PdmFolder folder, String category, String folderKind, String folderName, PdmFolderPathRenameRequest request) {
-        return folderInPath(folder, category, folderKind, folderName, request.companyName(), request.businessUnit(), request.processName());
-    }
-
-    private boolean folderInDeleteScope(PdmFolder folder, String category, String folderKind, String folderName, PdmFolderPathRequest request) {
-        return folderInPath(folder, category, folderKind, folderName, request.companyName(), request.businessUnit(), request.processName());
-    }
-
-    private int nextFolderSortOrder(String category, PdmFolderRequest request) {
-        PdmFolder probe = PdmFolder.builder()
-            .category(category)
-            .companyName(blankToNull(request.companyName()))
-            .projectName(blankToNull(request.projectName()))
-            .businessUnit(blankToNull(request.businessUnit()))
-            .processName(blankToNull(request.processName()))
-            .folderKind(requireText(request.folderKind(), "PDM_FOLDER_KIND_REQUIRED", "폴더 구분을 입력해 주세요."))
-            .folderName(requireText(request.folderName(), "PDM_FOLDER_NAME_REQUIRED", "폴더명을 입력해 주세요."))
-            .sortOrder(0)
-            .createdBy(currentEmpProvider.getCurrentEmp())
-            .build();
-        return folderRepository.findAll().stream()
-            .filter(folder -> sameFolderOrderScope(probe, folder))
-            .map(PdmFolder::getSortOrder)
-            .filter(Objects::nonNull)
-            .max(Integer::compareTo)
-            .map(order -> order + 10)
-            .orElse(10);
-    }
-
-    private void ensureFolderRowsForDrawingPaths(Emp current) {
-        Map<String, PdmFolder> existing = new LinkedHashMap<>();
-        for (PdmFolder folder : folderRepository.findAll()) {
-            existing.put(folderKey(folder.getCategory(), folder.getCompanyName(), folder.getProjectName(), folder.getBusinessUnit(), folder.getProcessName(), folder.getFolderKind(), folder.getFolderName()), folder);
-        }
-        for (PdmDrawing drawing : drawingRepository.findAll()) {
-            if (PdmDrawing.CATEGORY_PRODUCT.equals(drawing.getCategory())) {
-                String company = blankToNull(drawing.getCompanyName());
-                String project = blankToNull(drawing.getProjectName());
-                if (project == null) {
-                    project = blankToNull(drawing.getGroupName());
-                }
-                if (company != null) {
-                    ensureFolderRow(existing, current, PdmDrawing.CATEGORY_PRODUCT, null, null, null, null, "COMPANY", company);
-                    if (project != null) {
-                        ensureFolderRow(existing, current, PdmDrawing.CATEGORY_PRODUCT, company, project, null, null, "PROJECT", project);
-                    }
-                }
-                continue;
-            }
-            String business = blankToNull(drawing.getBusinessUnit());
-            String process = blankToNull(drawing.getProcessName());
-            String equipment = blankToNull(drawing.getEquipmentName());
-            String group = blankToNull(drawing.getGroupName());
-            if (business != null) {
-                ensureFolderRow(existing, current, PdmDrawing.CATEGORY_EQUIPMENT, null, null, null, null, "BUSINESS", business);
-                if (process != null) {
-                    ensureFolderRow(existing, current, PdmDrawing.CATEGORY_EQUIPMENT, null, null, business, null, "PROCESS", process);
-                    if (equipment != null) {
-                        ensureFolderRow(existing, current, PdmDrawing.CATEGORY_EQUIPMENT, null, null, business, process, "EQUIPMENT", equipment);
-                    } else if (group != null) {
-                        ensureFolderRow(existing, current, PdmDrawing.CATEGORY_EQUIPMENT, null, null, business, process, "COMMON", group);
-                    }
-                }
-            }
-        }
-    }
-
-    private void ensureFolderRow(
-        Map<String, PdmFolder> existing,
-        Emp current,
-        String category,
-        String companyName,
-        String projectName,
-        String businessUnit,
-        String processName,
-        String folderKind,
-        String folderName
-    ) {
-        String key = folderKey(category, companyName, projectName, businessUnit, processName, folderKind, folderName);
-        if (existing.containsKey(key)) {
-            return;
-        }
-        PdmFolderRequest request = new PdmFolderRequest(category, companyName, projectName, businessUnit, processName, folderKind, folderName);
-        PdmFolder saved = folderRepository.save(PdmFolder.builder()
-            .category(category)
-            .companyName(blankToNull(companyName))
-            .projectName(blankToNull(projectName))
-            .businessUnit(blankToNull(businessUnit))
-            .processName(blankToNull(processName))
-            .folderKind(folderKind)
-            .folderName(folderName)
-            .sortOrder(nextFolderSortOrder(category, request))
-            .createdBy(current)
-            .build());
-        existing.put(key, saved);
-    }
-
-    private String folderKey(String category, String companyName, String projectName, String businessUnit, String processName, String folderKind, String folderName) {
-        String normalizedCategory = Objects.toString(blankToNull(category), "");
-        String normalizedKind = Objects.toString(blankToNull(folderKind), "");
-        String normalizedName = Objects.toString(blankToNull(folderName), "");
-        if (PdmDrawing.CATEGORY_PRODUCT.equals(normalizedCategory)) {
-            if ("COMPANY".equals(normalizedKind)) {
-                return String.join("|", normalizedCategory, normalizedKind, normalizedName);
-            }
-            if ("PROJECT".equals(normalizedKind)) {
-                return String.join("|", normalizedCategory, normalizedKind, Objects.toString(blankToNull(companyName), ""), normalizedName);
-            }
-        }
-        if ("BUSINESS".equals(normalizedKind)) {
-            return String.join("|", normalizedCategory, normalizedKind, normalizedName);
-        }
-        if ("PROCESS".equals(normalizedKind)) {
-            return String.join("|", normalizedCategory, normalizedKind, Objects.toString(blankToNull(businessUnit), ""), normalizedName);
-        }
-        if ("COMMON".equals(normalizedKind) || "EQUIPMENT".equals(normalizedKind)) {
-            return String.join("|", normalizedCategory, normalizedKind, Objects.toString(blankToNull(businessUnit), ""), Objects.toString(blankToNull(processName), ""), normalizedName);
-        }
-        return String.join("|",
-            normalizedCategory,
-            Objects.toString(blankToNull(companyName), ""),
-            Objects.toString(blankToNull(projectName), ""),
-            Objects.toString(blankToNull(businessUnit), ""),
-            Objects.toString(blankToNull(processName), ""),
-            normalizedKind,
-            normalizedName
-        );
-    }
-
-    private boolean sameFolderOrderScope(PdmFolder left, PdmFolder right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        if (!safeEquals(left.getCategory(), right.getCategory())) {
-            return false;
-        }
-        String leftKind = left.getFolderKind();
-        String rightKind = right.getFolderKind();
-        if (PdmDrawing.CATEGORY_PRODUCT.equals(left.getCategory())) {
-            if (!safeEquals(leftKind, rightKind)) {
-                return false;
-            }
-            return switch (leftKind) {
-                case "COMPANY" -> true;
-                case "PROJECT" -> safeEquals(left.getCompanyName(), right.getCompanyName());
-                default -> false;
-            };
-        }
-        if ("BUSINESS".equals(leftKind) || "PROCESS".equals(leftKind)) {
-            if (!safeEquals(leftKind, rightKind)) {
-                return false;
-            }
-            return "BUSINESS".equals(leftKind)
-                || safeEquals(left.getBusinessUnit(), right.getBusinessUnit());
-        }
-        if ("COMMON".equals(leftKind) || "EQUIPMENT".equals(leftKind)) {
-            return ("COMMON".equals(rightKind) || "EQUIPMENT".equals(rightKind))
-                && safeEquals(left.getBusinessUnit(), right.getBusinessUnit())
-                && safeEquals(left.getProcessName(), right.getProcessName());
-        }
-        return false;
-    }
-
-    private Comparator<PdmFolder> folderOrderComparator() {
-        return Comparator.comparingInt(this::safeSortOrder)
-            .thenComparing(PdmFolder::getFolderName, Comparator.nullsLast(String::compareToIgnoreCase))
-            .thenComparing(PdmFolder::getFolderId, Comparator.nullsLast(Long::compareTo));
-    }
-
-    private int safeSortOrder(PdmFolder folder) {
-        return folder.getSortOrder() == null ? 0 : folder.getSortOrder();
-    }
-
-    private boolean folderInPath(PdmFolder folder, String category, String folderKind, String folderName, String companyName, String businessUnit, String processName) {
-        if (!category.equals(folder.getCategory())) {
-            return false;
-        }
-        return switch (folderKind) {
-            case "COMPANY" -> PdmDrawing.CATEGORY_PRODUCT.equals(category)
-                && (("COMPANY".equals(folder.getFolderKind()) && folderName.equals(folder.getFolderName())) || folderName.equals(folder.getCompanyName()));
-            case "PROJECT" -> PdmDrawing.CATEGORY_PRODUCT.equals(category)
-                && safeEquals(blankToNull(companyName), folder.getCompanyName())
-                && (("PROJECT".equals(folder.getFolderKind()) && folderName.equals(folder.getFolderName())) || folderName.equals(folder.getProjectName()));
-            case "BUSINESS" -> PdmDrawing.CATEGORY_EQUIPMENT.equals(category)
-                && (("BUSINESS".equals(folder.getFolderKind()) && folderName.equals(folder.getFolderName())) || folderName.equals(folder.getBusinessUnit()));
-            case "PROCESS" -> PdmDrawing.CATEGORY_EQUIPMENT.equals(category)
-                && safeEquals(blankToNull(businessUnit), folder.getBusinessUnit())
-                && (("PROCESS".equals(folder.getFolderKind()) && folderName.equals(folder.getFolderName())) || folderName.equals(folder.getProcessName()));
-            case "COMMON", "EQUIPMENT" -> PdmDrawing.CATEGORY_EQUIPMENT.equals(category)
-                && folderKind.equals(folder.getFolderKind())
-                && safeEquals(blankToNull(businessUnit), folder.getBusinessUnit())
-                && safeEquals(blankToNull(processName), folder.getProcessName())
-                && folderName.equals(folder.getFolderName());
-            default -> false;
-        };
-    }
-
-    private boolean drawingInPath(PdmDrawing drawing, String category, String folderKind, String folderName, PdmFolderPathRenameRequest request) {
-        return drawingInPath(drawing, category, folderKind, folderName, request.companyName(), request.businessUnit(), request.processName());
-    }
-
-    private boolean drawingInPath(PdmDrawing drawing, String category, String folderKind, String folderName, PdmFolderPathRequest request) {
-        return drawingInPath(drawing, category, folderKind, folderName, request.companyName(), request.businessUnit(), request.processName());
-    }
-
-    private boolean drawingInPath(PdmDrawing drawing, String category, String folderKind, String folderName, String companyName, String businessUnit, String processName) {
-        if (!category.equals(drawing.getCategory())) {
-            return false;
-        }
-        return switch (folderKind) {
-            case "COMPANY" -> PdmDrawing.CATEGORY_PRODUCT.equals(category) && folderName.equals(drawing.getCompanyName());
-            case "PROJECT" -> PdmDrawing.CATEGORY_PRODUCT.equals(category)
-                && safeEquals(blankToNull(companyName), drawing.getCompanyName())
-                && (folderName.equals(drawing.getProjectName()) || (drawing.getProjectName() == null && folderName.equals(drawing.getGroupName())));
-            case "BUSINESS" -> PdmDrawing.CATEGORY_EQUIPMENT.equals(category) && folderName.equals(drawing.getBusinessUnit());
-            case "PROCESS" -> PdmDrawing.CATEGORY_EQUIPMENT.equals(category)
-                && safeEquals(blankToNull(businessUnit), drawing.getBusinessUnit())
-                && folderName.equals(drawing.getProcessName());
-            case "COMMON" -> PdmDrawing.CATEGORY_EQUIPMENT.equals(category)
-                && safeEquals(blankToNull(businessUnit), drawing.getBusinessUnit())
-                && safeEquals(blankToNull(processName), drawing.getProcessName())
-                && folderName.equals(drawing.getGroupName());
-            case "EQUIPMENT" -> PdmDrawing.CATEGORY_EQUIPMENT.equals(category)
-                && safeEquals(blankToNull(businessUnit), drawing.getBusinessUnit())
-                && safeEquals(blankToNull(processName), drawing.getProcessName())
-                && folderName.equals(drawing.getEquipmentName());
-            default -> false;
-        };
-    }
-
-    private void renameFolderInScope(PdmFolder folder, String folderKind, String oldName, String newName) {
-        switch (folderKind) {
-            case "COMPANY" -> folder.renameCompany(oldName, newName);
-            case "PROJECT" -> folder.renameProject(oldName, newName);
-            case "BUSINESS" -> folder.renameBusinessUnit(oldName, newName);
-            case "PROCESS" -> folder.renameProcess(oldName, newName);
-            case "COMMON", "EQUIPMENT" -> folder.rename(newName);
-            default -> throw BusinessException.badRequest("PDM_FOLDER_KIND_INVALID", "폴더 구분이 올바르지 않습니다.");
-        }
-    }
-
-    private void renameDrawingInScope(PdmDrawing drawing, String folderKind, String oldName, String newName) {
-        switch (folderKind) {
-            case "COMPANY" -> drawing.renameCompany(oldName, newName);
-            case "PROJECT" -> drawing.renameProject(oldName, newName);
-            case "BUSINESS" -> drawing.renameBusinessUnit(oldName, newName);
-            case "PROCESS" -> drawing.renameProcess(oldName, newName);
-            case "COMMON" -> drawing.renameGroup(oldName, newName);
-            case "EQUIPMENT" -> drawing.renameEquipment(oldName, newName);
-            default -> throw BusinessException.badRequest("PDM_FOLDER_KIND_INVALID", "폴더 구분이 올바르지 않습니다.");
-        }
-    }
-
-    private boolean safeEquals(String left, String right) {
-        if (left == null) {
-            return right == null;
-        }
-        return left.equals(right);
-    }
-
     private PdmDrawing drawing(Long drawingId) {
         return drawingRepository.findById(drawingId)
             .orElseThrow(() -> BusinessException.notFound("PDM_DRAWING_NOT_FOUND", "도면을 찾을 수 없습니다."));
@@ -973,96 +555,6 @@ public class PdmService {
     private PdmDrawingRevision revision(Long revisionId) {
         return revisionRepository.findById(revisionId)
             .orElseThrow(() -> BusinessException.notFound("PDM_REVISION_NOT_FOUND", "도면 리비전을 찾을 수 없습니다."));
-    }
-
-    private void assertAdmin(Emp emp) {
-        if (!isAdmin(emp)) {
-            throw BusinessException.forbidden("PDM_ADMIN_FORBIDDEN", "시스템 관리자만 도면 권한을 관리할 수 있습니다.");
-        }
-    }
-
-    private void assertCanManagePermissions(Emp emp) {
-        if (!isAdmin(emp) && !isDepartmentManager(emp)) {
-            throw BusinessException.forbidden("PDM_PERMISSION_MANAGER_FORBIDDEN", "도면 권한을 관리할 수 없습니다.");
-        }
-    }
-
-    private boolean isAdmin(Emp emp) {
-        return emp != null && ("ADMIN".equals(emp.getRoleCode()) || "APPROVAL_ADMIN".equals(emp.getRoleCode()));
-    }
-
-    private boolean isDepartmentManager(Emp emp) {
-        if (emp == null || emp.getDept() == null) {
-            return false;
-        }
-        return "MANAGER".equals(emp.getRoleCode())
-            || containsManagerTitle(emp.getJobTitle())
-            || containsManagerTitle(emp.getPositionName());
-    }
-
-    private boolean containsManagerTitle(String value) {
-        return value != null && (value.contains("팀장") || value.contains("부서장"));
-    }
-
-    private boolean canManagerViewPermission(Emp manager, PdmDrawingPermission permission) {
-        Long managerDeptId = manager.getDept() == null ? null : manager.getDept().getDeptId();
-        if (managerDeptId == null) {
-            return false;
-        }
-        if (permission.getDept() != null && managerDeptId.equals(permission.getDept().getDeptId())) {
-            return true;
-        }
-        return permission.getEmp() != null
-            && permission.getEmp().getDept() != null
-            && managerDeptId.equals(permission.getEmp().getDept().getDeptId());
-    }
-
-    private void assertManagerCanAssignPermission(
-        Emp manager,
-        String category,
-        PdmDrawing drawing,
-        Dept dept,
-        Emp emp,
-        PdmPermissionRequest request
-    ) {
-        if (!isDepartmentManager(manager)) {
-            throw BusinessException.forbidden("PDM_PERMISSION_MANAGER_FORBIDDEN", "부서장만 직원 권한을 배정할 수 있습니다.");
-        }
-        if (drawing != null || dept != null || emp == null) {
-            throw BusinessException.forbidden("PDM_PERMISSION_MANAGER_TARGET_FORBIDDEN", "부서장은 자기 부서 직원 권한만 배정할 수 있습니다.");
-        }
-        Long managerDeptId = manager.getDept() == null ? null : manager.getDept().getDeptId();
-        Long empDeptId = emp.getDept() == null ? null : emp.getDept().getDeptId();
-        if (managerDeptId == null || !managerDeptId.equals(empDeptId)) {
-            throw BusinessException.forbidden("PDM_PERMISSION_MANAGER_DEPT_FORBIDDEN", "자기 부서 직원에게만 권한을 배정할 수 있습니다.");
-        }
-        if (!isWithinDepartmentPermissionScope(manager.getDept(), category, request)) {
-            throw BusinessException.forbidden("PDM_PERMISSION_SCOPE_EXCEEDED", "부서에 허용된 권한 범위를 넘는 권한은 관리자 승인이 필요합니다.");
-        }
-    }
-
-    private boolean isWithinDepartmentPermissionScope(Dept dept, String category, PdmPermissionRequest request) {
-        return (!request.canRegister() || hasDepartmentScopePermission(dept, category, "register"))
-            && (!request.canRevise() || hasDepartmentScopePermission(dept, category, "revise"))
-            && (!request.canView() || hasDepartmentScopePermission(dept, category, "view"))
-            && (!request.canDownloadRequest() || hasDepartmentScopePermission(dept, category, "downloadRequest"))
-            && (!request.canDownloadApprove() || hasDepartmentScopePermission(dept, category, "downloadApprove"));
-    }
-
-    private boolean hasDepartmentScopePermission(Dept dept, String category, String action) {
-        return permissionRepository.findAll().stream()
-            .filter(permission -> permission.getDept() != null && permission.getDept().getDeptId().equals(dept.getDeptId()))
-            .filter(permission -> permission.getEmp() == null)
-            .filter(permission -> permission.getDrawing() == null)
-            .filter(permission -> category == null ? permission.getCategory() == null : permission.getCategory() == null || category.equals(permission.getCategory()))
-            .anyMatch(permission -> switch (action) {
-                case "register" -> "Y".equals(permission.getCanRegisterYn());
-                case "revise" -> "Y".equals(permission.getCanReviseYn());
-                case "view" -> "Y".equals(permission.getCanViewYn());
-                case "downloadRequest" -> "Y".equals(permission.getCanDownloadRequestYn());
-                case "downloadApprove" -> "Y".equals(permission.getCanDownloadApproveYn());
-                default -> false;
-            });
     }
 
     private String downloadApprovalContent(PdmDrawing drawing, PdmDrawingRevision revision, String reason) {

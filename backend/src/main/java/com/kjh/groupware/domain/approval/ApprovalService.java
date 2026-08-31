@@ -52,7 +52,7 @@ public class ApprovalService {
     private static final Map<String, String> APPROVAL_BOX_LABELS = Map.of(
         BOX_AGREEMENT, "합의대기",
         BOX_PENDING, "결재대기",
-        BOX_RECEIVED, "수신문서",
+        BOX_RECEIVED, "수신함",
         BOX_SHARED, "참조/연람",
         BOX_REQUESTED, "기안문서",
         BOX_PROCESSED, "처리문서",

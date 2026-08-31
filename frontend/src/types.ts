@@ -27,6 +27,30 @@ export type User = {
   mustChangePassword?: boolean;
 };
 
+export type EffectiveMenu = {
+  menuId: number;
+  menuCode: string;
+  menuName: string;
+  menuPath: string | null;
+  parentMenuCode: string | null;
+  portalCode: "EMPLOYEE" | "ADMIN";
+  iconKey: string | null;
+  implementationStatus: "IMPLEMENTED" | "PLANNED" | "DISABLED";
+  requiredPermissionCode: string | null;
+  defaultSortOrder: number;
+  effectiveSortOrder: number;
+  pinned: boolean;
+  hidden: boolean;
+  searchable: boolean;
+};
+
+export type MenuPreferenceItem = {
+  menuCode: string;
+  sortOrder: number;
+  pinned: boolean;
+  hidden: boolean;
+};
+
 export type LoginResponse = User & {
   accessToken: string;
   refreshToken: string | null;
@@ -41,6 +65,7 @@ export type ManagedEmployee = {
   genderCode: "MALE" | "FEMALE";
   email: string | null;
   phone: string | null;
+  extensionNumber: string | null;
   deptId: number | null;
   deptName: string | null;
   positionName: string | null;
@@ -53,6 +78,9 @@ export type ManagedEmployee = {
   rehireDate: string | null;
   employmentStartDate: string;
   employmentType: "REGULAR" | "CONTRACT";
+  workCategory: "MANAGEMENT" | "FIELD";
+  shiftType?: "A" | "B" | "DAY_FIXED" | null;
+  shiftAnchorDate?: string | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
   status: "ACTIVE" | "LEAVE" | "RETIRED";
@@ -134,12 +162,51 @@ export type Employee = {
   empName: string;
   email: string | null;
   phone: string | null;
+  extensionNumber: string | null;
   deptId: number | null;
   deptName: string | null;
   positionName: string | null;
   jobTitle: string | null;
+  workCategory: "MANAGEMENT" | "FIELD";
+  shiftType: "A" | "B" | "DAY_FIXED" | null;
+  shiftAnchorDate: string | null;
   roleCode: string;
   status: string;
+};
+
+export type WorkSchedule = {
+  workEntryId: number;
+  approvalId: number;
+  empId: number;
+  empName: string;
+  deptId: number | null;
+  deptName: string | null;
+  workCategory: "MANAGEMENT" | "FIELD";
+  shiftType: "A" | "B" | "DAY_FIXED" | null;
+  scheduledShift: "DAY" | "NIGHT" | "A" | "B" | null;
+  workType: "OVERTIME" | "NIGHT" | "NIGHT_OVERTIME" | "SPECIAL" | "SPECIAL_OVERTIME" | "SPECIAL_NIGHT" | "SPECIAL_NIGHT_OVERTIME" | "EMERGENCY_CALL";
+  workDate: string;
+  startTime: string;
+  endTime: string;
+  workMinutes: number;
+  workContent: string;
+  compTime: boolean;
+  status: "PENDING" | "PLANNED" | "COMPLETED" | "CANCEL_PENDING" | "CANCELED";
+};
+
+export type DirectoryEmployee = {
+  empId: number;
+  empNo: string;
+  empName: string;
+  email: string | null;
+  phone: string | null;
+  extensionNumber: string | null;
+  deptId: number | null;
+  deptName: string | null;
+  managerEmpId: number | null;
+  positionName: string | null;
+  jobTitle: string | null;
+  status: "ACTIVE" | "LEAVE" | "RETIRED";
 };
 
 export type AuditLog = {
@@ -156,15 +223,16 @@ export type AuditLog = {
 };
 
 export type GlobalSearchItem = {
-  type: "APPROVAL" | "BOARD_POST" | "NOTICE" | "PDM_DRAWING" | "EMPLOYEE" | "NOTIFICATION" | "AUDIT_LOG";
+  type: "APPROVAL" | "BOARD_POST" | "NOTICE" | "PDM_DRAWING" | "EMPLOYEE" | "DEPARTMENT" | "MENU" | "NOTIFICATION" | "AUDIT_LOG";
   targetId: number;
   parentId: number | null;
-  route: "approvals" | "boards" | "notices" | "pdm" | "organization" | "notifications" | "audit";
+  route: "approvals" | "boards" | "notices" | "pdm" | "organization" | "menu" | "notifications" | "audit";
   title: string;
   summary: string | null;
   meta: string | null;
   badges: string[];
   occurredAt: string | null;
+  destinationPath: string | null;
 };
 
 export type GlobalSearchGroup = {
@@ -177,6 +245,7 @@ export type GlobalSearchGroup = {
 export type GlobalSearchResponse = {
   keyword: string;
   groups: GlobalSearchGroup[];
+  failedProviders: string[];
 };
 
 export type AttachFile = {
@@ -283,7 +352,7 @@ export type LeaveUsageSelection = {
   date: string;
   type: string;
   days: string;
-  approvalId: number;
+  approvalId: number | null;
   documentNo: string | null;
 };
 
@@ -309,6 +378,8 @@ export type LeaveUsage = {
   selections: LeaveUsageSelection[];
   occupiedSelections: LeaveUsageSelection[];
   exclusions: LeaveExclusion[];
+  balanceYear: number;
+  pendingCancelSelections: LeaveUsageSelection[];
 };
 
 export type CompTimeCredit = {
@@ -417,10 +488,14 @@ export type ApprovalOperationSettings = {
   reminderFixedDelayMs: number;
   deletedDocumentRetentionDays: number;
   permanentDeleteEnabled: boolean;
+  leaveDefaultReceiverEmpId: number | null;
+  leaveDefaultReceiverName: string | null;
   fallbackDecisionDueHours: number;
   fallbackReminderFixedDelayMs: number;
   fallbackDeletedDocumentRetentionDays: number;
   fallbackPermanentDeleteEnabled: boolean;
+  fallbackLeaveDefaultReceiverEmpId: number | null;
+  fallbackLeaveDefaultReceiverName: string | null;
 };
 
 export type EquipmentProposal = {

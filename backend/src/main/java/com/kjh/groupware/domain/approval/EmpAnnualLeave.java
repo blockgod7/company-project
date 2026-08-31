@@ -63,4 +63,8 @@ public class EmpAnnualLeave {
         this.updatedBy = editor;
         this.updatedAt = LocalDateTime.now();
     }
+
+    public boolean isManual() {
+        return "MANUAL".equals(calculationMode);
+    }
 }

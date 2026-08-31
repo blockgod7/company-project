@@ -8,15 +8,16 @@ type DeptOption = { deptId: number; deptName: string };
 type TemporaryPassword = { loginId: string; temporaryPassword: string; expiresAt: string };
 type LeaveImpact = { affectedDateCount: number; items: { approvalId: number; documentNo: string | null; status: string; date: string; leaveType: string }[] };
 type EmployeeForm = {
-  empNo: string; empName: string; genderCode: "MALE" | "FEMALE"; email: string; phone: string;
+  empNo: string; empName: string; genderCode: "MALE" | "FEMALE"; email: string; phone: string; extensionNumber: string;
   deptId: string; positionName: string; jobTitle: string; managerEmpId: string; hireDate: string;
-  employmentType: "REGULAR" | "CONTRACT"; contractStartDate: string; contractEndDate: string;
+  employmentType: "REGULAR" | "CONTRACT"; workCategory: "AUTO" | "MANAGEMENT" | "FIELD";
+  contractStartDate: string; contractEndDate: string;
 };
 
 const EMPTY_FORM: EmployeeForm = {
-  empNo: "", empName: "", genderCode: "MALE", email: "", phone: "", deptId: "",
+  empNo: "", empName: "", genderCode: "MALE", email: "", phone: "", extensionNumber: "", deptId: "",
   positionName: "", jobTitle: "", managerEmpId: "", hireDate: new Date().toISOString().slice(0, 10),
-  employmentType: "REGULAR", contractStartDate: "", contractEndDate: ""
+  employmentType: "REGULAR", workCategory: "AUTO", contractStartDate: "", contractEndDate: ""
 };
 
 function flattenDepts(nodes: DeptNode[], depth = 0): DeptOption[] {
@@ -30,7 +31,7 @@ function requestBody(form: EmployeeForm, includeEmpNo: boolean) {
   return {
     ...(includeEmpNo ? { empNo: form.empNo.trim() } : {}),
     empName: form.empName.trim(), genderCode: form.genderCode,
-    email: form.email.trim() || null, phone: form.phone.trim() || null,
+    email: form.email.trim() || null, phone: form.phone.trim() || null, extensionNumber: form.extensionNumber.trim() || null,
     deptId: form.deptId ? Number(form.deptId) : null,
     positionName: form.positionName.trim() || null, jobTitle: form.jobTitle.trim() || null,
     managerEmpId: form.managerEmpId ? Number(form.managerEmpId) : null,
@@ -53,6 +54,12 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
   const [error, setError] = useState("");
   const [temporary, setTemporary] = useState<TemporaryPassword | null>(null);
   const canManageAccounts = user.permissions.includes("ACCOUNT_ADMIN");
+  const canManageEmployees = user.permissions.includes("EMPLOYEE_ADMIN");
+  const canManageWorkCategory = user.permissions.includes("WORK_CATEGORY_ADMIN");
+  const canManageWorkRequests = user.permissions.includes("WORK_REQUEST_ADMIN");
+  const canEditEmployeeDetails = canManageEmployees || canManageWorkCategory;
+  const profileFieldsDisabled = !canManageEmployees;
+  const canGrantPermissions = user.permissions.includes("FULL_ADMIN") || user.roleCode === "ADMIN";
 
   async function load() {
     setError("");
@@ -76,25 +83,57 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
     setEditing(employee);
     setForm({
       empNo: employee.empNo, empName: employee.empName, genderCode: employee.genderCode,
-      email: employee.email ?? "", phone: employee.phone ?? "", deptId: employee.deptId ? String(employee.deptId) : "",
+      email: employee.email ?? "", phone: employee.phone ?? "", extensionNumber: employee.extensionNumber ?? "", deptId: employee.deptId ? String(employee.deptId) : "",
       positionName: employee.positionName ?? "", jobTitle: employee.jobTitle ?? "",
       managerEmpId: employee.managerEmpId ? String(employee.managerEmpId) : "", hireDate: employee.hireDate,
-      employmentType: employee.employmentType, contractStartDate: employee.contractStartDate ?? "",
+      employmentType: employee.employmentType, workCategory: employee.workCategory,
+      contractStartDate: employee.contractStartDate ?? "",
       contractEndDate: employee.contractEndDate ?? ""
     });
     setShowForm(true); setError("");
   }
 
   async function save() {
-    if (!form.empName.trim() || !form.hireDate || (!editing && !form.empNo.trim())) {
-      setError("사번, 이름, 입사일은 필수입니다."); return;
+    if (!editing && !canManageEmployees) {
+      setError("직원 등록 권한이 없습니다."); return;
+    }
+    if (canManageEmployees) {
+      if (!form.empName.trim() || !form.hireDate || (!editing && !form.empNo.trim())) {
+        setError("사번, 이름, 입사일은 필수입니다."); return;
+      }
+      if (form.employmentType === "CONTRACT" && (!form.contractStartDate || !form.contractEndDate)) {
+        setError("계약직은 계약 시작일과 종료일을 모두 입력해야 합니다."); return;
+      }
+      if (form.employmentType === "CONTRACT" && form.contractEndDate < form.contractStartDate) {
+        setError("계약 종료일은 계약 시작일보다 빠를 수 없습니다."); return;
+      }
+    }
+    if (editing && !canManageEmployees && (!canManageWorkCategory || form.workCategory === editing.workCategory)) {
+      setError("변경된 직군 정보가 없습니다."); return;
     }
     setBusy(true); setError("");
     try {
-      await api<ManagedEmployee>(editing ? `/employee-management/${editing.empId}` : "/employee-management", {
-        method: editing ? "PUT" : "POST", body: jsonBody(requestBody(form, !editing))
-      });
-      setShowForm(false); setMessage(editing ? "직원 정보를 수정했습니다." : "직원을 등록했습니다. 계정은 별도로 발급하세요.");
+      let saved: ManagedEmployee | null = editing;
+      let profileSaved = false;
+      let workCategorySaved = false;
+      if (canManageEmployees) {
+        saved = await api<ManagedEmployee>(editing ? `/employee-management/${editing.empId}` : "/employee-management", {
+          method: editing ? "PUT" : "POST", body: jsonBody(requestBody(form, !editing))
+        });
+        profileSaved = true;
+      }
+      if (saved && canManageWorkCategory && form.workCategory !== "AUTO" && saved.workCategory !== form.workCategory) {
+        saved = await api<ManagedEmployee>(`/employee-management/${saved.empId}/work-category`, {
+          method: "PUT", body: jsonBody({ workCategory: form.workCategory })
+        });
+        workCategorySaved = true;
+      }
+      setShowForm(false);
+      setMessage(!editing
+        ? "직원을 등록했습니다. 계정은 별도로 발급하세요."
+        : workCategorySaved && !profileSaved
+          ? "직원 상세의 직군 정보를 수정했습니다."
+          : "직원 상세 정보를 수정했습니다.");
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : "저장하지 못했습니다."); }
     finally { setBusy(false); }
@@ -112,7 +151,7 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
     } catch (err) { setError(err instanceof Error ? err.message : "계정을 처리하지 못했습니다."); }
   }
 
-  async function togglePermission(employee: ManagedEmployee, permissionCode: "LEAVE_ADMIN" | "EMPLOYEE_ADMIN") {
+  async function togglePermission(employee: ManagedEmployee, permissionCode: "FULL_ADMIN" | "LEAVE_ADMIN" | "LEAVE_POLICY_ADMIN" | "EMPLOYEE_ADMIN" | "WORK_CATEGORY_ADMIN" | "ACCOUNT_ADMIN" | "WORK_REQUEST_ADMIN" | "WORK_REQUEST_DELEGATE") {
     const active = !employee.permissions.includes(permissionCode);
     try {
       await api(`/employee-management/permissions/${employee.empId}`, {
@@ -120,6 +159,16 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
       });
       await load();
     } catch (err) { setError(err instanceof Error ? err.message : "권한을 변경하지 못했습니다."); }
+  }
+
+  async function updateShift(employee: ManagedEmployee) {
+    const raw = window.prompt("교대유형을 입력하세요. (A / B / DAY_FIXED / 비우면 해제)", employee.shiftType ?? "")?.trim().toUpperCase();
+    if (raw === undefined) return;
+    if (raw && !["A", "B", "DAY_FIXED"].includes(raw)) { setError("교대유형은 A, B, DAY_FIXED 중 하나입니다."); return; }
+    const anchor = raw === "A" || raw === "B" ? window.prompt("2주 교대 기준일 (YYYY-MM-DD)", employee.shiftAnchorDate ?? new Date().toISOString().slice(0, 10))?.trim() : null;
+    if ((raw === "A" || raw === "B") && !anchor) return;
+    try { await api(`/employee-management/${employee.empId}/shift`, { method: "PUT", body: jsonBody({ shiftType: raw || null, shiftAnchorDate: anchor }) }); await load(); }
+    catch (err) { setError(err instanceof Error ? err.message : "교대유형을 변경하지 못했습니다."); }
   }
 
   async function retire(employee: ManagedEmployee) {
@@ -159,43 +208,51 @@ export function EmployeeManagementPage({ user }: EmployeeManagementPageProps) {
     <section className="panel employee-management">
       <div className="toolbar">
         <div><h3>직원 관리</h3><p className="muted">재직 정보와 계정은 분리해 안전하게 관리합니다.</p></div>
-        <div className="toolbar-actions"><button className="ghost" onClick={() => void load()}><RefreshCw size={16} /> 새로고침</button><button onClick={openCreate}><Plus size={16} /> 신규 직원</button></div>
+        <div className="toolbar-actions"><button className="ghost" onClick={() => void load()}><RefreshCw size={16} /> 새로고침</button>{canManageEmployees && <button onClick={openCreate}><Plus size={16} /> 신규 직원</button>}</div>
       </div>
       <div className="employee-filter">
         <label><Search size={16} /><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="이름, 사번, 아이디, 부서 검색" /></label>
-        <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option><option value="ACTIVE">재직</option><option value="LEAVE">휴직</option><option value="RETIRED">퇴사</option></select>
+        <select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option><option value="ACTIVE">재직</option><option value="LEAVE">휴직</option><option value="RETIRED">퇴직</option></select>
       </div>
       {(message || error) && <p className={error ? "error" : "success"}>{error || message}</p>}
-      <div className="table-scroll"><table><thead><tr><th>직원</th><th>부서 / 직급</th><th>고용</th><th>재직 상태</th><th>계정</th><th>관리 권한</th><th></th></tr></thead>
+      <div className="table-scroll"><table className="employee-table"><colgroup><col className="employee-col-person" /><col className="employee-col-dept" /><col className="employee-col-work" /><col className="employee-col-status" /><col className="employee-col-account" /><col className="employee-col-permissions" /><col className="employee-col-actions" /></colgroup><thead><tr><th>직원</th><th>부서 / 직급</th><th>고용 / 직군</th><th>재직 상태</th><th>계정</th><th>관리 권한</th><th>작업</th></tr></thead>
         <tbody>{filtered.map((employee) => <tr key={employee.empId}>
           <td><strong>{employee.empName}</strong>{employee.rehired && <em className="status-chip accent">재입사</em>}<small>{employee.empNo} · {employee.genderCode === "FEMALE" ? "여성" : "남성"}</small></td>
           <td>{employee.deptName ?? "미지정"}<small>{employee.positionName ?? employee.jobTitle ?? "-"}</small></td>
-          <td>{employee.employmentType === "CONTRACT" ? "계약직" : "정규직"}<small>{employee.employmentStartDate} 입사</small></td>
-          <td><span className={`status-chip ${employee.status.toLowerCase()}`}>{employee.status === "ACTIVE" ? "재직" : employee.status === "LEAVE" ? "휴직" : "퇴사"}</span></td>
+          <td>{employee.employmentType === "CONTRACT" ? "계약직" : "정규직"}<small>{employee.employmentStartDate} 입사</small><small>{employee.workCategory === "MANAGEMENT" ? "관리직" : "현장직"}{employee.shiftType ? ` · ${employee.shiftType === "DAY_FIXED" ? "주간전담" : `${employee.shiftType}조`}` : ""}</small></td>
+          <td><span className={`status-chip ${employee.status.toLowerCase()}`}>{employee.status === "ACTIVE" ? "재직" : employee.status === "LEAVE" ? "휴직" : "퇴직"}</span></td>
           <td>{employee.loginId ?? "미발급"}<small>{employee.accountStatus}</small></td>
           <td><div className="permission-chips">
-            <button disabled={!canManageAccounts} className={employee.permissions.includes("LEAVE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "LEAVE_ADMIN")}>휴가관리</button>
-            <button disabled={!canManageAccounts} className={employee.permissions.includes("EMPLOYEE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "EMPLOYEE_ADMIN")}>직원관리</button>
+            <button disabled={!canGrantPermissions || employee.roleCode === "ADMIN"} className={employee.permissions.includes("FULL_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "FULL_ADMIN")}>전권</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("LEAVE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "LEAVE_ADMIN")}>휴가관리</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("LEAVE_POLICY_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "LEAVE_POLICY_ADMIN")}>휴가정책</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("EMPLOYEE_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "EMPLOYEE_ADMIN")}>직원관리</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("WORK_CATEGORY_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "WORK_CATEGORY_ADMIN")}>직군관리</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("ACCOUNT_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "ACCOUNT_ADMIN")}>계정관리</button>
+            <button disabled={!canGrantPermissions || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("WORK_REQUEST_ADMIN") ? "on" : ""} onClick={() => void togglePermission(employee, "WORK_REQUEST_ADMIN")}>근무권한관리</button>
+            <button disabled={(!canManageWorkRequests && !canGrantPermissions) || employee.permissions.includes("FULL_ADMIN")} className={employee.permissions.includes("WORK_REQUEST_DELEGATE") ? "on" : ""} onClick={() => void togglePermission(employee, "WORK_REQUEST_DELEGATE")}>근무 대리·일괄</button>
           </div></td>
-          <td><div className="row-actions"><button title="정보 수정" onClick={() => openEdit(employee)}><Pencil size={15} /></button>{employee.status === "ACTIVE" && <><button title="휴직" onClick={() => void startLeave(employee)}>휴직</button><button title="퇴직" onClick={() => void retire(employee)}>퇴직</button></>}{employee.status === "LEAVE" && <button title="복직" onClick={() => void returnFromLeave(employee)}>복직</button>}{employee.status === "RETIRED" && <button title="재입사" onClick={() => void rehire(employee)}>재입사</button>}{canManageAccounts && <button title={employee.loginId ? "비밀번호 초기화" : "계정 발급"} onClick={() => void issueAccount(employee)}>{employee.loginId ? <KeyRound size={15} /> : <UserCheck size={15} />}</button>}</div></td>
+          <td><div className="row-actions">{canEditEmployeeDetails && <button title="상세 정보 수정" onClick={() => openEdit(employee)}><Pencil size={15} /></button>}{canManageWorkRequests && <button title="교대유형 설정" onClick={() => void updateShift(employee)}>교대</button>}{canManageEmployees && employee.status === "ACTIVE" && <><button title="휴직" onClick={() => void startLeave(employee)}>휴직</button><button title="퇴직" onClick={() => void retire(employee)}>퇴직</button></>}{canManageEmployees && employee.status === "LEAVE" && <button title="복직" onClick={() => void returnFromLeave(employee)}>복직</button>}{canManageEmployees && employee.status === "RETIRED" && <button title="재입사" onClick={() => void rehire(employee)}>재입사</button>}{canManageAccounts && <button title={employee.loginId ? "비밀번호 초기화" : "계정 발급"} onClick={() => void issueAccount(employee)}>{employee.loginId ? <KeyRound size={15} /> : <UserCheck size={15} />}</button>}</div></td>
         </tr>)}</tbody></table></div>
       {!filtered.length && <p className="empty-state">조건에 맞는 직원이 없습니다.</p>}
 
       {showForm && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowForm(false)}><div className="modal-card employee-form-modal">
-        <div className="toolbar"><h3>{editing ? "직원 정보 수정" : "신규 직원 등록"}</h3><button className="ghost" onClick={() => setShowForm(false)}>닫기</button></div>
+        <div className="toolbar"><h3>{editing ? "직원 상세 정보 수정" : "신규 직원 등록"}</h3><button className="ghost" onClick={() => setShowForm(false)}>닫기</button></div>
         <div className="employee-form-grid">
-          <label>사번<input value={form.empNo} disabled={Boolean(editing)} onChange={(event) => setForm({ ...form, empNo: event.target.value })} /></label>
-          <label>이름<input value={form.empName} onChange={(event) => setForm({ ...form, empName: event.target.value })} /></label>
-          <label>성별<select value={form.genderCode} onChange={(event) => setForm({ ...form, genderCode: event.target.value as EmployeeForm["genderCode"] })}><option value="MALE">남성</option><option value="FEMALE">여성</option></select></label>
-          <label>입사일<input type="date" value={form.hireDate} onChange={(event) => setForm({ ...form, hireDate: event.target.value })} /></label>
-          <label>부서<select value={form.deptId} onChange={(event) => setForm({ ...form, deptId: event.target.value })}><option value="">미지정</option>{depts.map((dept) => <option key={dept.deptId} value={dept.deptId}>{dept.deptName}</option>)}</select></label>
-          <label>직급<input value={form.positionName} onChange={(event) => setForm({ ...form, positionName: event.target.value })} /></label>
-          <label>직무<input value={form.jobTitle} onChange={(event) => setForm({ ...form, jobTitle: event.target.value })} /></label>
-          <label>상급자<select value={form.managerEmpId} onChange={(event) => setForm({ ...form, managerEmpId: event.target.value })}><option value="">미지정</option>{employees.filter((item) => item.status === "ACTIVE" && item.empId !== editing?.empId).map((item) => <option key={item.empId} value={item.empId}>{item.empName} · {item.deptName ?? "-"}</option>)}</select></label>
-          <label>이메일<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-          <label>연락처<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
-          <label>고용 형태<select value={form.employmentType} onChange={(event) => setForm({ ...form, employmentType: event.target.value as EmployeeForm["employmentType"] })}><option value="REGULAR">정규직</option><option value="CONTRACT">계약직</option></select></label>
-          {form.employmentType === "CONTRACT" && <><label>계약 시작일<input type="date" value={form.contractStartDate} onChange={(event) => setForm({ ...form, contractStartDate: event.target.value })} /></label><label>계약 종료일<input type="date" value={form.contractEndDate} onChange={(event) => setForm({ ...form, contractEndDate: event.target.value })} /></label></>}
+          <label>사번<input value={form.empNo} disabled={Boolean(editing) || profileFieldsDisabled} onChange={(event) => setForm({ ...form, empNo: event.target.value })} /></label>
+          <label>이름<input value={form.empName} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, empName: event.target.value })} /></label>
+          <label>성별<select value={form.genderCode} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, genderCode: event.target.value as EmployeeForm["genderCode"] })}><option value="MALE">남성</option><option value="FEMALE">여성</option></select></label>
+          <label>입사일<input type="date" value={form.hireDate} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, hireDate: event.target.value })} /></label>
+          <label>부서<select value={form.deptId} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, deptId: event.target.value })}><option value="">미지정</option>{depts.map((dept) => <option key={dept.deptId} value={dept.deptId}>{dept.deptName}</option>)}</select></label>
+          <label>직급<input value={form.positionName} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, positionName: event.target.value })} /></label>
+          <label>직무<input value={form.jobTitle} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, jobTitle: event.target.value })} /></label>
+          <label>상급자<select value={form.managerEmpId} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, managerEmpId: event.target.value })}><option value="">미지정</option>{employees.filter((item) => item.status === "ACTIVE" && item.empId !== editing?.empId).map((item) => <option key={item.empId} value={item.empId}>{item.empName} · {item.deptName ?? "-"}</option>)}</select></label>
+          <label>이메일<input type="email" value={form.email} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
+          <label>휴대폰 번호<input value={form.phone} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
+          <label>내선번호<input value={form.extensionNumber} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, extensionNumber: event.target.value })} /></label>
+          <label>고용 형태<select value={form.employmentType} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, employmentType: event.target.value as EmployeeForm["employmentType"] })}><option value="REGULAR">정규직</option><option value="CONTRACT">계약직</option></select></label>
+          <label>직군<select value={form.workCategory} disabled={!canManageWorkCategory} onChange={(event) => setForm({ ...form, workCategory: event.target.value as EmployeeForm["workCategory"] })}>{!editing && <option value="AUTO">직급 기준 자동</option>}<option value="MANAGEMENT">관리직</option><option value="FIELD">현장직</option></select></label>
+          {form.employmentType === "CONTRACT" && <><label>계약 시작일<input required type="date" value={form.contractStartDate} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, contractStartDate: event.target.value })} /></label><label>계약 종료일<input required type="date" min={form.contractStartDate || undefined} value={form.contractEndDate} disabled={profileFieldsDisabled} onChange={(event) => setForm({ ...form, contractEndDate: event.target.value })} /></label></>}
         </div>
         {error && <p className="error">{error}</p>}<div className="actions"><button onClick={() => void save()} disabled={busy}>{busy ? "저장 중..." : "저장"}</button><button className="ghost" onClick={() => setShowForm(false)}>취소</button></div>
       </div></div>}
