@@ -52,7 +52,7 @@ class ApprovalPdfRenderer extends ApprovalPdfRenderSupport {
         if (isPurchaseDocument(document)) {
             return standardRenderer.renderPurchaseRequest(document, lines);
         }
-        if (isTrainingRequestDocument(document)) {
+        if (isTrainingRequestDocument(document) || TrainingWorkflowService.CHANGE.equals(document.getTemplateCode())) {
             return standardRenderer.renderTrainingRequest(document, lines);
         }
         if (isTrainingReportDocument(document)) {
@@ -108,7 +108,7 @@ class ApprovalPdfRenderer extends ApprovalPdfRenderSupport {
     }
 
     boolean isRefreshableDocument(ApprovalDocument document) {
-        return isLeaveDocument(document) || isPurchaseDocument(document) || isTrainingDocument(document)
+        return isLeaveDocument(document) || isPurchaseDocument(document)
             || ApprovalEquipmentProposal.isProposalTemplate(document.getTemplateCode());
     }
 

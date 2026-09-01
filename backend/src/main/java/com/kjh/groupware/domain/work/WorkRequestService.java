@@ -26,9 +26,6 @@ public class WorkRequestService {
     public static final String EMERGENCY_TEMPLATE = "EMERGENCY_CALL_REQUEST";
     public static final String CHANGE_TEMPLATE = "WORK_REQUEST_CHANGE";
     private static final int COMP_TIME_MINIMUM_MINUTES = 240;
-    private static final Set<String> WORK_REQUEST_TYPES = Set.of(
-        "OVERTIME", "NIGHT", "NIGHT_OVERTIME", "SPECIAL", "SPECIAL_OVERTIME", "SPECIAL_NIGHT", "SPECIAL_NIGHT_OVERTIME"
-    );
     private static final Set<String> ENTRY_TYPES = Set.of(
         "OVERTIME", "NIGHT", "NIGHT_OVERTIME", "SPECIAL", "SPECIAL_OVERTIME", "SPECIAL_NIGHT", "SPECIAL_NIGHT_OVERTIME", "EMERGENCY_CALL"
     );
@@ -196,8 +193,8 @@ public class WorkRequestService {
     }
 
     private void validateSubmissionType(String templateCode, String type) {
-        if (TEMPLATE.equals(templateCode) && !WORK_REQUEST_TYPES.contains(type))
-            throw bad("WORK_TYPE_INVALID", "근무신청서는 잔업·특근·야간 중 하나 이상을 선택해야 합니다.");
+        if (TEMPLATE.equals(templateCode) && !ENTRY_TYPES.contains(type))
+            throw bad("WORK_TYPE_INVALID", "근무신청서는 잔업·특근·야간 중 하나 이상 또는 비상호출을 선택해야 합니다.");
         if (EMERGENCY_TEMPLATE.equals(templateCode) && !"EMERGENCY_CALL".equals(type))
             throw bad("WORK_TYPE_INVALID", "비상호출 신청서에는 비상호출 근무만 신청할 수 있습니다.");
     }

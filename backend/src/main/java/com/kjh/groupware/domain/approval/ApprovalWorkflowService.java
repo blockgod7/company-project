@@ -50,6 +50,7 @@ public class ApprovalWorkflowService {
     private final ObjectMapper objectMapper;
     private final EmployeePermissionService employeePermissionService;
     private final WorkRequestService workRequestService;
+    private final TrainingWorkflowService trainingWorkflowService;
 
     @Transactional
     public ApprovalResponse act(Long approvalId, String action, ApprovalActionRequest request, String ipAddress, String userAgent) {
@@ -199,7 +200,12 @@ public class ApprovalWorkflowService {
         if (!ApprovalDocument.STATUS_REJECTED.equals(source.getStatus())) {
             throw BusinessException.badRequest("APPROVAL_CANNOT_REDRAFT", "반려 문서만 재상신할 수 있습니다.");
         }
-        ApprovalTemplate template = activeTemplate(source.getTemplateCode());
+        ApprovalTemplate template = trainingWorkflowService.templateFor(source, activeTemplate(source.getTemplateCode()));
+        if (trainingWorkflowService.managed(source)) {
+            trainingWorkflowService.normalize(requester, null, new com.kjh.groupware.domain.approval.dto.ApprovalRequest(
+                source.getTitle(), source.getContent(), source.getTemplateCode(), source.getFormDataJson(), source.getPriority(),
+                List.of(), List.of(), List.of(), List.of(), List.of(), true), false);
+        }
         ApprovalDocument copy = documentRepository.save(ApprovalDocument.builder()
             .documentNo(null)
             .title(source.getTitle())
@@ -260,13 +266,25 @@ public class ApprovalWorkflowService {
     @Transactional
     public ApprovalResponse completeReceipt(Long approvalId, ApprovalActionRequest request, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
-        ApprovalDocument document = getApprovedDocumentForUpdate(approvalId);
+        ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
+        boolean reportReceipt = trainingWorkflowService.receiptTerminates(document) && document.isPending()
+            && ApprovalDocument.STAGE_RECEIVER_PROGRESS.equals(document.getCurrentStage());
+        if (!reportReceipt && !ApprovalDocument.STATUS_APPROVED.equals(document.getStatus())) {
+            throw BusinessException.badRequest("APPROVAL_NOT_RECEIVABLE", "접수 완료할 수 있는 문서가 아닙니다.");
+        }
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
         ApprovalLine receiverLine = linePolicyService.receiverLineForUpdate(lines, currentEmp);
         if (!ApprovalLine.STATUS_RECEIVED.equals(receiverLine.getStatus()) && !ApprovalLine.STATUS_READ.equals(receiverLine.getStatus())) {
             throw BusinessException.badRequest("APPROVAL_RECEIPT_DUPLICATED", "이미 처리된 문서입니다.");
         }
+        if (reportReceipt) trainingWorkflowService.assertResolutionAllowed(document);
         receiverLine.completeReceipt(currentEmp, request == null ? null : request.comment());
+        if (reportReceipt) {
+            document.approve();
+            pdfService.generateForFinalApproval(document);
+            openPostApprovalLines(document, lines);
+            notificationService.notifyEmp(document.getRequester().getEmpId(), "교육 보고서 접수 완료", "교육훈련보고서가 접수되어 이수 완료 처리되었습니다.", "APPROVAL", approvalId);
+        }
         auditApproval(currentEmp, AuditActionType.COMPLETE_RECEIPT, document, request == null ? null : request.comment(), true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), currentEmp);
     }
@@ -275,7 +293,7 @@ public class ApprovalWorkflowService {
     public ApprovalResponse updatePurchaseRequest(Long approvalId, PurchaseRequestUpdateRequest request, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         ApprovalDocument document = getPurchaseReceivableDocumentForUpdate(approvalId);
-        if (!isReceiverRoutedDocument(document)) {
+        if (!"PURCHASE".equals(document.getTemplateCode())) {
             throw BusinessException.badRequest("APPROVAL_PURCHASE_ONLY", "Only purchase request documents can be updated here");
         }
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
@@ -294,6 +312,9 @@ public class ApprovalWorkflowService {
     public ApprovalResponse submitPurchaseApproval(Long approvalId, PurchaseRequestUpdateRequest request, String ipAddress, String userAgent) {
         Emp currentEmp = currentEmpProvider.getCurrentEmp();
         ApprovalDocument document = getActiveDocumentForUpdate(approvalId);
+        if (trainingWorkflowService.receiptTerminates(document)) {
+            throw BusinessException.badRequest("TRAINING_REPORT_RECEIPT_ONLY", "교육훈련보고서는 주관부서 결재 없이 접수 완료로 종료합니다.");
+        }
         if (!isReceiverRoutedDocument(document)) {
             throw BusinessException.badRequest("APPROVAL_PURCHASE_ONLY", "Only purchase request documents can be processed here");
         }
@@ -325,7 +346,7 @@ public class ApprovalWorkflowService {
         }
         document.moveToApprovalProgress();
         Emp firstAssignee = activeEmp(agreementIds.isEmpty() ? approverIds.get(0) : agreementIds.get(0));
-        notificationService.notifyEmp(firstAssignee.getEmpId(), "구매요구서 구매팀 결재", "구매팀 결재 요청 문서가 도착했습니다.", "APPROVAL", approvalId);
+        notificationService.notifyEmp(firstAssignee.getEmpId(), "주관부서 결재 요청", "주관부서 결재 요청 문서가 도착했습니다.", "APPROVAL", approvalId);
         auditApproval(currentEmp, AuditActionType.UPDATE, document, "purchase approval submitted", true, ipAddress, userAgent);
         return response(document, lineRepository.findByDocumentOrderByLineOrderAsc(document), currentEmp);
     }
@@ -385,6 +406,7 @@ public class ApprovalWorkflowService {
         if (progressReceiverRoutedDocumentAfterApproval(document, lines)) {
             return;
         }
+        trainingWorkflowService.assertResolutionAllowed(document);
         leaveUsageService.assertSelectableLeaveDates(document);
         leaveUsageService.assertNoCompletedLeaveOverlap(document);
         leaveUsageService.assertSufficientAnnualLeave(document);
@@ -419,17 +441,18 @@ public class ApprovalWorkflowService {
         }
         receiverLines.forEach(line -> {
             line.markReceived();
-            notificationService.notifyEmp(line.getAssignedEmp().getEmpId(), "구매요구서 수신", "작성부서 결재가 완료되어 구매팀 수신 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
+            notificationService.notifyEmp(line.getAssignedEmp().getEmpId(), "문서 수신", "신청부서 결재가 완료되어 주관부서 수신 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
         });
         document.moveToReceiverProgress();
-        notificationService.notifyEmp(document.getRequester().getEmpId(), "구매요구서 구매팀 전달", "구매요구서가 구매팀 수신 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
+        notificationService.notifyEmp(document.getRequester().getEmpId(), "주관부서 전달", "문서가 주관부서 수신 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
         return true;
     }
 
     private boolean isReceiverRoutedDocument(ApprovalDocument document) {
         return "PURCHASE".equals(document.getTemplateCode())
             || "TRAINING_REQUEST".equals(document.getTemplateCode())
-            || "TRAINING_REPORT".equals(document.getTemplateCode());
+            || "TRAINING_REPORT".equals(document.getTemplateCode())
+            || TrainingWorkflowService.CHANGE.equals(document.getTemplateCode());
     }
 
     private boolean isReceiverRoutedReadyForReceiver(ApprovalDocument document, List<ApprovalLine> lines) {

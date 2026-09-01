@@ -147,7 +147,8 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   const visibleTemplates = canViewPreview
     ? templates
     : templates.filter((template) => isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code)
-      || isWorkRequestTemplateCode(template.code) || isWorkRequestChangeTemplateCode(template.code));
+      || isWorkRequestTemplateCode(template.code) || isWorkRequestChangeTemplateCode(template.code)
+      || isTrainingTemplateCode(template.code));
 
   async function load(
     targetBox: ApprovalBox,
@@ -370,7 +371,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
         }
         if (isTrainingTemplate) {
           setForm((current) => ({ ...current, receiverEmpIds: trainingReceiverEmpId ? [trainingReceiverEmpId] : [] }));
-          setDefaultLineMessage(trainingReceiverEmpId ? "교육 문서 수신자는 인사총무 홍길동으로 자동 지정됩니다." : "인사총무 홍길동 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+          setDefaultLineMessage(trainingReceiverEmpId ? "교육 문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
           return;
         }
         if (isEquipmentProposal) {
@@ -396,7 +397,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
         : isPurchaseRequest
         ? purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
         : isTrainingTemplate
-        ? trainingReceiverEmpId ? "교육 문서 수신자는 인사총무 홍길동으로 자동 지정됩니다." : "인사총무 홍길동 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
+        ? trainingReceiverEmpId ? "교육 문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
         : isEquipmentProposal
         ? peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요."
         : defaultLine.source === "TEMPLATE" ? "양식별 기본 결재선을 적용했습니다." : "개인 기본 결재선을 적용했습니다.");
@@ -413,7 +414,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
       }
       if (isTrainingTemplate) {
         setForm((current) => ({ ...current, receiverEmpIds: trainingReceiverEmpId ? [trainingReceiverEmpId] : [] }));
-        setDefaultLineMessage(trainingReceiverEmpId ? "교육 문서 수신자는 인사총무 홍길동으로 자동 지정됩니다." : "인사총무 홍길동 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+        setDefaultLineMessage(trainingReceiverEmpId ? "교육 문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
         return;
       }
       if (isEquipmentProposal) {

@@ -20,6 +20,7 @@ class ApprovalPermissionServiceTest {
         EmployeePermissionService employeePermissionService = mock(EmployeePermissionService.class);
         ApprovalPermissionService service = new ApprovalPermissionService(
             mock(ApprovalDelegationService.class),
+            mock(TrainingWorkflowService.class),
             employeePermissionService
         );
         Emp requester = emp(1L);
@@ -43,6 +44,7 @@ class ApprovalPermissionServiceTest {
         EmployeePermissionService employeePermissionService = mock(EmployeePermissionService.class);
         ApprovalPermissionService service = new ApprovalPermissionService(
             mock(ApprovalDelegationService.class),
+            mock(TrainingWorkflowService.class),
             employeePermissionService
         );
         Emp requester = emp(1L);

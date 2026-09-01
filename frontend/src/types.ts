@@ -731,3 +731,18 @@ export type EquipmentHistoryEvent = {
   actorName: string | null;
   createdAt: string;
 };
+export type TrainingSchedule = {
+  sourceApprovalId: number;
+  documentNo: string | null;
+  currentApprovalId: number;
+  trainingName: string;
+  institution: string;
+  startDate: string;
+  endDate: string;
+  status: "PLANNED" | "IN_PROGRESS" | "ENDED" | "COMPLETED" | "CANCELED";
+  changeable: boolean;
+  reportable: boolean;
+  pendingChangeApprovalId: number | null;
+  reportApprovalId: number | null;
+  blockedReason: string;
+};

@@ -36,6 +36,7 @@ public class ApprovalDraftService {
     private final ApprovalLeaveUsageService leaveUsageService;
     private final CompTimeLedgerService compTimeLedgerService;
     private final WorkRequestService workRequestService;
+    private final TrainingWorkflowService trainingWorkflowService;
     private final ApprovalDelegationService delegationService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
@@ -43,6 +44,7 @@ public class ApprovalDraftService {
     @Transactional
     public ApprovalResponse create(ApprovalRequest request, String ipAddress, String userAgent) {
         Emp requester = currentEmpProvider.getCurrentEmp();
+        request = trainingWorkflowService.normalize(requester, null, request, !Boolean.TRUE.equals(request.draft()));
         ApprovalTemplate template = activeTemplate(request.templateCode());
         boolean draft = Boolean.TRUE.equals(request.draft());
         linePolicyService.validateLineSelection(requester, request, !draft);
@@ -129,9 +131,10 @@ public class ApprovalDraftService {
         if (!document.isEditableDraft()) {
             throw BusinessException.badRequest("APPROVAL_NOT_EDITABLE", "수정할 수 없는 문서입니다.");
         }
+        request = trainingWorkflowService.normalize(requester, document, request, false);
         linePolicyService.validateLineSelection(requester, request, false);
 
-        ApprovalTemplate template = activeTemplate(request.templateCode());
+        ApprovalTemplate template = trainingWorkflowService.templateFor(document, activeTemplate(request.templateCode()));
         validateRequiredFields(template, request, false);
         String title = hasText(request.title()) ? request.title() : template.getTemplateName();
         String content = request.content() == null ? summarizeFormData(request.formDataJson()) : request.content();
@@ -162,9 +165,10 @@ public class ApprovalDraftService {
         if (!document.isEditableDraft()) {
             throw BusinessException.badRequest("APPROVAL_ALREADY_SUBMITTED", "이미 처리된 문서입니다.");
         }
+        request = trainingWorkflowService.normalize(requester, document, request, true);
         linePolicyService.validateLineSelection(requester, request, true);
 
-        ApprovalTemplate template = activeTemplate(request.templateCode());
+        ApprovalTemplate template = trainingWorkflowService.templateFor(document, activeTemplate(request.templateCode()));
         validateRequiredFields(template, request, true);
         boolean leaveDocument = ApprovalLeaveUsageService.LEAVE_TEMPLATE_CODE.equals(template.getTemplateCode())
             || ApprovalLeaveUsageService.LEAVE_CANCEL_TEMPLATE_CODE.equals(template.getTemplateCode());
@@ -316,7 +320,7 @@ public class ApprovalDraftService {
             case "LEAVE" -> "LEV";
             case "LEAVE_CANCEL" -> "LVC";
             case "PURCHASE" -> "PUR";
-            case "TRAINING_REQUEST", "TRAINING_REPORT" -> "EDU";
+            case "TRAINING_REQUEST", "TRAINING_REPORT", "TRAINING_CHANGE" -> "EDU";
             case WorkRequestService.TEMPLATE -> "WRK";
             case WorkRequestService.EMERGENCY_TEMPLATE -> "EMG";
             case WorkRequestService.CHANGE_TEMPLATE -> "WRC";

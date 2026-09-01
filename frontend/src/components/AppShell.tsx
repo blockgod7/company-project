@@ -2,6 +2,7 @@ import {
   Bell,
   BookOpen,
   Building2,
+  CalendarDays,
   ChevronDown,
   Circle,
   ClipboardCheck,
@@ -157,10 +158,22 @@ export function AppShell({
             <span>SCHUNK Groupware</span>
           </div>
         </div>
-        <div className="profile">
-          <div className="avatar"><UserRound size={38} /></div>
-          <strong title={user.empName}>{user.empName}</strong>
-          <span title={`${user.deptName ?? "소속 미정"} · ${user.roleCode}`}>{user.deptName ?? "소속 미정"} · {user.roleCode}</span>
+        <div className="sidebar-personal-zone">
+          <div className="profile">
+            <div className="avatar"><UserRound size={38} /></div>
+            <strong title={user.empName}>{user.empName}</strong>
+            <span title={`${user.deptName ?? "소속 미정"} · ${user.roleCode}`}>{user.deptName ?? "소속 미정"} · {user.roleCode}</span>
+          </div>
+          <button
+            type="button"
+            className={route === "calendar" ? "personal-calendar-link active" : "personal-calendar-link"}
+            aria-current={route === "calendar" ? "page" : undefined}
+            title="개인 캘린더 상세보기"
+            onClick={() => onNavigate("calendar")}
+          >
+            <CalendarDays size={21} />
+            <span>개인 캘린더</span>
+          </button>
         </div>
         <nav className="side-nav" aria-label="주요 메뉴">
           {effectiveMenus.loading && <span className="side-nav-status">메뉴 불러오는 중</span>}

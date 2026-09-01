@@ -87,6 +87,9 @@ public class ApprovalPdfService {
         if (ApprovalDocument.PDF_STATUS_GENERATING.equals(document.getPdfStatus())) {
             throw BusinessException.badRequest("PDF_ALREADY_GENERATING", "PDF generation is already running");
         }
+        if (TrainingWorkflowService.isTraining(document.getTemplateCode()) && document.getPdfFile() != null) {
+            throw BusinessException.badRequest("TRAINING_ORIGINAL_PDF_LOCKED", "최종 승인된 교육 문서의 원본 PDF는 교체할 수 없습니다.");
+        }
         AttachFile oldFile = document.getPdfFile();
         String oldHash = document.getPdfHash();
         document.startPdfGeneration();

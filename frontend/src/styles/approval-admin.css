@@ -544,6 +544,14 @@ th { background: var(--soft); color: var(--muted); font-weight: 800; }
   color: var(--navy);
   background: var(--blue-soft);
 }
+.approval-tab-actions button.approval-list-refresh {
+  color: var(--text);
+}
+.approval-tab-actions button.approval-list-create {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
 .approval-list-table th,
 .approval-list-table td {
   white-space: nowrap;

@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$BackupFile,
     [string]$PostgresBinDirectory = "C:\Program Files\PostgreSQL\17\bin",
+    [switch]$TrainingWorkflow,
     [string]$JavaHome = $env:JAVA_HOME
 )
 # Uses a new cluster and QA-only accounts. Never connects to the source database.
@@ -85,6 +86,12 @@ try {
         & (Join-Path $PostgresBinDirectory "psql.exe") -X -w -h 127.0.0.1 -p $dbPort -U groupware -d $dbName -v ON_ERROR_STOP=1 -f (Join-Path $root $sql) | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "QA schema/fixture preparation failed." }
     }
+    if ($TrainingWorkflow) {
+        foreach ($attempt in 1..2) {
+            & (Join-Path $PostgresBinDirectory "psql.exe") -X -w -h 127.0.0.1 -p $dbPort -U groupware -d $dbName -v ON_ERROR_STOP=1 -f (Join-Path $root "backend\src\main\resources\db\schema\training_workflow_20260831_patch.sql") | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "Education template patch failed." }
+        }
+    }
     $backendScript = Join-Path $runRoot "backend.ps1"
     Write-Utf8 $backendScript @'
 $ErrorActionPreference = "Stop"
@@ -124,7 +131,8 @@ exit $LASTEXITCODE
     $env:E2E_SKIP_WEB_SERVER = "true"
     Push-Location (Join-Path $root "frontend")
     try {
-        & $npm run test:e2e -- tests/e2e/leave-work-readiness.spec.ts --workers=1 --retries=0 2>&1 | Tee-Object -FilePath (Join-Path $runRoot "acceptance.log")
+        $acceptanceSpec = if ($TrainingWorkflow) { "tests/e2e/training-workflow.spec.ts" } else { "tests/e2e/leave-work-readiness.spec.ts" }
+        & $npm run test:e2e -- $acceptanceSpec --workers=1 --retries=0 2>&1 | Tee-Object -FilePath (Join-Path $runRoot "acceptance.log")
         if ($LASTEXITCODE -ne 0) { throw "Leave/work acceptance failed; see $runRoot" }
     } finally { Pop-Location }
     & (Join-Path $PostgresBinDirectory "psql.exe") -X -w -h 127.0.0.1 -p $dbPort -U groupware -d $dbName -v ON_ERROR_STOP=1 -f (Join-Path $root "backend\src\main\resources\db\verify\work_request_integrity.sql") *> (Join-Path $runRoot "integrity.log")

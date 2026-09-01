@@ -16,6 +16,7 @@ SET
     ]',
     print_layout_json = '{"layout":"training-request","sections":["requestDeptApproval","receiverDeptApproval","meta","reason","closing","attachments"]}'
 WHERE template_code = 'TRAINING_REQUEST'
+  AND version = 1
   AND active_yn = 'Y';
 
 -- Align TRAINING_REPORT with the uploaded education training report form and receiver-routed workflow.
@@ -41,4 +42,5 @@ SET
     ]',
     print_layout_json = '{"layout":"training-report","sections":["requestDeptApproval","receiverDeptApproval","meta","training","content","effectiveness","hrRecord","signature"]}'
 WHERE template_code = 'TRAINING_REPORT'
+  AND version = 1
   AND active_yn = 'Y';

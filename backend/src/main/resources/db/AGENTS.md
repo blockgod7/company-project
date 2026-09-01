@@ -16,6 +16,7 @@
 - Destructive local DB operations such as recreate/drop must be explicitly requested by the user.
 
 ## Work Guidance
+- `training_workflow_20260831_patch.sql` registers education workflow templates after the legacy training patch. It is rerunnable without relying on a template-code/version unique constraint; existing document snapshots are unchanged.
 - Current patch handling is driven by `setup-local-db.ps1`; verify the script before describing which patches are applied by default.
 - `verify-local-db.ps1` checks local PostgreSQL availability, expected schema elements, seed state, and optional backend health.
 - Keep patch order and idempotency clear when future DB changes are allowed.

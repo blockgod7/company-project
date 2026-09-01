@@ -13,7 +13,7 @@ export function documentPrefix(templateCode: string | null | undefined) {
   if (templateCode === "EMERGENCY_CALL_REQUEST") return "EMG";
   if (templateCode === "WORK_REQUEST_CHANGE") return "WRC";
   if (templateCode === "PURCHASE") return "PUR";
-  if (templateCode === "TRAINING_REQUEST" || templateCode === "TRAINING_REPORT") return "EDU";
+  if (templateCode === "TRAINING_REQUEST" || templateCode === "TRAINING_REPORT" || templateCode === "TRAINING_CHANGE") return "EDU";
   if (templateCode === "EQUIPMENT_PROPOSAL") return "EQP";
   if (templateCode === "MOLD_FIXTURE_PROPOSAL") return "MFP";
   return "APP";

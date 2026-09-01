@@ -31,6 +31,8 @@
 - Full runtime checks require local services such as PostgreSQL and are not automatic for doc-only edits.
 - `.\verify-leave-work.ps1 -BackupFile <dump> -JavaHome <Java21>` runs leave/work acceptance on a new isolated PostgreSQL cluster, API 8081 and UI 5175; it never connects to the source DB and stops only its own services. See `backend/docs/leave-work-readiness-20260831.md` for fixture/date prerequisites.
 
+- Add `-TrainingWorkflow` to the isolated acceptance command above to run education request/change/report, private calendar, receipt, PDF-preservation and concurrent-report checks.
+
 ## Child DOX Index
 - `backend/AGENTS.md` - Spring Boot API, domain modules, backend commands, and backend documentation rules.
 - `frontend/AGENTS.md` - React/Vite TypeScript app, route shell, API wrapper, and frontend commands.

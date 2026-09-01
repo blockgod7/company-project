@@ -74,7 +74,8 @@ class ApprovalServiceWorkflowTest {
     private final EmployeePermissionService employeePermissionService = mock(EmployeePermissionService.class);
     private final CompTimeLedgerService compTimeLedgerService = mock(CompTimeLedgerService.class);
     private final com.kjh.groupware.domain.work.WorkRequestService workRequestService = mock(com.kjh.groupware.domain.work.WorkRequestService.class);
-    private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService, employeePermissionService);
+    private final TrainingWorkflowService trainingWorkflowService = new TrainingWorkflowService(documentRepository, empRepository, currentEmpProvider, new ObjectMapper());
+    private final ApprovalPermissionService permissionService = new ApprovalPermissionService(delegationService, trainingWorkflowService, employeePermissionService);
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
     private final AtomicReference<Emp> currentEmp = new AtomicReference<>();
     private final AtomicLong documentIds = new AtomicLong(100);
@@ -122,6 +123,15 @@ class ApprovalServiceWorkflowTest {
         when(currentEmpProvider.getCurrentEmp()).thenAnswer(invocation -> currentEmp.get());
         when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("PURCHASE"), eq("Y"))).thenReturn(Optional.of(template));
         when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(eq("TRAINING_REPORT"), eq("Y"))).thenReturn(Optional.of(trainingReportTemplate));
+        when(empRepository.findByIdForUpdate(any())).thenAnswer(i -> Optional.ofNullable(emps.get(i.getArgument(0))));
+        when(documentRepository.findByRequesterAndTemplateCodeIn(any(), any())).thenAnswer(i -> {
+            Emp owner = i.getArgument(0); Collection<String> codes = i.getArgument(1);
+            return documents.values().stream().filter(d -> d.getRequester().getEmpId().equals(owner.getEmpId()) && codes.contains(d.getTemplateCode())).toList();
+        });
+        for (String code : List.of("TRAINING_REQUEST", "TRAINING_CHANGE")) {
+            when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(code, "Y")).thenReturn(Optional.of(
+                ApprovalTemplate.builder().templateCode(code).templateName(code).version(2).fieldsJson("[]").activeYn("Y").build()));
+        }
         when(empRepository.findById(any())).thenAnswer(invocation -> Optional.ofNullable(emps.get(invocation.getArgument(0))));
         when(documentRepository.save(any(ApprovalDocument.class))).thenAnswer(invocation -> {
             ApprovalDocument document = invocation.getArgument(0);
@@ -285,6 +295,7 @@ class ApprovalServiceWorkflowTest {
             leaveUsageService,
             compTimeLedgerService,
             workRequestService,
+            trainingWorkflowService,
             delegationService,
             jdbcTemplate,
             new ObjectMapper()
@@ -308,7 +319,8 @@ class ApprovalServiceWorkflowTest {
             equipmentManagementService,
             new ObjectMapper(),
             employeePermissionService,
-            workRequestService
+            workRequestService,
+            trainingWorkflowService
         );
 
         service = new ApprovalService(
@@ -438,15 +450,15 @@ class ApprovalServiceWorkflowTest {
     @Test
     void trainingReportApprovalHandoffAndReceiverDepartmentApprovalFlow() {
         currentEmp.set(emps.get(1L));
-        ApprovalDocument document = createdDocument(draftService.create(requestForTemplate(
-            "TRAINING_REPORT",
-            List.of(),
-            List.of(4L),
-            List.of(6L),
-            List.of(),
-            List.of(),
-            false
-        ), "127.0.0.1", "test").approvalId());
+        when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc("TRAINING_REPORT", "Y")).thenReturn(Optional.of(
+            ApprovalTemplate.builder().templateCode("TRAINING_REPORT").templateName("New linked report").version(2)
+                .fieldsJson("[{\"name\":\"sourceTrainingApprovalId\",\"required\":true}]").activeYn("Y").build()));
+        ApprovalDocument document = documentRepository.save(ApprovalDocument.builder()
+            .title("Legacy education report").templateCode("TRAINING_REPORT").templateVersion(1)
+            .templateSnapshotJson("{\"templateName\":\"Legacy report\",\"fieldsJson\":\"[]\"}")
+            .formDataJson("{\"content\":\"legacy report\"}").requester(emps.get(1L)).build());
+        document.saveAsDraft();
+        draftService.submit(document.getApprovalId(), requestForTemplate("TRAINING_REPORT", List.of(), List.of(4L), List.of(6L), List.of(), List.of(), false), "127.0.0.1", "test");
 
         currentEmp.set(emps.get(4L));
         workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("approved"), "127.0.0.1", "test");
@@ -920,6 +932,118 @@ class ApprovalServiceWorkflowTest {
                 assertThat(ex.getCode()).isEqualTo("LEAVE_RECEIVER_REQUIRED")
             );
     }
+
+    @Test
+    void educationCalendarAndReportReceiptFlow() {
+        currentEmp.set(emps.get(1L));
+        ApprovalDocument course = education("TRAINING_REQUEST", courseFields(-3, -1), false);
+        assertThat(trainingWorkflowService.mine(null, null, null)).isEmpty();
+        currentEmp.set(emps.get(4L)); workflowService.approve(course.getApprovalId(), null, "test", "test");
+        currentEmp.set(emps.get(1L)); assertThat(trainingWorkflowService.mine(null, null, null)).isEmpty();
+        finishEducationHostingDepartment(course);
+        String original = course.getFormDataJson();
+        assertThat(trainingWorkflowService.mine(null, null, null)).singleElement().satisfies(i -> {
+            assertThat(i.status()).isEqualTo("ENDED"); assertThat(i.reportable()).isTrue();
+        });
+        Map<String,String> fields = linkedFields(course); fields.put("mainContent", "Learning summary");
+        fields.put("trainingName", "Forged source name");
+        ApprovalDocument report = education("TRAINING_REPORT", fields, false);
+        assertThat(report.getFormDataJson()).contains("Original course").doesNotContain("Forged source name");
+        currentEmp.set(emps.get(4L)); workflowService.approve(report.getApprovalId(), null, "test", "test");
+        assertThat(report.getStatus()).isEqualTo("IN_PROGRESS");
+        currentEmp.set(emps.get(6L));
+        assertThat(permissionService.permissions(emps.get(6L), report, orderedLines(report)).canCompleteReceipt()).isTrue();
+        assertThatThrownBy(() -> workflowService.submitPurchaseApproval(report.getApprovalId(), new PurchaseRequestUpdateRequest(null, List.of(), List.of(7L)), "test", "test"))
+            .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo("TRAINING_REPORT_RECEIPT_ONLY"));
+        workflowService.receive(report.getApprovalId(), "test", "test");
+        assertThat(report.getStatus()).isEqualTo("IN_PROGRESS");
+        workflowService.completeReceipt(report.getApprovalId(), new ApprovalActionRequest("Received"), "test", "test");
+        assertThat(report.getStatus()).isEqualTo("APPROVED");
+        currentEmp.set(emps.get(1L));
+        assertThat(trainingWorkflowService.mine(null, null, null)).singleElement().satisfies(i -> {
+            assertThat(i.status()).isEqualTo("COMPLETED"); assertThat(i.changeable()).isFalse(); assertThat(i.reportable()).isFalse();
+        });
+        assertThat(course.getFormDataJson()).isEqualTo(original);
+        assertThat(course.getStatus()).isEqualTo("APPROVED");
+        verify(pdfService, times(1)).generateForFinalApproval(report);
+    }
+
+    @Test
+    void pastEducationChangesAndCancelsWithoutChangingOriginal() {
+        currentEmp.set(emps.get(1L)); ApprovalDocument course = approvedEducation(-5, -4);
+        String original = course.getFormDataJson();
+        Map<String,String> fields = linkedFields(course); fields.putAll(courseFields(-3, -2));
+        fields.put("changeAction", "CHANGE"); fields.put("changeReason", "Correction"); fields.put("trainingName", "Corrected course");
+        ApprovalDocument change = education("TRAINING_CHANGE", fields, false);
+        assertThat(trainingWorkflowService.mine(null, null, null)).singleElement().satisfies(i -> {
+            assertThat(i.trainingName()).isEqualTo("Original course"); assertThat(i.reportable()).isFalse();
+        });
+        assertThatThrownBy(() -> education("TRAINING_REPORT", linkedFields(course), true)).isInstanceOf(BusinessException.class);
+        approveEducationBothDepartments(change);
+        assertThat(trainingWorkflowService.mine(null, null, null)).singleElement().satisfies(i -> assertThat(i.trainingName()).isEqualTo("Corrected course"));
+        Map<String,String> cancel = linkedFields(course); cancel.put("sourceTrainingRevisionId", change.getApprovalId().toString());
+        cancel.put("changeAction", "CANCEL"); cancel.put("changeReason", "Did not attend");
+        ApprovalDocument cancellation = education("TRAINING_CHANGE", cancel, false); approveEducationBothDepartments(cancellation);
+        assertThat(trainingWorkflowService.mine(java.time.LocalDate.now().minusMonths(1), java.time.LocalDate.now().plusMonths(1), null)).isEmpty();
+        assertThat(trainingWorkflowService.mine(null, null, null)).singleElement().satisfies(i -> assertThat(i.status()).isEqualTo("CANCELED"));
+        assertThat(course.getFormDataJson()).isEqualTo(original); assertThat(course.getStatus()).isEqualTo("APPROVED");
+    }
+
+    @Test
+    void reportDraftLocksChangesAndBlocksDuplicatesAndOtherOwners() {
+        currentEmp.set(emps.get(1L)); ApprovalDocument course = approvedEducation(-3, -1);
+        ApprovalDocument report = education("TRAINING_REPORT", linkedFields(course), true);
+        assertThatThrownBy(() -> education("TRAINING_REPORT", linkedFields(course), true)).isInstanceOf(BusinessException.class);
+        Map<String,String> cancel = linkedFields(course); cancel.put("changeAction", "CANCEL"); cancel.put("changeReason", "Cancel");
+        assertThatThrownBy(() -> education("TRAINING_CHANGE", cancel, true)).isInstanceOf(BusinessException.class);
+        workflowService.cancel(report.getApprovalId(), "test", "test");
+        assertThatThrownBy(() -> education("TRAINING_CHANGE", cancel, true)).isInstanceOf(BusinessException.class);
+        currentEmp.set(emps.get(2L)); assertThat(trainingWorkflowService.mine(null, null, null)).isEmpty();
+        assertThatThrownBy(() -> education("TRAINING_REPORT", linkedFields(course), true))
+            .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo("TRAINING_SOURCE_INVALID"));
+    }
+
+    @Test
+    void withdrawingOrRejectingChangeReleasesReportRestriction() {
+        currentEmp.set(emps.get(1L)); ApprovalDocument course = approvedEducation(-3, -1);
+        Map<String,String> fields = linkedFields(course); fields.put("changeAction", "CANCEL"); fields.put("changeReason", "Cancel");
+        ApprovalDocument change = education("TRAINING_CHANGE", fields, false);
+        workflowService.withdraw(change.getApprovalId(), null, "test", "test");
+        assertThat(trainingWorkflowService.mine(null, null, null)).singleElement().satisfies(i -> assertThat(i.reportable()).isTrue());
+        ApprovalDocument retry = education("TRAINING_CHANGE", fields, false);
+        currentEmp.set(emps.get(4L)); workflowService.reject(retry.getApprovalId(), new ApprovalActionRequest("Rejected"), "test", "test");
+        currentEmp.set(emps.get(1L));
+        assertThat(trainingWorkflowService.mine(null, null, null)).singleElement().satisfies(i -> assertThat(i.reportable()).isTrue());
+    }
+
+    @Test
+    void reportBeforeCourseEndAndPurchaseMutationAreBlocked() {
+        currentEmp.set(emps.get(1L)); ApprovalDocument course = approvedEducation(1, 2);
+        assertThatThrownBy(() -> education("TRAINING_REPORT", linkedFields(course), true)).isInstanceOf(BusinessException.class);
+        currentEmp.set(emps.get(6L));
+        assertThatThrownBy(() -> workflowService.updatePurchaseRequest(course.getApprovalId(), new PurchaseRequestUpdateRequest("2026-12-01", null, null), "test", "test"))
+            .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getCode()).isEqualTo("APPROVAL_PURCHASE_ONLY"));
+    }
+
+    private Map<String,String> courseFields(int start, int end) {
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"));
+        return new HashMap<>(Map.of("trainingName", "Original course", "institution", "Training center", "reason", "Skills",
+            "trainingStartDate", today.plusDays(start).toString(), "trainingEndDate", today.plusDays(end).toString()));
+    }
+    private Map<String,String> linkedFields(ApprovalDocument d) { return new HashMap<>(Map.of("sourceTrainingApprovalId", d.getApprovalId().toString(), "sourceTrainingRevisionId", d.getApprovalId().toString())); }
+    private ApprovalDocument education(String code, Map<String,String> values, boolean draft) {
+        try {
+            String json = new ObjectMapper().writeValueAsString(Map.of("fields", values));
+            return createdDocument(draftService.create(new ApprovalRequest(code, "Education", code, json, "NORMAL", List.of(), List.of(4L), List.of(6L), List.of(), List.of(), draft), "test", "test").approvalId());
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new AssertionError(e); }
+    }
+    private ApprovalDocument approvedEducation(int start, int end) { ApprovalDocument d = education("TRAINING_REQUEST", courseFields(start,end), false); approveEducationBothDepartments(d); return d; }
+    private void approveEducationBothDepartments(ApprovalDocument d) { currentEmp.set(emps.get(4L)); workflowService.approve(d.getApprovalId(), null, "test", "test"); finishEducationHostingDepartment(d); }
+    private void finishEducationHostingDepartment(ApprovalDocument d) {
+        currentEmp.set(emps.get(6L)); workflowService.submitPurchaseApproval(d.getApprovalId(), new PurchaseRequestUpdateRequest(null, List.of(), List.of(7L)), "test", "test");
+        currentEmp.set(emps.get(7L)); workflowService.approve(d.getApprovalId(), null, "test", "test"); currentEmp.set(emps.get(1L));
+    }
+
 
     private ApprovalRequest request(
         List<Long> agreementEmpIds,

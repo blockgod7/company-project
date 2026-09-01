@@ -239,7 +239,7 @@ class ApprovalStandardPdfRenderer extends ApprovalPdfRenderSupport {
 
                 float stampWidth = 180;
                 drawDepartmentStamp(content, font, 60, 696, stampWidth, "신청부서", requesterStamp(document), requestDeptLines);
-                drawCenteredText(content, font, "교육 신청서", 240, 728, 116, 17, 20);
+                drawCenteredText(content, font, TrainingWorkflowService.CHANGE.equals(document.getTemplateCode()) ? "교육 변경·취소 신청서" : "교육 신청서", 240, 728, 116, TrainingWorkflowService.CHANGE.equals(document.getTemplateCode()) ? 11 : 17, 20);
                 drawDepartmentStampColumns(content, font, 536 - stampWidth, 696, stampWidth, "주관부서", null, hostDeptColumns);
 
                 float x = 60;
@@ -254,7 +254,7 @@ class ApprovalStandardPdfRenderer extends ApprovalPdfRenderSupport {
                 drawBox(content, x + 70, reasonY, width - 70, 254);
                 drawCenteredText(content, font, "사유", x, reasonY + 124, 70, 9, 6);
                 drawCenteredText(content, font, "(구체적)", x, reasonY + 108, 70, 9, 6);
-                drawWrappedText(content, font, text(fields, "reason"), x + 80, reasonY + 232, width - 90, 10, 13);
+                drawWrappedText(content, font, "교육기간: " + text(fields, "trainingStartDate") + " ~ " + text(fields, "trainingEndDate") + "\n\n" + text(fields, "reason"), x + 80, reasonY + 232, width - 90, 10, 13);
 
                 String requestType = trainingField(fields, "requestType", "수강");
                 drawTrainingFooter(content, font, x, 134, width, trainingRequestSubject(fields), requestType, trainingField(fields, "requestDate", dateText(document.getRequestedAt())));

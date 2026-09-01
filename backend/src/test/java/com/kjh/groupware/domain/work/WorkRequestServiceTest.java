@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -89,15 +91,57 @@ class WorkRequestServiceTest {
         verify(entries, never()).save(any());
     }
 
-    @Test
-    void normalWorkRequestRejectsEmergencyCallType() {
-        Emp worker = employee(210L, "210", "현장직", "반장");
+    @ParameterizedTest
+    @ValueSource(strings = {"반장", "과장"})
+    void normalWorkRequestCreatesEmergencyCallForFieldAndManagementEmployees(String position) {
+        Emp worker = employee(210L, "210", "비상호출 근무자", position);
         ApprovalDocument document = document(worker, WorkRequestService.TEMPLATE, """
-            {"fields":{"workEntriesJson":"[{\\\"empId\\\":210,\\\"workType\\\":\\\"EMERGENCY_CALL\\\",\\\"workDate\\\":\\\"2026-08-21\\\",\\\"startTime\\\":\\\"18:00\\\",\\\"endTime\\\":\\\"20:00\\\",\\\"workContent\\\":\\\"비상호출\\\",\\\"compTime\\\":false}]"}}
+            {"fields":{"workEntriesJson":[{"empId":210,"workType":"EMERGENCY_CALL",
+            "workDate":"2026-08-21","startTime":"18:00","endTime":"20:00",
+            "workContent":"비상호출","compTime":false}]}}
             """);
         when(employees.findById(210L)).thenReturn(Optional.of(worker));
 
-        assertThatThrownBy(() -> service.prepareSubmission(document)).isInstanceOf(BusinessException.class);
+        service.prepareSubmission(document);
+
+        ArgumentCaptor<WorkRequestEntry> captor = ArgumentCaptor.forClass(WorkRequestEntry.class);
+        verify(entries).save(captor.capture());
+        assertThat(captor.getValue().getWorkType()).isEqualTo("EMERGENCY_CALL");
+        assertThat(captor.getValue().getWorkMinutes()).isEqualTo(120);
+        assertThat(captor.getValue().getCompTimeYn()).isEqualTo("N");
+        assertThat(captor.getValue().getStatus()).isEqualTo(WorkRequestEntry.PENDING);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"EMERGENCY_CALL_OVERTIME", "SPECIAL_EMERGENCY_CALL", "EMERGENCY_CALL_NIGHT", "UNKNOWN"})
+    void normalWorkRequestRejectsCombinedEmergencyAndUnknownTypes(String workType) {
+        Emp worker = employee(211L, "211", "현장직", "반장");
+        ApprovalDocument document = document(worker, WorkRequestService.TEMPLATE, """
+            {"fields":{"workEntriesJson":[{"empId":211,"workType":"%s",
+            "workDate":"2026-08-22","startTime":"08:00","endTime":"12:00",
+            "workContent":"잘못된 근무 구분","compTime":false}]}}
+            """.formatted(workType));
+        when(employees.findById(211L)).thenReturn(Optional.of(worker));
+
+        assertThatThrownBy(() -> service.prepareSubmission(document))
+            .isInstanceOfSatisfying(BusinessException.class,
+                error -> assertThat(error.getCode()).isEqualTo("WORK_TYPE_INVALID"));
+        verify(entries, never()).save(any());
+    }
+
+    @Test
+    void emergencyCallInNormalWorkRequestCannotGrantCompTime() {
+        Emp worker = employee(212L, "212", "현장직", "반장");
+        ApprovalDocument document = document(worker, WorkRequestService.TEMPLATE, """
+            {"fields":{"workEntriesJson":[{"empId":212,"workType":"EMERGENCY_CALL",
+            "workDate":"2026-08-22","startTime":"08:00","endTime":"12:00",
+            "workContent":"비상호출","compTime":true}]}}
+            """);
+        when(employees.findById(212L)).thenReturn(Optional.of(worker));
+
+        assertThatThrownBy(() -> service.prepareSubmission(document))
+            .isInstanceOfSatisfying(BusinessException.class,
+                error -> assertThat(error.getCode()).isEqualTo("COMP_TIME_SPECIAL_ONLY"));
         verify(entries, never()).save(any());
     }
 

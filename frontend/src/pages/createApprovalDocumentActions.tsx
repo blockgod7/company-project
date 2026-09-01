@@ -459,7 +459,7 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
     const peManagerId = productionEngineeringManagerId(employees);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
-    const receiverEmpIds = isLeaveFlow ? form.receiverEmpIds : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
+    const receiverEmpIds = isLeaveFlow ? form.receiverEmpIds : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate ? form.receiverEmpIds : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     const baseFieldValues = isEquipmentProposalTemplateCode(template.code)
       ? { ...form.fieldValues, requestDeptName: requesterDeptName }
@@ -530,7 +530,7 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
         setApprovalError(validation);
         return;
       }
-      const fieldValidation = validateTemplateFieldValues(template, fieldValues);
+      const fieldValidation = isTrainingTemplate && mode === "edit" && selected && form.fieldValues.educationWorkflowVersion !== "1" ? "" : validateTemplateFieldValues(template, fieldValues);
       if (fieldValidation) {
         setApprovalError(fieldValidation);
         return;
@@ -666,8 +666,9 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
 
   async function submitPurchaseApprovalLine(agreementEmpIds: number[], approverEmpIds: number[]) {
     if (!selected) return;
+    const approvalDepartmentLabel = isTrainingTemplateCode(selected.templateCode) ? "주관부서" : "구매팀";
     if (!approverEmpIds.length) {
-      setApprovalError("구매팀 결재자를 1명 이상 선택해 주세요.");
+      setApprovalError(`${approvalDepartmentLabel} 결재자를 1명 이상 선택해 주세요.`);
       return;
     }
     try {
@@ -679,7 +680,7 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
       setApprovalError("");
       await load(box);
     } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "구매팀 결재 상신 중 오류가 발생했습니다.");
+      setApprovalError(err instanceof Error ? err.message : `${approvalDepartmentLabel} 결재 상신 중 오류가 발생했습니다.`);
     }
   }
 

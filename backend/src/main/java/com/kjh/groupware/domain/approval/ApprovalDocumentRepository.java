@@ -14,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocument, Long> {
 
+    java.util.List<ApprovalDocument> findByRequesterAndTemplateCodeIn(Emp requester, Collection<String> templateCodes);
+
     Page<ApprovalDocument> findByDeletedYnOrderByApprovalIdDesc(String deletedYn, Pageable pageable);
 
     Page<ApprovalDocument> findByDeletedYn(String deletedYn, Pageable pageable);

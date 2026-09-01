@@ -13,6 +13,7 @@ import type {
 import type { Route } from "./approvalDomainCore";
 export const routeLabels: Record<Route, string> = {
   dashboard: "대시보드",
+  calendar: "개인 캘린더",
   adminDashboard: "관리 포털",
   approvalAdmin: "전자결재 관리",
   search: "전역 검색",

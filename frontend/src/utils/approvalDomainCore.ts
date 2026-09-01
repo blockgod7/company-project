@@ -10,7 +10,7 @@ import type {
   LeaveUsage,
   User
 } from "../types";
-export type Route = "dashboard" | "adminDashboard" | "approvalAdmin" | "search" | "notices" | "boards" | "approvals" | "pdm" | "equipment" | "plannedFeature" | "notifications" | "organization" | "employees" | "audit";
+export type Route = "dashboard" | "calendar" | "adminDashboard" | "approvalAdmin" | "search" | "notices" | "boards" | "approvals" | "pdm" | "equipment" | "plannedFeature" | "notifications" | "organization" | "employees" | "audit";
 export type ContentMode = "list" | "detail" | "create" | "edit" | "templates" | "delegation" | "operationSettings" | "holidays" | "annualLeaves" | "leavePolicies" | "compTime" | "deleted";
 export type ApprovalDelegationForm = { delegateEmpId: number | null; startDate: string; endDate: string; reason: string; active: boolean };
 export type ApprovalOperationSettingsForm = { decisionDueHours: number; reminderFixedDelayMs: number; deletedDocumentRetentionDays: number; permanentDeleteEnabled: boolean; leaveDefaultReceiverEmpId: number | null };
@@ -93,18 +93,19 @@ export type LeaveSelection = {
 };
 
 export const PURCHASE_RECEIVER_LOGIN_ID = "lim.purchase";
-export const TRAINING_RECEIVER_LOGIN_ID = "hong.gildong";
+export const TRAINING_RECEIVER_LOGIN_ID = "e7016";
 export const PURCHASE_BU_CODES = ["BU1", "BU2", "BU3", "BU4", "BU5", "BU7", "BU9", "BU20", "EC", "BU60"] as const;
 
 export const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
   { code: "GENERAL", name: "일반문서", description: "일반 업무 기안", version: 1 },
-  { code: "WORK_REQUEST", name: "근무신청서", description: "잔업·특근·야간 근무 신청", version: 1 },
+  { code: "WORK_REQUEST", name: "근무신청서", description: "잔업·특근·야간·비상호출 근무 신청", version: 1 },
   { code: "EMERGENCY_CALL_REQUEST", name: "비상호출 신청서", description: "비상호출 근무 신청", version: 1 },
   { code: "WORK_REQUEST_CHANGE", name: "근무 변경·취소계", description: "승인된 근무의 변경 또는 취소 신청", version: 1 },
   { code: "PURCHASE", name: "구매요청서", description: "물품 또는 서비스 구매 요청", version: 1 },
   { code: "EQUIPMENT_PROPOSAL", name: "설비 품의서", description: "사용부서, 생산기술팀, 구매팀이 단계별로 작성하는 설비 품의서", version: 1 },
   { code: "MOLD_FIXTURE_PROPOSAL", name: "금형 치공구 품의서", description: "설비 품의서와 동일한 단계로 작성하는 금형 치공구 품의서", version: 1 },
-  { code: "TRAINING_REQUEST", name: "교육신청서", description: "교육 수강, 변경, 불참 신청", version: 1 },
+  { code: "TRAINING_REQUEST", name: "교육신청서", description: "교육 신청 및 개인 캘린더 연동", version: 1 },
+  { code: "TRAINING_CHANGE", name: "교육 변경·취소 신청서", description: "최종 승인된 교육의 변경 또는 취소 신청", version: 1 },
   { code: "TRAINING_REPORT", name: "교육훈련보고서", description: "교육 결과 및 업무 반영 보고", version: 1 },
   { code: "MONTHLY_MAINTENANCE", name: "월간보전계획서", description: "월간 보전 계획", version: 1 },
   { code: "ANNUAL_MAINTENANCE", name: "연간보전계획서", description: "연간 보전 계획", version: 1 },
@@ -122,9 +123,9 @@ export const DEFAULT_APPROVAL_SEARCH: ApprovalSearchForm = {
 export const APPROVAL_TEMPLATE_CATEGORIES: ApprovalTemplateCategory[] = [
   { id: "draft", label: "1. 기안 공문", codes: ["DRAFT", "EQUIPMENT_PROPOSAL", "MOLD_FIXTURE_PROPOSAL"] },
   { id: "leave", label: "2. 휴가, 출장", codes: ["LEAVE", "LEAVE_CANCEL"] },
-  { id: "work", label: "3. 근무", codes: ["WORK_REQUEST", "EMERGENCY_CALL_REQUEST", "WORK_REQUEST_CHANGE"] },
+  { id: "work", label: "3. 근무", codes: ["WORK_REQUEST", "WORK_REQUEST_CHANGE"] },
   { id: "purchase", label: "4. 구매", codes: ["PURCHASE"] },
-  { id: "education", label: "5. 교육 및 제안", codes: ["TRAINING_REQUEST", "TRAINING_REPORT"] }
+  { id: "education", label: "5. 교육 및 제안", codes: ["TRAINING_REQUEST", "TRAINING_CHANGE", "TRAINING_REPORT"] }
 ];
 export const ENABLE_TEMPLATE_FALLBACK = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEMPLATE_FALLBACK === "true";
 export const LEAVE_TYPE_OPTIONS = [
@@ -293,7 +294,7 @@ export function isPurchaseTemplateCode(templateCode: string | null | undefined) 
 }
 
 export function isTrainingRequestTemplateCode(templateCode: string | null | undefined) {
-  return templateCode === "TRAINING_REQUEST";
+  return templateCode === "TRAINING_REQUEST" || templateCode === "TRAINING_CHANGE";
 }
 
 export function isTrainingReportTemplateCode(templateCode: string | null | undefined) {
@@ -488,6 +489,7 @@ export function validatePurchaseRequest(values: Record<string, string>, title: s
 export function trainingRequestDefaultFieldValues(user: User, employees: Employee[], current: Record<string, string> = {}): Record<string, string> {
   const employee = employees.find((item) => item.empId === user.empId);
   return {
+    ...current,
     requestType: current.requestType || "수강",
     deptName: currentUserDeptName(user, employees, current.deptName ?? ""),
     positionName: current.positionName || employee?.positionName || employee?.jobTitle || "",
@@ -506,7 +508,7 @@ export function trainingRequestContent(values: Record<string, string>) {
     `교육명: ${values.trainingName || "-"}`,
     `교육기관: ${values.institution || "-"}`,
     `교육기간: ${values.trainingStartDate || "-"} ~ ${values.trainingEndDate || "-"}`,
-    `신청 구분: ${values.requestType || "수강"}`,
+    ...(values.changeAction ? [`처리: ${values.changeAction === "CANCEL" ? "취소" : "변경"}`, `원 신청서: ${values.sourceTrainingDocumentNo || values.sourceTrainingApprovalId || "-"}`, `변경·취소 사유: ${values.changeReason || "-"}`] : []),
     `사유: ${values.reason || "-"}`
   ].join("\n");
 }
@@ -520,11 +522,14 @@ export function trainingRequestClosingText(values: Record<string, string>) {
 
 export function validateTrainingRequest(values: Record<string, string>, title: string, receiverEmpIds: number[]) {
   if (!title.trim()) return "교육신청서 제목을 입력해 주세요.";
-  if (!["수강", "변경", "불참"].includes(values.requestType ?? "")) return "수강, 변경, 불참 중 하나를 선택해 주세요.";
+  if (values.changeAction && !values.sourceTrainingApprovalId) return "변경·취소할 교육을 선택해 주세요.";
+  if (values.changeAction && !values.changeReason?.trim()) return "변경·취소 사유를 입력해 주세요.";
+  if (!values.trainingStartDate || !values.trainingEndDate) return "교육 시작일과 종료일을 입력해 주세요.";
+  if (values.trainingEndDate < values.trainingStartDate) return "교육 종료일은 시작일 이후로 지정해 주세요.";
   if (!values.trainingName?.trim()) return "교육명을 입력해 주세요.";
   if (!values.institution?.trim()) return "교육기관을 입력해 주세요.";
   if (values.approvalDelegationEnabled === "Y" && (!values.trainingStartDate?.trim() || !values.trainingEndDate?.trim())) return "대리결재를 적용하려면 교육 시작일과 종료일을 입력해 주세요.";
-  if (!values.reason?.trim()) return "사유를 입력해 주세요.";
+  if (!values.changeAction && !values.reason?.trim()) return "사유를 입력해 주세요.";
   if (receiverEmpIds.length !== 1) return "주관부서 수신자는 1명만 지정해 주세요.";
   return "";
 }
@@ -532,7 +537,10 @@ export function validateTrainingRequest(values: Record<string, string>, title: s
 export function trainingReportDefaultFieldValues(user: User, employees: Employee[], current: Record<string, string> = {}): Record<string, string> {
   const employee = employees.find((item) => item.empId === user.empId);
   return {
+    ...current,
     reportDate: current.reportDate || todayDate(),
+    deptName: current.deptName || currentUserDeptName(user, employees),
+    positionName: current.positionName || employee?.positionName || employee?.jobTitle || "",
     empNo: current.empNo || employee?.empNo || "",
     requesterName: current.requesterName || user.empName,
     signatureName: current.signatureName || user.empName,

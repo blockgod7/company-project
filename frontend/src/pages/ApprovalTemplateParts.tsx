@@ -1,4 +1,5 @@
-﻿import {
+﻿import { TrainingTemplatePreview } from "./ApprovalTrainingParts";
+import {
   ArrowDown,
   ArrowUp,
   CalendarDays,
@@ -294,9 +295,9 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
     return (
       <div className="template-work-preview">
         <div className="template-work-head">
-          <span>잔업·특근·야간 근무자를 한 문서에서 신청합니다</span>
+          <span>잔업·특근·야간·비상호출 근무자를 한 문서에서 신청합니다</span>
           <h2>근무신청서</h2>
-          <p>공통 근무일자를 정하고 근무자별 잔업·특근·야간과 업무내용을 입력합니다.</p>
+          <p>공통 근무일자를 정하고 근무자별 근무 구분과 업무내용을 입력합니다. 비상호출은 다른 근무 구분과 함께 선택할 수 없습니다.</p>
         </div>
         <div className="template-work-applicant">
           <div><span>신청부서</span><strong>{previewDeptName || "-"}</strong></div>
@@ -375,55 +376,12 @@ function TemplatePaperPreview({ template, previewDeptName, previewRequesterName 
     );
   }
 
-  if (isTrainingRequestTemplateCode(template.code)) {
-    return (
-      <div className="template-paper template-training-preview">
-        <div className="template-training-head">
-          <TemplateMiniStamp label="신청부서" writer={previewRequesterName} />
-          <h2>교육 신청서</h2>
-          <TemplateMiniStamp label="주관부서" writer="" />
-        </div>
-        <div className="template-training-choice">수강(  ) 변경(  ) 불참(  )</div>
-        <div className="template-training-meta">
-          <strong>소속</strong><span>{previewDeptName}</span>
-          <strong>직위</strong><span></span>
-          <strong>성명</strong><span>{previewRequesterName}</span>
-          <strong>교육명</strong><span></span>
-          <strong>교육기관</strong><span></span>
-          <strong>사유(구체적)</strong><span className="large"></span>
-        </div>
-        <div className="template-training-footer">
-          <span>본인은 상기와 같이 교육의 수강(  ) 변경(  ) 불참(  ) 을 신청합니다.</span>
-          <span>{todayDate()}</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (isTrainingReportTemplateCode(template.code)) {
-    return (
-      <div className="template-paper template-training-preview template-training-report-preview">
-        <div className="template-training-head">
-          <div></div>
-          <h2>교육 훈련 보고서</h2>
-          <TemplateMiniStamp label="결재" writer={previewRequesterName} />
-        </div>
-        <div className="template-training-meta">
-          <strong>작성일</strong><span>{todayDate()}</span>
-          <strong>사번</strong><span></span>
-          <strong>성명</strong><span>{previewRequesterName}</span>
-          <strong>교육명</strong><span></span>
-          <strong>교육기관</strong><span></span>
-          <strong>교육기간</strong><span></span>
-          <strong>주요교육 내용</strong><span className="large"></span>
-          <strong>업무수행 방안</strong><span className="large"></span>
-          <strong>교육 소감</strong><span className="large"></span>
-          <strong>차기에 받고 싶은 교육</strong><span className="large"></span>
-          <strong>유효성 평가</strong><span></span>
-          <strong>총무 인사카드기록 확인</strong><span></span>
-        </div>
-      </div>
-    );
+  if (isTrainingRequestTemplateCode(template.code) || isTrainingReportTemplateCode(template.code)) {
+    return <TrainingTemplatePreview
+      mode={isTrainingReportTemplateCode(template.code) ? "report" : template.code === "TRAINING_CHANGE" ? "change" : "request"}
+      requesterName={previewRequesterName}
+      deptName={previewDeptName}
+    />;
   }
 
   if (isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code)) {

@@ -21,6 +21,7 @@ public class ApprovalPermissionService {
     );
 
     private final ApprovalDelegationService delegationService;
+    private final TrainingWorkflowService trainingWorkflowService;
     private final EmployeePermissionService employeePermissionService;
 
     public ApprovalPermissionResponse permissions(Emp emp, ApprovalDocument document, List<ApprovalLine> lines) {
@@ -69,7 +70,8 @@ public class ApprovalPermissionService {
                 && line.isAssignedTo(emp)
                 && (ApprovalLine.STATUS_RECEIVED.equals(line.getStatus())
                     || (receiverRoutedReadyForReceiver && ApprovalLine.STATUS_WAITING.equals(line.getStatus()))));
-        boolean canCompleteReceipt = approved && lines.stream()
+        boolean canCompleteReceipt = (approved || (trainingWorkflowService.receiptTerminates(document) && receiverRoutedHandoff
+            && ApprovalDocument.STAGE_RECEIVER_PROGRESS.equals(document.getCurrentStage()))) && lines.stream()
             .anyMatch(line -> line.isReceiver()
                 && line.isAssignedTo(emp)
                 && (ApprovalLine.STATUS_RECEIVED.equals(line.getStatus()) || ApprovalLine.STATUS_READ.equals(line.getStatus())));
@@ -149,7 +151,8 @@ public class ApprovalPermissionService {
     private boolean isReceiverRoutedDocument(ApprovalDocument document) {
         return "PURCHASE".equals(document.getTemplateCode())
             || "TRAINING_REQUEST".equals(document.getTemplateCode())
-            || "TRAINING_REPORT".equals(document.getTemplateCode());
+            || "TRAINING_REPORT".equals(document.getTemplateCode())
+            || TrainingWorkflowService.CHANGE.equals(document.getTemplateCode());
     }
 
     private boolean isReceiverRoutedReadyForReceiver(ApprovalDocument document, List<ApprovalLine> lines) {

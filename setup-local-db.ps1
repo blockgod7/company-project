@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$DbName = $env:DB_NAME,
     [string]$DbUser = $env:DB_USERNAME,
     [string]$DbPassword = $env:DB_PASSWORD,
@@ -110,6 +110,7 @@ $legacyPatchFiles = @(
     "approval_missing_template_drafts_patch.sql",
     "approval_purchase_request_template_patch.sql",
     "approval_training_request_template_patch.sql",
+    "training_workflow_20260831_patch.sql",
     "pdm_phase1_patch.sql"
 ) | ForEach-Object { Join-Path $schemaDir $_ }
 

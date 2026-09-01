@@ -13,6 +13,7 @@ type NavigationMatch = {
 
 const routePaths: Record<Route, string> = {
   dashboard: "/portal/employee/home",
+  calendar: "/portal/employee/calendar",
   adminDashboard: "/portal/admin/home",
   approvalAdmin: "/portal/admin/approvals",
   search: "/portal/employee/search",
@@ -31,6 +32,7 @@ const routePaths: Record<Route, string> = {
 const legacyPaths: Record<string, Route> = {
   "/": "dashboard",
   "/home": "dashboard",
+  "/calendar": "calendar",
   "/admin": "adminDashboard",
   "/admin/approvals": "approvalAdmin",
   "/notices": "notices",

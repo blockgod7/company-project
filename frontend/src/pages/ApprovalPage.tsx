@@ -422,6 +422,10 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
         ))}
         <div className="approval-tab-actions">
           <button type="button" className={mode === "delegation" ? "active" : ""} onClick={() => void openDelegationSettings()}>대리설정</button>
+          {mode === "list" && <>
+            <button type="button" className="approval-list-refresh" onClick={() => void load(box, dashboardFilter?.dashboardFilter ?? null)}><RefreshCw size={16} /> 새로고침</button>
+            <button type="button" className="approval-list-create" onClick={startCreate}><Plus size={16} /> 작성</button>
+          </>}
         </div>
       </div>}
       {managementMode && !isApprovalEditorMode && <div className="board-tabs approval-tabs approval-work-tabs approval-admin-tabs">
@@ -489,7 +493,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
           <button type="button" className="ghost" onClick={() => void resetApprovalSearch()}><RefreshCw size={16} /> 초기화</button>
         </div>
       </form>}
-      {!managementMode && !isApprovalEditorMode && mode !== "templates" && mode !== "delegation" && mode !== "operationSettings" && mode !== "holidays" && mode !== "annualLeaves" && mode !== "leavePolicies" && mode !== "compTime" && mode !== "deleted" && <Toolbar title={approvalCategory === "completed" ? "결재 완료문서" : "전자결재"} onNew={startCreate} onRefresh={() => load(box, dashboardFilter?.dashboardFilter ?? null)} />}
+      {!managementMode && !isApprovalEditorMode && approvalCategory === "completed" && mode === "list" && <Toolbar title="결재 완료문서" onNew={startCreate} onRefresh={() => load(box, dashboardFilter?.dashboardFilter ?? null)} />}
       {managementMode && mode === "list" && (
         <div className="approval-template-editor">
           <div className="panel-head">
@@ -755,7 +759,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
       {(mode === "create" || mode === "edit") && (
         <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
           <div className={`editor approval-editor${isLeaveRequestForm || isLeaveCancelForm ? " approval-editor-leave" : ""}`}>
-            {!(isLeaveRequestForm || isLeaveCancelForm || isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm) && (
+            {!(isLeaveRequestForm || isLeaveCancelForm || isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm || isTrainingRequestForm || isTrainingReportForm) && (
               <div className="panel-head">
                 <div>
                   <h3>{mode === "edit" ? "전자결재 수정" : "전자결재 작성"}</h3>
@@ -800,8 +804,8 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
             {(isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm) && <WorkRequestEditor mode={isWorkRequestChangeForm ? "change" : isEmergencyCallRequestForm ? "emergency" : "request"} user={user} form={form} headerActions={approvalEditorActions} onChange={setForm} />}
             {leavePreviewOpen && (isLeaveRequestForm || isLeaveCancelForm) && <div className="modal-backdrop"><div className="leave-form-preview-modal"><div className="modal-head"><div><h3>휴가 신청 미리보기</h3><p className="muted-text">현재 입력값 기준이며 상신 전까지 문서는 변경되지 않습니다.</p></div><button className="icon-button" onClick={() => setLeavePreviewOpen(false)}><X size={18} /></button></div><div className="leave-preview-readonly"><LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={() => undefined} /></div></div></div>}
             {isPurchaseRequestForm && <PurchaseRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {isTrainingRequestForm && <TrainingRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {isTrainingReportForm && <TrainingReportEditor user={user} employees={employees} form={form} onChange={setForm} />}
+            {isTrainingRequestForm && <TrainingRequestEditor user={user} employees={employees} form={form} headerActions={approvalEditorActions} editingApprovalId={selected?.approvalId} onChange={setForm} />}
+            {isTrainingReportForm && <TrainingReportEditor user={user} employees={employees} form={form} headerActions={approvalEditorActions} editingApprovalId={selected?.approvalId} onChange={setForm} />}
             {isEquipmentProposalForm && <EquipmentProposalEditor user={user} employees={employees} form={form} onChange={setForm} />}
             {!isClassicDraftForm && !isLeaveRequestForm && !isLeaveCancelForm && !isWorkRequestForm && !isWorkRequestChangeForm && !isPurchaseRequestForm && !isTrainingRequestForm && !isTrainingReportForm && !isEquipmentProposalForm && (
               <>

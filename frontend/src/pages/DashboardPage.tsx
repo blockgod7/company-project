@@ -10,9 +10,9 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { CardHeader } from "../components/CardHeader";
-import type { ApprovalDashboard, Board, Notice, NotificationItem, PageResponse, User, WorkSchedule } from "../types";
+import type { ApprovalDashboard, Board, Notice, NotificationItem, PageResponse, User, WorkSchedule, TrainingSchedule } from "../types";
 
-type DashboardRoute = "notices" | "boards" | "notifications" | "organization";
+type DashboardRoute = "calendar" | "notices" | "boards" | "notifications" | "organization";
 type DashboardApprovalBox = "pending" | "requested";
 type DashboardApprovalFilter = "myPending" | "delegatedPending" | "overdue" | "requestedInProgress" | "recentCompleted";
 type DashboardApprovalLaunch = { box: DashboardApprovalBox; dashboardFilter?: DashboardApprovalFilter; label: string };
@@ -28,6 +28,8 @@ export function DashboardPage({ user, go, openApprovals }: DashboardPageProps) {
   const [boards, setBoards] = useState<Board[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [approvalDashboard, setApprovalDashboard] = useState<ApprovalDashboard | null>(null);
+  const [trainingSchedules, setTrainingSchedules] = useState<TrainingSchedule[]>([]);
+  const [trainingError, setTrainingError] = useState("");
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([]);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const approvalCounts = {
@@ -52,6 +54,17 @@ export function DashboardPage({ user, go, openApprovals }: DashboardPageProps) {
     void api<WorkSchedule[]>(`/work-schedules/me?from=${from}&to=${to}`).then(setWorkSchedules).catch(() => setWorkSchedules([]));
   }, [calendarMonth]);
 
+  useEffect(() => {
+    let active = true;
+    const from = localDate(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+    const to = localDate(calendarMonth.getFullYear(), calendarMonth.getMonth(), new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate());
+    setTrainingSchedules([]); setTrainingError("");
+    void api<TrainingSchedule[]>(`/trainings/me?from=${from}&to=${to}`)
+      .then(data => { if (active) setTrainingSchedules(data); })
+      .catch(err => { if (active) setTrainingError(err instanceof Error ? err.message : "교육 일정을 불러오지 못했습니다."); });
+    return () => { active = false; };
+  }, [calendarMonth]);
+
   return (
     <section className="portal-grid">
       <div className="portal-card pending-card">
@@ -72,8 +85,14 @@ export function DashboardPage({ user, go, openApprovals }: DashboardPageProps) {
       </div>
 
       <div className="portal-card calendar-card">
-        <CardHeader title="업무 캘린더" icon={CalendarDays} />
-        <MiniCalendar month={calendarMonth} schedules={workSchedules} onMonthChange={setCalendarMonth} />
+        <CardHeader title="업무 캘린더" action="상세보기" icon={CalendarDays} onAction={() => go("calendar")} />
+        <MiniCalendar month={calendarMonth} schedules={workSchedules} trainings={trainingSchedules} onMonthChange={setCalendarMonth} />
+        <p className="calendar-training-caption">본인의 근무·교육 일정만 표시됩니다.</p>
+        {trainingError && <p role="alert" className="calendar-training-caption">교육 일정 조회 실패: {trainingError}</p>}
+        <div className="calendar-training-list">{trainingSchedules.map(item => <div key={item.sourceApprovalId}>
+          <strong>{item.trainingName}</strong><span>{item.startDate} ~ {item.endDate}</span>
+          <small>{trainingStatusLabel(item.status)}{item.pendingChangeApprovalId ? " · 변경·취소 진행 중" : item.reportApprovalId && item.status !== "COMPLETED" ? " · 보고서 처리 중" : item.reportable ? " · 보고서 작성 가능" : ""}</small>
+        </div>)}</div>
       </div>
 
       <div className="portal-card board-card">
@@ -123,7 +142,7 @@ function formatCount(value: number) {
   return value.toLocaleString("ko-KR");
 }
 
-function MiniCalendar({ month, schedules, onMonthChange }: { month: Date; schedules: WorkSchedule[]; onMonthChange: (month: Date) => void }) {
+function MiniCalendar({ month, schedules, trainings, onMonthChange }: { month: Date; schedules: WorkSchedule[]; trainings: TrainingSchedule[]; onMonthChange: (month: Date) => void }) {
   const today = new Date();
   const days = Array.from({ length: new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate() }, (_, index) => index + 1);
   const blanks = Array.from({ length: new Date(month.getFullYear(), month.getMonth(), 1).getDay() }, (_, index) => index);
@@ -138,8 +157,10 @@ function MiniCalendar({ month, schedules, onMonthChange }: { month: Date; schedu
         {blanks.map((item) => <span key={`blank-${item}`} className="calendar-blank" />)}
         {days.map((day) => {
           const items = schedules.filter((item) => Number(item.workDate.slice(-2)) === day);
+          const date = localDate(month.getFullYear(), month.getMonth(), day);
+          const education = trainings.filter(item => item.startDate <= date && item.endDate >= date);
           const current = day === today.getDate() && month.getMonth() === today.getMonth() && month.getFullYear() === today.getFullYear();
-          return <span key={day} title={items.map((item) => `${workTypeLabel(item.workType)} ${workStatusLabel(item.status)}`).join(", ")} className={`${current ? "today" : ""}${items.length ? " has-work" : ""}`}>{day}{items.length ? <i /> : null}</span>;
+          return <span key={day} title={[...items.map((item) => `${workTypeLabel(item.workType)} ${workStatusLabel(item.status)}`), ...education.map(item => `${item.trainingName} · ${trainingStatusLabel(item.status)}`)].join(", ")} className={`${current ? "today" : ""}${items.length ? " has-work" : ""}${education.length ? " has-training" : ""}`}>{day}{items.length || education.length ? <i /> : null}</span>;
         })}
       </div>
     </div>
@@ -167,3 +188,5 @@ function formatDate(value?: string | null) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" });
 }
+
+function trainingStatusLabel(status: TrainingSchedule["status"]) { return ({ PLANNED: "교육 예정", IN_PROGRESS: "교육 중", ENDED: "교육 종료", COMPLETED: "이수 완료", CANCELED: "취소" })[status]; }

@@ -177,14 +177,23 @@ select { min-height: 42px; }
   font-size: 10px;
   letter-spacing: .02em;
 }
-.profile {
+.sidebar-personal-zone {
   order: 3;
   display: grid;
-  justify-items: start;
-  gap: 3px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 6px;
   margin-top: auto;
-  padding: 12px 6px 0;
+  padding-top: 10px;
   border-top: 1px solid rgba(255,255,255,.16);
+}
+.profile {
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 4px 2px 4px 6px;
   border-bottom: 0;
   text-align: left;
 }
@@ -193,6 +202,31 @@ select { min-height: 42px; }
 }
 .profile strong { font-size: 13px; }
 .profile span { color: rgba(255,255,255,.72); font-size: 11px; line-height: 1.4; }
+.profile strong,
+.profile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.personal-calendar-link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: var(--radius-control);
+  background: rgba(255,255,255,.07);
+  color: rgba(255,255,255,.86);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+}
+.personal-calendar-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.personal-calendar-link svg { color: #8dd9d3; }
+.personal-calendar-link:hover,
+.personal-calendar-link:focus-visible { border-color: rgba(255,255,255,.42); background: rgba(255,255,255,.13); color: #fff; }
+.personal-calendar-link.active { border-color: rgba(157,182,0,.72); background: rgba(157,182,0,.16); box-shadow: inset 4px 0 0 var(--lime); color: #fff; }
+.personal-calendar-link.active svg { color: #d6eb57; }
 .side-nav {
   order: 1;
   min-height: 0;

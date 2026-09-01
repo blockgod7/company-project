@@ -110,6 +110,12 @@ function App() {
     navigateUrl(pathForRoute("approvals"));
   }
 
+  function openApproval(approvalId: number) {
+    setApprovalLaunch(null);
+    globalSearch.resetTarget();
+    navigateUrl(`/portal/employee/approvals/${approvalId}`);
+  }
+
   if (authStatus === "checking") {
     return <div className="route-loading" role="status">인증 상태를 확인하고 있습니다.</div>;
   }
@@ -164,6 +170,7 @@ function App() {
           globalSearch={{ ...globalSearch, target: navigation.target ?? globalSearch.target }}
           navigate={navigate}
           openApprovals={openApprovals}
+          openApproval={openApproval}
         />
       ) : (
         <RouteNotFound onHome={() => navigate("dashboard")} />

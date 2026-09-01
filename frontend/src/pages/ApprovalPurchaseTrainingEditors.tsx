@@ -180,7 +180,7 @@ import type {
   PageResponse,
   User
 } from "../types";
-import { PurchaseDraftStampHeader, TrainingDraftStampHeader } from "./ApprovalPurchaseTrainingStamps";
+import { PurchaseDraftStampHeader } from "./ApprovalPurchaseTrainingStamps";
 export function PurchaseRequestEditor({ user, employees, form, onChange }: { user: User; employees: Employee[]; form: ApprovalForm; onChange: (form: ApprovalForm) => void }) {
   const values = purchaseDefaultFieldValues(user, employees, form.fieldValues);
   const items = parsePurchaseItems(values);
@@ -257,107 +257,7 @@ export function PurchaseRequestEditor({ user, employees, form, onChange }: { use
   );
 }
 
-export function TrainingRequestEditor({ user, employees, form, onChange }: { user: User; employees: Employee[]; form: ApprovalForm; onChange: (form: ApprovalForm) => void }) {
-  const values = trainingRequestDefaultFieldValues(user, employees, form.fieldValues);
-
-  function setField(name: string, value: string) {
-    onChange({ ...form, fieldValues: { ...values, [name]: value } });
-  }
-
-  return (
-    <div className="training-request-form">
-      <div className="approval-form-grid">
-        <label className="wide">{requiredLabel("문서 제목")}<input required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="예: 직무교육 - 교육신청서" /></label>
-      </div>
-      <section className="training-paper">
-        <TrainingDraftStampHeader user={user} employees={employees} form={form} />
-        <div className="training-person-row">
-          <label><span>소속</span><input readOnly value={values.deptName} /></label>
-          <label><span>직위</span><input readOnly value={values.positionName} /></label>
-          <label><span>성명</span><input readOnly value={values.requesterName} /></label>
-        </div>
-        <div className="training-field-row">
-          <label><span>교육명</span><input required value={values.trainingName} onChange={(event) => setField("trainingName", event.target.value)} /></label>
-        </div>
-        <div className="training-field-row">
-          <label><span>교육기관</span><input required value={values.institution} onChange={(event) => setField("institution", event.target.value)} /></label>
-        </div>
-        <div className="training-field-row training-date-row">
-          <label><span>교육 시작일</span><input type="date" value={values.trainingStartDate} onChange={(event) => setField("trainingStartDate", event.target.value)} /></label>
-          <label><span>교육 종료일</span><input type="date" value={values.trainingEndDate} onChange={(event) => setField("trainingEndDate", event.target.value)} /></label>
-        </div>
-        <div className="training-reason-row">
-          <label><span>사유(구체적)</span><textarea required value={values.reason} onChange={(event) => setField("reason", event.target.value)} /></label>
-        </div>
-        <div className="training-footer-text">
-          <p>{trainingRequestClosingText(values)}</p>
-          <div className="training-choice-group" role="radiogroup" aria-label="신청 구분">
-            {["수강", "변경", "불참"].map((option) => (
-              <label key={option}>
-                <input type="radio" name="training-request-type" checked={values.requestType === option} onChange={() => setField("requestType", option)} />
-                <span>{option}</span>
-              </label>
-            ))}
-          </div>
-          <p>{values.requestDate.slice(0, 4)} 년&nbsp;&nbsp; {values.requestDate.slice(5, 7)} 월&nbsp;&nbsp; {values.requestDate.slice(8, 10)} 일</p>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export function TrainingReportEditor({ user, employees, form, onChange }: { user: User; employees: Employee[]; form: ApprovalForm; onChange: (form: ApprovalForm) => void }) {
-  const values = trainingReportDefaultFieldValues(user, employees, form.fieldValues);
-
-  function setField(name: string, value: string) {
-    onChange({ ...form, fieldValues: { ...values, [name]: value } });
-  }
-
-  return (
-    <div className="training-request-form">
-      <div className="approval-form-grid">
-        <label className="wide">{requiredLabel("문서 제목")}<input required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder="예: 직무교육 - 교육훈련보고서" /></label>
-      </div>
-      <section className="training-paper training-report-paper">
-        <TrainingDraftStampHeader user={user} employees={employees} form={form} title="교육 훈련 보고서" />
-        <div className="training-report-meta-row">
-          <label><span>작성일</span><input readOnly value={values.reportDate} /></label>
-          <label><span>사번</span><input readOnly value={values.empNo} /></label>
-          <label><span>성명</span><input readOnly value={values.requesterName} /></label>
-        </div>
-        <div className="training-report-two-col">
-          <label><span>교육명</span><input required value={values.trainingName} onChange={(event) => setField("trainingName", event.target.value)} /></label>
-          <label><span>교육기관</span><input required value={values.institution} onChange={(event) => setField("institution", event.target.value)} /></label>
-        </div>
-        <div className="training-field-row">
-          <label><span>교육기간</span><input required value={values.trainingPeriod} onChange={(event) => setField("trainingPeriod", event.target.value)} /></label>
-        </div>
-        <TrainingReportTextArea label="주요교육 내용" value={values.mainContent} onChange={(value) => setField("mainContent", value)} />
-        <TrainingReportTextArea label="업무수행 방안" value={values.jobApplication} onChange={(value) => setField("jobApplication", value)} />
-        <TrainingReportTextArea label="교육 소감" value={values.impression} onChange={(value) => setField("impression", value)} />
-        <TrainingReportTextArea compact label="차기에 받고 싶은 교육(업무효과가능)" value={values.nextTraining} onChange={(value) => setField("nextTraining", value)} />
-        <div className="training-report-bottom-row">
-          <label><span>유효성 평가<br />(시급,속도,균형)</span><textarea value={values.effectiveness} onChange={(event) => setField("effectiveness", event.target.value)} /></label>
-          <label><span>총무<br />인사카드기록 확인</span><textarea value={values.hrRecordCheck} onChange={(event) => setField("hrRecordCheck", event.target.value)} /></label>
-        </div>
-        <div className="training-report-sign-row">
-          <span>서명</span><input readOnly value={values.signatureName} />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function TrainingReportTextArea({ label, value, compact = false, onChange }: { label: string; value: string; compact?: boolean; onChange: (value: string) => void }) {
-  return (
-    <div className={`training-report-section-row${compact ? " compact" : ""}`}>
-      <label>
-        <span>{label}</span>
-        <textarea value={value} onChange={(event) => onChange(event.target.value)} />
-      </label>
-    </div>
-  );
-}
+export { TrainingRequestEditor, TrainingReportEditor } from "./ApprovalTrainingParts";
 
 function requiredLabel(label: string) {
   return <>{label}<span className="required-mark"> *</span></>;

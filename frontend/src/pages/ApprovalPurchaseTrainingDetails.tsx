@@ -1,3 +1,4 @@
+import { TrainingDocumentOverview, TrainingDocumentFields } from "./ApprovalTrainingParts";
 import {
   ArrowDown,
   ArrowUp,
@@ -374,11 +375,13 @@ export function TrainingRequestDetailView({
   onSubmitTrainingApprovalLine?: (agreementEmpIds: number[], approverEmpIds: number[]) => void;
 }) {
   const draftData = approvalDraftData(approval);
-  const fields = trainingRequestDefaultFieldValues(user, employees, {
+  const fields: Record<string, string> = {
     ...draftData.fieldValues,
     deptName: draftData.fieldValues.deptName || approval.draftDeptName || approval.requesterDeptName || "",
-    requesterName: draftData.fieldValues.requesterName || approval.requesterName
-  });
+    positionName: draftData.fieldValues.positionName || approval.requesterPositionName || "",
+    requesterName: draftData.fieldValues.requesterName || approval.requesterName,
+    requestType: draftData.fieldValues.requestType || "수강"
+  };
   const receiverLine = approval.lines.find((line) => line.lineType === "RECEIVER" && (line.assignedEmpId ?? line.approverEmpId) === user.empId);
   const receiverStage = approval.status === "IN_PROGRESS" && approval.currentStage === "RECEIVER_PROGRESS";
   const canSubmitTrainingApproval = receiverStage
@@ -386,6 +389,7 @@ export function TrainingRequestDetailView({
     && (receiverLine.status === "RECEIVED" || receiverLine.status === "READ");
   const [trainingAgreementEmpIds, setTrainingAgreementEmpIds] = useState<number[]>([]);
   const [trainingApproverEmpIds, setTrainingApproverEmpIds] = useState<number[]>([]);
+  const [trainingApprovalInfoOpen, setTrainingApprovalInfoOpen] = useState(false);
   const receiverApprovalPreviewColumns = canSubmitTrainingApproval
     ? [
         ...purchaseStampColumnsFromEmployees(employees, trainingAgreementEmpIds, "agreement"),
@@ -394,75 +398,50 @@ export function TrainingRequestDetailView({
     : [];
 
   return (
-    <article className="approval-detail training-request-detail">
-      <section className="approval-detail-section">
-        <h3>교육신청서</h3>
-        <dl className="approval-meta-grid">
-          <dt>문서번호</dt><dd>{approval.documentNo ?? "상신 후 자동 생성"}</dd>
-          <dt>문서상태</dt><dd>{statusLabel(approval.status)}</dd>
-          <dt>수신상태</dt><dd>{receiverProgress(approval.lines)}</dd>
-          <dt>기안자</dt><dd>{approval.requesterName}</dd>
-        </dl>
-      </section>
-      {canSubmitTrainingApproval && (
-        <section className="approval-detail-section purchase-approval-submit-section">
-          <div className="panel-head">
-            <div>
-              <h3>주관부서 결재 상신</h3>
-              <p className="muted-text">수신자가 주관부서 결재라인을 지정해 상신하면 해당 결재가 끝난 뒤 문서가 최종 완료됩니다.</p>
-            </div>
-            <button type="button" onClick={() => onSubmitTrainingApprovalLine?.(trainingAgreementEmpIds, trainingApproverEmpIds)}><Check size={16} /> 주관부서 결재 상신</button>
+    <article className="approval-detail training-web-detail">
+      <TrainingDocumentOverview
+        mode={approval.templateCode === "TRAINING_CHANGE" ? "change" : "request"}
+        values={fields}
+        readOnly
+        actions={canSubmitTrainingApproval ? (
+          <div className="actions approval-editor-actions">
+            <button type="button" className="ghost" onClick={() => setTrainingApprovalInfoOpen(true)}><Edit3 size={16} /> 결재 정보</button>
+            <button
+              type="button"
+              className="training-approval-submit"
+              disabled={!trainingApproverEmpIds.length}
+              title={!trainingApproverEmpIds.length ? "결재 정보에서 결재자를 한 명 이상 지정해 주세요." : undefined}
+              onClick={() => onSubmitTrainingApprovalLine?.(trainingAgreementEmpIds, trainingApproverEmpIds)}
+            ><Check size={16} /> 주관부서 결재 상신</button>
           </div>
-          <div className="line-picker-grid">
-            <EmployeeMultiPicker
-              title="주관부서 합의자"
-              user={user}
-              employees={employees}
-              selectedIds={trainingAgreementEmpIds}
-              disabledIds={[user.empId, ...trainingApproverEmpIds]}
-              onChange={setTrainingAgreementEmpIds}
-            />
-            <EmployeeMultiPicker
-              title="주관부서 결재자"
-              user={user}
-              employees={employees}
-              selectedIds={trainingApproverEmpIds}
-              disabledIds={[user.empId, ...trainingAgreementEmpIds]}
-              ordered
-              onChange={setTrainingApproverEmpIds}
-            />
-          </div>
-        </section>
-      )}
-      <section className="training-paper read-only">
-        <TrainingApprovalStampHeader approval={approval} receiverApprovalPreviewColumns={receiverApprovalPreviewColumns} />
-        <div className="training-person-row">
-          <label><span>소속</span><input readOnly value={fields.deptName} /></label>
-          <label><span>직위</span><input readOnly value={fields.positionName} /></label>
-          <label><span>성명</span><input readOnly value={fields.requesterName} /></label>
+        ) : undefined}
+      >
+        <div className="training-document-meta">
+          <div><span>문서 제목</span><strong>{approval.title}</strong></div>
+          <div><span>문서번호</span><strong>{approval.documentNo ?? "상신 후 자동 생성"}</strong></div>
+          <div><span>문서상태</span><strong>{statusLabel(approval.status)}</strong></div>
+          <div><span>수신상태</span><strong>{receiverProgress(approval.lines)}</strong></div>
         </div>
-        <div className="training-field-row">
-          <label><span>교육명</span><input readOnly value={fields.trainingName} /></label>
-        </div>
-        <div className="training-field-row">
-          <label><span>교육기관</span><input readOnly value={fields.institution} /></label>
-        </div>
-        <div className="training-reason-row">
-          <label><span>사유(구체적)</span><textarea readOnly value={fields.reason} /></label>
-        </div>
-        <div className="training-footer-text">
-          <p>{trainingRequestClosingText(fields)}</p>
-          <div className="training-choice-group read-only">
-            {["수강", "변경", "불참"].map((option) => (
-              <span key={option}>{option}({fields.requestType === option ? "●" : " "})</span>
-            ))}
-          </div>
-          <p>{fields.requestDate.slice(0, 4)} 년&nbsp;&nbsp; {fields.requestDate.slice(5, 7)} 월&nbsp;&nbsp; {fields.requestDate.slice(8, 10)} 일</p>
-        </div>
-      </section>
-      <ApprovalLineSection title="신청부서 결재" lines={approval.lines.filter((line) => line.lineType === "APPROVAL" && line.lineOrder < firstReceiverLineOrder(approval.lines))} />
-      <ApprovalLineSection title="주관부서 수신/결재" lines={approval.lines.filter((line) => line.lineType === "RECEIVER" || line.lineOrder > lastReceiverLineOrder(approval.lines))} />
-      <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+      </TrainingDocumentOverview>
+      <TrainingReceiverApprovalModal
+        open={canSubmitTrainingApproval && trainingApprovalInfoOpen}
+        user={user}
+        employees={employees}
+        agreementEmpIds={trainingAgreementEmpIds}
+        approverEmpIds={trainingApproverEmpIds}
+        onAgreementChange={setTrainingAgreementEmpIds}
+        onApproverChange={setTrainingApproverEmpIds}
+        onClose={() => setTrainingApprovalInfoOpen(false)}
+      />
+      {fields.sourceTrainingApprovalId && <section className="training-web-card"><h3>연결된 원 교육신청서</h3><p>{fields.sourceTrainingDocumentNo || fields.sourceTrainingApprovalId}</p><p>{fields.previousTrainingName} · {fields.previousInstitution} · {fields.previousStartDate} ~ {fields.previousEndDate}</p>{fields.changeAction && <strong>{fields.changeAction === "CANCEL" ? "교육 취소" : "교육 변경"}</strong>}</section>}
+      <TrainingDocumentFields mode={approval.templateCode === "TRAINING_CHANGE" ? "change" : "request"} values={fields} />
+      <details className="training-web-card training-signatures">
+        <summary>결재 진행 내역 보기</summary>
+        <TrainingApprovalStampHeader approval={approval} receiverApprovalPreviewColumns={receiverApprovalPreviewColumns} title="교육 신청서" />
+        <ApprovalLineSection title="신청부서 결재" lines={approval.lines.filter((line) => line.lineType === "APPROVAL" && line.lineOrder < firstReceiverLineOrder(approval.lines))} />
+        <ApprovalLineSection title="주관부서 수신/결재" lines={approval.lines.filter((line) => line.lineType === "RECEIVER" || line.lineOrder > lastReceiverLineOrder(approval.lines))} />
+        <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+      </details>
     </article>
   );
 }
@@ -479,17 +458,21 @@ export function TrainingReportDetailView({
   onSubmitTrainingApprovalLine?: (agreementEmpIds: number[], approverEmpIds: number[]) => void;
 }) {
   const draftData = approvalDraftData(approval);
-  const fields = trainingReportDefaultFieldValues(user, employees, {
+  const fields: Record<string, string> = {
     ...draftData.fieldValues,
-    requesterName: draftData.fieldValues.requesterName || approval.requesterName
-  });
+    deptName: draftData.fieldValues.deptName || approval.draftDeptName || approval.requesterDeptName || "",
+    positionName: draftData.fieldValues.positionName || approval.requesterPositionName || "",
+    requesterName: draftData.fieldValues.requesterName || approval.requesterName,
+    signatureName: draftData.fieldValues.signatureName || approval.requesterName
+  };
   const receiverLine = approval.lines.find((line) => line.lineType === "RECEIVER" && (line.assignedEmpId ?? line.approverEmpId) === user.empId);
   const receiverStage = approval.status === "IN_PROGRESS" && approval.currentStage === "RECEIVER_PROGRESS";
-  const canSubmitTrainingApproval = receiverStage
+  const canSubmitTrainingApproval = fields.educationWorkflowVersion !== "1" && receiverStage
     && !!receiverLine
     && (receiverLine.status === "RECEIVED" || receiverLine.status === "READ");
   const [trainingAgreementEmpIds, setTrainingAgreementEmpIds] = useState<number[]>([]);
   const [trainingApproverEmpIds, setTrainingApproverEmpIds] = useState<number[]>([]);
+  const [trainingApprovalInfoOpen, setTrainingApprovalInfoOpen] = useState(false);
   const receiverApprovalPreviewColumns = canSubmitTrainingApproval
     ? [
         ...purchaseStampColumnsFromEmployees(employees, trainingAgreementEmpIds, "agreement"),
@@ -498,86 +481,109 @@ export function TrainingReportDetailView({
     : [];
 
   return (
-    <article className="approval-detail training-request-detail">
-      <section className="approval-detail-section">
-        <h3>교육훈련보고서</h3>
-        <dl className="approval-meta-grid">
-          <dt>문서번호</dt><dd>{approval.documentNo ?? "상신 후 자동 생성"}</dd>
-          <dt>문서상태</dt><dd>{statusLabel(approval.status)}</dd>
-          <dt>수신상태</dt><dd>{receiverProgress(approval.lines)}</dd>
-          <dt>기안자</dt><dd>{approval.requesterName}</dd>
-        </dl>
-      </section>
-      {canSubmitTrainingApproval && (
-        <section className="approval-detail-section purchase-approval-submit-section">
-          <div className="panel-head">
-            <div>
-              <h3>주관부서 결재 상신</h3>
-              <p className="muted-text">수신자가 주관부서 결재라인을 지정해 상신하면 해당 결재가 끝난 뒤 문서가 최종 완료됩니다.</p>
-            </div>
-            <button type="button" onClick={() => onSubmitTrainingApprovalLine?.(trainingAgreementEmpIds, trainingApproverEmpIds)}><Check size={16} /> 주관부서 결재 상신</button>
+    <article className="approval-detail training-web-detail">
+      <TrainingDocumentOverview
+        mode="report"
+        values={fields}
+        readOnly
+        actions={canSubmitTrainingApproval ? (
+          <div className="actions approval-editor-actions">
+            <button type="button" className="ghost" onClick={() => setTrainingApprovalInfoOpen(true)}><Edit3 size={16} /> 결재 정보</button>
+            <button
+              type="button"
+              className="training-approval-submit"
+              disabled={!trainingApproverEmpIds.length}
+              title={!trainingApproverEmpIds.length ? "결재 정보에서 결재자를 한 명 이상 지정해 주세요." : undefined}
+              onClick={() => onSubmitTrainingApprovalLine?.(trainingAgreementEmpIds, trainingApproverEmpIds)}
+            ><Check size={16} /> 주관부서 결재 상신</button>
           </div>
-          <div className="line-picker-grid">
-            <EmployeeMultiPicker
-              title="주관부서 합의자"
-              user={user}
-              employees={employees}
-              selectedIds={trainingAgreementEmpIds}
-              disabledIds={[user.empId, ...trainingApproverEmpIds]}
-              onChange={setTrainingAgreementEmpIds}
-            />
-            <EmployeeMultiPicker
-              title="주관부서 결재자"
-              user={user}
-              employees={employees}
-              selectedIds={trainingApproverEmpIds}
-              disabledIds={[user.empId, ...trainingAgreementEmpIds]}
-              ordered
-              onChange={setTrainingApproverEmpIds}
-            />
-          </div>
-        </section>
-      )}
-      <section className="training-paper training-report-paper read-only">
+        ) : undefined}
+      >
+        <div className="training-document-meta">
+          <div><span>문서 제목</span><strong>{approval.title}</strong></div>
+          <div><span>문서번호</span><strong>{approval.documentNo ?? "상신 후 자동 생성"}</strong></div>
+          <div><span>문서상태</span><strong>{statusLabel(approval.status)}</strong></div>
+          <div><span>수신상태</span><strong>{receiverProgress(approval.lines)}</strong></div>
+        </div>
+      </TrainingDocumentOverview>
+      <TrainingReceiverApprovalModal
+        open={canSubmitTrainingApproval && trainingApprovalInfoOpen}
+        user={user}
+        employees={employees}
+        agreementEmpIds={trainingAgreementEmpIds}
+        approverEmpIds={trainingApproverEmpIds}
+        onAgreementChange={setTrainingAgreementEmpIds}
+        onApproverChange={setTrainingApproverEmpIds}
+        onClose={() => setTrainingApprovalInfoOpen(false)}
+      />
+      {fields.educationWorkflowVersion === "1" && <section className="training-web-card"><h3>교육 보고서 접수</h3><p>원 교육신청서: {fields.sourceTrainingDocumentNo || fields.sourceTrainingApprovalId}</p><p>작성부서 결재 후 수신자가 접수 완료하면 문서와 교육 이수가 완료됩니다. 주관부서 추가 결재는 없습니다.</p></section>}
+      <TrainingDocumentFields mode="report" values={fields} />
+      <details className="training-web-card training-signatures">
+        <summary>결재 진행 내역 보기</summary>
         <TrainingApprovalStampHeader approval={approval} receiverApprovalPreviewColumns={receiverApprovalPreviewColumns} title="교육 훈련 보고서" />
-        <div className="training-report-meta-row">
-          <label><span>작성일</span><input readOnly value={fields.reportDate} /></label>
-          <label><span>사번</span><input readOnly value={fields.empNo} /></label>
-          <label><span>성명</span><input readOnly value={fields.requesterName} /></label>
-        </div>
-        <div className="training-report-two-col">
-          <label><span>교육명</span><input readOnly value={fields.trainingName} /></label>
-          <label><span>교육기관</span><input readOnly value={fields.institution} /></label>
-        </div>
-        <div className="training-field-row">
-          <label><span>교육기간</span><input readOnly value={fields.trainingPeriod} /></label>
-        </div>
-        <TrainingReportReadOnlyArea label="주요교육 내용" value={fields.mainContent} />
-        <TrainingReportReadOnlyArea label="업무수행 방안" value={fields.jobApplication} />
-        <TrainingReportReadOnlyArea label="교육 소감" value={fields.impression} />
-        <TrainingReportReadOnlyArea compact label="차기에 받고 싶은 교육(업무효과가능)" value={fields.nextTraining} />
-        <div className="training-report-bottom-row">
-          <label><span>유효성 평가<br />(시급,속도,균형)</span><textarea readOnly value={fields.effectiveness} /></label>
-          <label><span>총무<br />인사카드기록 확인</span><textarea readOnly value={fields.hrRecordCheck} /></label>
-        </div>
-        <div className="training-report-sign-row">
-          <span>서명</span><input readOnly value={fields.signatureName} />
-        </div>
-      </section>
-      <ApprovalLineSection title="작성부서 결재" lines={approval.lines.filter((line) => line.lineType === "APPROVAL" && line.lineOrder < firstReceiverLineOrder(approval.lines))} />
-      <ApprovalLineSection title="주관부서 수신/결재" lines={approval.lines.filter((line) => line.lineType === "RECEIVER" || line.lineOrder > lastReceiverLineOrder(approval.lines))} />
-      <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+        <ApprovalLineSection title="작성부서 결재" lines={approval.lines.filter((line) => line.lineType === "APPROVAL" && line.lineOrder < firstReceiverLineOrder(approval.lines))} />
+        <ApprovalLineSection title={fields.educationWorkflowVersion === "1" ? "주관부서 접수" : "주관부서 수신/결재"} lines={approval.lines.filter((line) => line.lineType === "RECEIVER" || line.lineOrder > lastReceiverLineOrder(approval.lines))} />
+        <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+      </details>
     </article>
   );
 }
 
-function TrainingReportReadOnlyArea({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
+function TrainingReceiverApprovalModal({
+  open,
+  user,
+  employees,
+  agreementEmpIds,
+  approverEmpIds,
+  onAgreementChange,
+  onApproverChange,
+  onClose
+}: {
+  open: boolean;
+  user: User;
+  employees: Employee[];
+  agreementEmpIds: number[];
+  approverEmpIds: number[];
+  onAgreementChange: (ids: number[]) => void;
+  onApproverChange: (ids: number[]) => void;
+  onClose: () => void;
+}) {
+  if (!open) return null;
   return (
-    <div className={`training-report-section-row${compact ? " compact" : ""}`}>
-      <label>
-        <span>{label}</span>
-        <textarea readOnly value={value} />
-      </label>
+    <div className="modal-backdrop" role="presentation">
+      <div className="org-picker-modal approval-info-modal training-approval-info-modal" role="dialog" aria-modal="true" aria-label="주관부서 결재 정보">
+        <div className="modal-head">
+          <h3>주관부서 결재 정보</h3>
+          <button type="button" className="icon-button" onClick={onClose} title="닫기"><X size={18} /></button>
+        </div>
+        <div className="approval-line-library">
+          <p className="muted-text">주관부서 결재선을 지정한 뒤 적용하세요. 결재자를 한 명 이상 지정하면 원 문서에서 상신할 수 있습니다.</p>
+        </div>
+        <div className="line-picker-grid">
+          <EmployeeMultiPicker
+            title="합의자"
+            user={user}
+            employees={employees}
+            selectedIds={agreementEmpIds}
+            disabledIds={[user.empId, ...approverEmpIds]}
+            cardLayout
+            onChange={onAgreementChange}
+          />
+          <EmployeeMultiPicker
+            title="결재자"
+            user={user}
+            employees={employees}
+            selectedIds={approverEmpIds}
+            disabledIds={[user.empId, ...agreementEmpIds]}
+            ordered
+            cardLayout
+            onChange={onApproverChange}
+          />
+        </div>
+        <div className="actions">
+          <button type="button" onClick={onClose}><Check size={16} /> 적용</button>
+        </div>
+      </div>
     </div>
   );
 }
