@@ -181,9 +181,13 @@ import type {
   User
 } from "../types";
 import { PurchaseDraftStampHeader, TrainingDraftStampHeader } from "./ApprovalParts";
-export function EquipmentProposalEditor({ user, employees, form, onChange }: { user: User; employees: Employee[]; form: ApprovalForm; onChange: (form: ApprovalForm) => void }) {
+import { ApprovalDocumentHeader, ApprovalDocumentMeta, ApprovalDocumentPdfNotice, ApprovalDocumentSectionHeader } from "./ApprovalDocumentWebParts";
+import { isProductionEngineeringRequester } from "../utils/approvalPeople";
+export function EquipmentProposalEditor({ user, employees, form, headerActions, onChange }: { user: User; employees: Employee[]; form: ApprovalForm; headerActions?: ReactNode; onChange: (form: ApprovalForm) => void }) {
   const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
   const proposalTitle = equipmentProposalTitle(form.templateCode);
+  const selfRequest = isProductionEngineeringRequester(user, employees);
+  const expectedNo = `${documentPrefix(form.templateCode)}-${new Date().getFullYear()}-자동생성`;
   const generatedTitle = equipmentProposalGeneratedTitle(form.fieldValues, form.templateCode);
   const isAutoTitle = !form.title.trim() || form.title.trim() === proposalTitle || form.title.trim() === generatedTitle;
   function value(name: string) {
@@ -209,10 +213,22 @@ export function EquipmentProposalEditor({ user, employees, form, onChange }: { u
   }
 
   return (
-    <article className="approval-template-editor equipment-proposal-editor equipment-proposal-detail">
-      <section className="approval-detail-section">
-        <h3>{proposalTitle}</h3>
-        <div className="approval-form-grid">
+    <article className="approval-template-editor equipment-proposal-editor equipment-proposal-detail approval-document-web">
+      <ApprovalDocumentHeader
+        eyebrow="전자결재 · 기안 공문"
+        title={`${proposalTitle} 작성`}
+        description={selfRequest ? "생산기술 자체 요청 · 요청·주관 내용을 함께 작성하고 통합 결재가 끝나면 구매부서로 전달합니다." : "사용부서 요청을 시작으로 주관부서와 구매부서가 단계별로 작성합니다."}
+        actions={headerActions}
+      />
+      <ApprovalDocumentMeta items={[
+        { label: "작성자", value: user.empName },
+        { label: "요청부서", value: requesterDeptName },
+        { label: "작성일", value: todayDate() },
+        { label: "문서번호", value: expectedNo }
+      ]} />
+      <section className="approval-detail-section approval-document-section equipment-title-section">
+        <ApprovalDocumentSectionHeader title="문서 기본정보" description="품목과 구분을 입력하면 문서 제목이 자동으로 제안됩니다." badge="작성자 입력" />
+        <div className="approval-document-section-body approval-form-grid">
           <label className="wide">{requiredLabel("문서 제목")}<input className={isAutoTitle ? "auto-title-input" : ""} required value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} placeholder={isMoldFixtureTemplateCode(form.templateCode) ? "예: S-BB123 제작 품의서" : "예: 가공기-1 개선 품의서"} /></label>
         </div>
       </section>
@@ -221,9 +237,24 @@ export function EquipmentProposalEditor({ user, employees, form, onChange }: { u
       ) : (
         <EquipmentProposalUserSection templateCode={form.templateCode} value={value} onChange={setValue} />
       )}
+      {selfRequest && (
+        <section className="approval-detail-section approval-document-section equipment-self-request">
+          <ApprovalDocumentSectionHeader title="주관부서 작성란" description="생산기술 자체 요청으로 요청 내용과 함께 결재됩니다. 별도의 주관부서 재상신은 없습니다." badge="통합 작성" />
+          <EquipmentProposalPeFields value={value} onChange={setValue} />
+        </section>
+      )}
+      <ApprovalDocumentPdfNotice />
     </article>
   );
 }
+export function EquipmentProposalPeFields({ value, onChange, readOnly = false }: { value: (name: string) => string; onChange?: (name: string, value: string) => void; readOnly?: boolean }) {
+  return <div className="approval-form-grid">
+    <label className="wide"><span>주관부서(PE) 의견</span><textarea value={value("peOpinion")} readOnly={readOnly} onChange={(event) => onChange?.("peOpinion", event.target.value)} /></label>
+    <label className="wide"><span>설계 의견</span><textarea value={value("designOpinion")} readOnly={readOnly} onChange={(event) => onChange?.("designOpinion", event.target.value)} /></label>
+    <label className="wide"><span>경제성 검토 - 주관 부서</span><textarea value={value("peEconomicReview")} readOnly={readOnly} onChange={(event) => onChange?.("peEconomicReview", event.target.value)} /></label>
+  </div>;
+}
+
 export function EquipmentProposalUserSection({
   templateCode,
   value,
@@ -245,12 +276,9 @@ export function EquipmentProposalUserSection({
   const moldFixture = isMoldFixtureTemplateCode(templateCode);
 
   return (
-    <section className="approval-detail-section">
-      <div className="equipment-section-head">
-        <h3>사용부서 작성란</h3>
-        {stamp}
-      </div>
-      <div className="approval-form-grid">
+    <section className={`approval-detail-section approval-document-section${moldFixture ? "" : " equipment-request-section"}`}>
+      <ApprovalDocumentSectionHeader title="사용부서 작성란" description="요청 대상과 완료요구일, 현상 및 요구사항을 입력합니다." badge={readOnly ? "조회" : "현재 단계"} />
+      <div className={`approval-document-section-body approval-form-grid${moldFixture ? "" : " equipment-request-fields"}`}>
         {moldFixture && (
           <>
             <label>{requiredLabel("품목")}
@@ -267,12 +295,6 @@ export function EquipmentProposalUserSection({
         )}
         <label>{requiredLabel(moldFixture ? "사용부서" : "요청부서")}<input required readOnly value={value("requestDeptName")} title="작성자 소속부서로 자동 지정됩니다." /></label>
         <label>{requiredLabel("완료요구일")}<input required type="date" readOnly={readOnly} value={value("requiredCompletionDate")} onChange={change("requiredCompletionDate")} /></label>
-        {!moldFixture && (
-          <>
-            <label>{requiredLabel(equipmentProposalItemLabel(templateCode))}<input required readOnly={readOnly} value={value("equipmentName")} onChange={change("equipmentName")} /></label>
-            <label><span>{equipmentProposalCapacityLabel(templateCode)}</span><input readOnly={readOnly} value={value("equipmentCapacity")} onChange={change("equipmentCapacity")} /></label>
-          </>
-        )}
         <label>{requiredLabel("구분")}
           <select required disabled={readOnly} value={value("requestType")} onChange={change("requestType")}>
             <option value="">선택</option>
@@ -281,6 +303,12 @@ export function EquipmentProposalUserSection({
             ))}
           </select>
         </label>
+        {!moldFixture && (
+          <>
+            <label>{requiredLabel(equipmentProposalItemLabel(templateCode))}<input required readOnly={readOnly} value={value("equipmentName")} onChange={change("equipmentName")} /></label>
+            <label><span>{equipmentProposalCapacityLabel(templateCode)}</span><input readOnly={readOnly} value={value("equipmentCapacity")} onChange={change("equipmentCapacity")} /></label>
+          </>
+        )}
         <label className="wide">{requiredLabel(moldFixture ? "사유" : "현상")}<textarea required readOnly={readOnly} value={value("currentState")} onChange={change("currentState")} /></label>
         {moldFixture && (
           <>
@@ -318,12 +346,9 @@ export function MoldFixtureProposalUserSection({
   };
 
   return (
-    <section className="approval-detail-section mold-fixture-section">
-      <div className="equipment-section-head">
-        <h3>사용부서 작성란</h3>
-        {stamp}
-      </div>
-      <div className="mold-fixture-form">
+    <section className="approval-detail-section approval-document-section mold-fixture-section">
+      <ApprovalDocumentSectionHeader title="사용부서 작성란" description="품목 정보와 부품 목록, 제작 사유 및 요구사항을 입력합니다." badge={readOnly ? "조회" : "현재 단계"} />
+      <div className="approval-document-section-body mold-fixture-form">
         <label className="mold-item-type">{requiredLabel("품목")}
           <select required disabled={readOnly} value={value("moldFixtureType")} onChange={change("moldFixtureType")}>
             <option value="">선택</option>

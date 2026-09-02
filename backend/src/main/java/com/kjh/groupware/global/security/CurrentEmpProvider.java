@@ -15,13 +15,17 @@ public class CurrentEmpProvider {
     private final EmpRepository empRepository;
 
     public Emp getCurrentEmp() {
+        return empRepository.findActiveByLoginId(getCurrentLoginId())
+            .orElseThrow(() -> BusinessException.unauthorized("UNAUTHORIZED", "Authenticated employee was not found"));
+    }
+
+    public String getCurrentLoginId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
             throw BusinessException.unauthorized("UNAUTHORIZED", "Authentication is required");
         }
 
-        return empRepository.findActiveByLoginId(authentication.getName())
-            .orElseThrow(() -> BusinessException.unauthorized("UNAUTHORIZED", "Authenticated employee was not found"));
+        return authentication.getName();
     }
 
     public Long getCurrentEmpId() {

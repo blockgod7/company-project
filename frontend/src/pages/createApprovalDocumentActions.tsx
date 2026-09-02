@@ -113,7 +113,7 @@ import {
   parseMoldFixtureParts,
   parsePurchaseItems,
   parseTemplateFields,
-  productionEngineeringManagerId,
+  equipmentProposalReceiverId,
   PURCHASE_BU_CODES,
   PURCHASE_RECEIVER_LOGIN_ID,
   purchaseBuTotal,
@@ -193,6 +193,7 @@ import { EquipmentProposalEditor, equipmentProposalContent, LeaveRequestEditor, 
 import { APPROVAL_BOXES, isApprovalBox, TemplateSelectModalV2 } from "./ApprovalTemplateParts";
 import { SchedulerStatusPanel } from "./SchedulerStatusPanel";
 import { useApprovalPageController } from "./useApprovalPageController";
+import { createApprovalForm } from "../utils/approvalForm";
 type ApprovalPageController = ReturnType<typeof useApprovalPageController>;
 
 export function createApprovalDocumentActions(user: User, controller: ApprovalPageController) {
@@ -332,8 +333,9 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
     updateApprovalSearchFilter,
     openTemplateAdmin
   } = controller;
-  function startCreate() {
-    const selectableTemplates = selectableApprovalTemplates(visibleTemplates);
+  async function startCreate() {
+    const [latestTemplates] = await Promise.all([loadActiveTemplates(), loadLeaveUsage(), loadCompTimeSummary()]);
+    const selectableTemplates = selectableApprovalTemplates(latestTemplates);
     if (!selectableTemplates.length) {
       setApprovalError("사용 가능한 결재 양식이 없습니다. 관리자에게 양식 활성화를 요청해 주세요.");
       return;
@@ -347,34 +349,15 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
   }
 
   function confirmTemplate() {
-    const peManagerId = productionEngineeringManagerId(employees);
-    const requesterDeptName = currentUserDeptName(user, employees);
-    const isLeaveRequest = isLeaveTemplateCode(previewTemplate.code);
-    const isLeaveCancel = isLeaveCancelTemplateCode(previewTemplate.code);
-    const isPurchaseRequest = isPurchaseTemplateCode(previewTemplate.code);
-    const isTrainingRequest = isTrainingRequestTemplateCode(previewTemplate.code);
-    const isTrainingReport = isTrainingReportTemplateCode(previewTemplate.code);
-    const isTrainingTemplate = isTrainingTemplateCode(previewTemplate.code);
-    const isEquipmentProposal = isEquipmentProposalTemplateCode(previewTemplate.code);
-    const leaveReceiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
-    const purchaseReceiverEmpId = purchaseReceiverId(employees);
-    const trainingReceiverEmpId = trainingReceiverId(employees);
-    setForm({
-      ...defaultApprovalForm([previewTemplate]),
-      title: isPurchaseRequest || isTrainingTemplate || isEquipmentProposal ? "" : previewTemplate.name,
-      fieldValues: isEquipmentProposal
-        ? { requestDeptName: requesterDeptName }
-        : isPurchaseRequest
-          ? purchaseDefaultFieldValues(user, employees)
-        : isTrainingRequest
-          ? trainingRequestDefaultFieldValues(user, employees)
-        : isTrainingReport
-          ? trainingReportDefaultFieldValues(user, employees)
-        : isLeaveRequest || isLeaveCancel
-          ? leaveUsageFieldValues(leaveUsage)
-          : {},
-      receiverEmpIds: (isLeaveRequest || isLeaveCancel) && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
-    });
+    const latestTemplate = templates.find((template) => template.code === previewTemplate.code);
+    if (!latestTemplate) {
+      setApprovalError("선택한 양식을 사용할 수 없습니다. 양식 목록을 다시 열어 주세요.");
+      return;
+    }
+    const isLeaveRequest = isLeaveTemplateCode(latestTemplate.code);
+    const isLeaveCancel = isLeaveCancelTemplateCode(latestTemplate.code);
+    setLeavePreviewOpen(false);
+    setForm(createApprovalForm(latestTemplate, user, employees, leaveUsage, operationSettings?.leaveDefaultReceiverEmpId));
     setDefaultLineMessage("");
     setTemplateModalOpen(false);
     setMode("create");
@@ -456,10 +439,10 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
     const isTrainingTemplate = isTrainingTemplateCode(template.code);
     const isLeaveFlow = isLeaveRequest || isLeaveCancel;
     const isDelegationEligible = isLeaveRequest || isTrainingRequest || isTrainingReport;
-    const peManagerId = productionEngineeringManagerId(employees);
+    const equipmentReceiverEmpId = equipmentProposalReceiverId(user, employees);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
-    const receiverEmpIds = isLeaveFlow ? form.receiverEmpIds : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate ? form.receiverEmpIds : isEquipmentProposal && peManagerId ? [peManagerId] : form.receiverEmpIds;
+    const receiverEmpIds = isLeaveFlow ? form.receiverEmpIds : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate ? form.receiverEmpIds : isEquipmentProposal && equipmentReceiverEmpId ? [equipmentReceiverEmpId] : form.receiverEmpIds;
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     const baseFieldValues = isEquipmentProposalTemplateCode(template.code)
       ? { ...form.fieldValues, requestDeptName: requesterDeptName }
@@ -783,7 +766,7 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
     const isTrainingRequest = isTrainingRequestTemplateCode(templateCode);
     const isTrainingReport = isTrainingReportTemplateCode(templateCode);
     const isTrainingTemplate = isTrainingTemplateCode(templateCode);
-    const peManagerId = productionEngineeringManagerId(employees);
+    const equipmentReceiverEmpId = equipmentProposalReceiverId(user, employees);
     const leaveReceiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
@@ -794,7 +777,7 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
       templateVersion: nextTemplate.version ?? null,
       title: isPurchaseRequest || isTrainingTemplate || isEquipmentProposal ? "" : shouldUseTemplateTitle ? nextTemplate.name : form.title,
       fieldValues: isEquipmentProposal ? { requestDeptName: requesterDeptName } : isPurchaseRequest ? purchaseDefaultFieldValues(user, employees) : isTrainingRequest ? trainingRequestDefaultFieldValues(user, employees) : isTrainingReport ? trainingReportDefaultFieldValues(user, employees) : isLeaveRequest || isLeaveCancel ? leaveUsageFieldValues(leaveUsage) : {},
-      receiverEmpIds: (isLeaveRequest || isLeaveCancel) && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && peManagerId ? [peManagerId] : []
+      receiverEmpIds: (isLeaveRequest || isLeaveCancel) && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && equipmentReceiverEmpId ? [equipmentReceiverEmpId] : []
     });
     setDefaultLineMessage("");
     void applyDefaultLine(templateCode);

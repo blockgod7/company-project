@@ -6,6 +6,7 @@ import { Empty } from "./Empty";
 import type { DraftAttachment } from "../utils/attachments";
 import { formatDate } from "../utils/date";
 import type { AttachFile } from "../types";
+import { isRichTextHtml, sanitizeRichTextHtml } from "../utils/richText";
 
 export function ReadDetail({ title, content, meta, badge, canEdit, onEdit, onDelete, editLabel = "수정", deleteLabel = "삭제" }: {
   title: string;
@@ -34,12 +35,16 @@ export function ReadDetail({ title, content, meta, badge, canEdit, onEdit, onDel
           </div>
         )}
       </div>
-      <div className="detail-content">{content ? <RichContent content={content} /> : "내용이 없습니다."}</div>
+      <div className="detail-content">{content ? <RichContent content={content} allowImages /> : "내용이 없습니다."}</div>
     </article>
   );
 }
 
-export function RichContent({ content }: { content: string }) {
+export function RichContent({ content, allowImages = false }: { content: string; allowImages?: boolean }) {
+  if (isRichTextHtml(content)) {
+    return <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(content, { allowImages }) }} />;
+  }
+
   const imagePattern = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
   const parts: ReactNode[] = [];
   let lastIndex = 0;

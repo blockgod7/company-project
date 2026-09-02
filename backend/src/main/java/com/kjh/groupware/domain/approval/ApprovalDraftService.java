@@ -45,6 +45,7 @@ public class ApprovalDraftService {
     public ApprovalResponse create(ApprovalRequest request, String ipAddress, String userAgent) {
         Emp requester = currentEmpProvider.getCurrentEmp();
         request = trainingWorkflowService.normalize(requester, null, request, !Boolean.TRUE.equals(request.draft()));
+        if (ApprovalEquipmentProposal.isProposalTemplate(request.templateCode())) request = equipmentProposalService.normalizeRequest(requester, request, !Boolean.TRUE.equals(request.draft()));
         ApprovalTemplate template = activeTemplate(request.templateCode());
         boolean draft = Boolean.TRUE.equals(request.draft());
         linePolicyService.validateLineSelection(requester, request, !draft);
@@ -132,6 +133,7 @@ public class ApprovalDraftService {
             throw BusinessException.badRequest("APPROVAL_NOT_EDITABLE", "수정할 수 없는 문서입니다.");
         }
         request = trainingWorkflowService.normalize(requester, document, request, false);
+        if (ApprovalEquipmentProposal.isProposalTemplate(request.templateCode())) request = equipmentProposalService.normalizeRequest(requester, request, false);
         linePolicyService.validateLineSelection(requester, request, false);
 
         ApprovalTemplate template = trainingWorkflowService.templateFor(document, activeTemplate(request.templateCode()));
@@ -166,6 +168,7 @@ public class ApprovalDraftService {
             throw BusinessException.badRequest("APPROVAL_ALREADY_SUBMITTED", "이미 처리된 문서입니다.");
         }
         request = trainingWorkflowService.normalize(requester, document, request, true);
+        if (ApprovalEquipmentProposal.isProposalTemplate(request.templateCode())) request = equipmentProposalService.normalizeRequest(requester, request, true);
         linePolicyService.validateLineSelection(requester, request, true);
 
         ApprovalTemplate template = trainingWorkflowService.templateFor(document, activeTemplate(request.templateCode()));
@@ -373,6 +376,14 @@ public class ApprovalDraftService {
     }
 
     private void notifyInitialPendingLines(ApprovalDocument document, List<ApprovalLine> lines) {
+        // Reference access starts at submission, independently of decisions and receipt.
+        lines.stream()
+            .filter(line -> line.isReference() && ApprovalLine.STATUS_WAITING.equals(line.getStatus()))
+            .forEach(line -> {
+                line.openShared();
+                notificationService.notifyEmp(line.getAssignedEmp().getEmpId(), "참조 문서 도착",
+                    "참조로 지정된 문서가 상신되었습니다.", "APPROVAL", document.getApprovalId());
+            });
         lines.stream()
             .filter(line -> ApprovalLine.STATUS_PENDING.equals(line.getStatus()))
             .forEach(line -> notificationService.notifyEmp(

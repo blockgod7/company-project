@@ -17,6 +17,7 @@
 
 ## Work Guidance
 - Canonical authenticated routes live in `src/navigation.ts`; use browser URLs rather than local route-only state for navigation.
+- Fresh app entry with a restored session and successful login start at employee home; ordinary in-app navigation must not rerun authentication restoration. Shell name buttons open `AccountSettingsDialog` for contact-only self-service. `PasswordChangeForm` is shared with forced temporary-password changes; success clears the local session and requires login again.
 - Portal menus come from `/menus/effective`; do not reintroduce a hardcoded sidebar catalog.
 - Planned-feature content is read-only configuration under `src/config/plannedFeatures.ts` and must not expose mock workflow actions.
 - Organization-directory screens use `/emps/directory`; do not expose account IDs, role codes, or managed permissions through that response.
@@ -25,16 +26,23 @@
 - Education editors preserve server-owned workflow/source/revision fields. The three education templates are available to regular users without enabling other preview features. Dashboard education data comes only from `/trainings/me`; completed dates mean education ended, and report receipt means completion.
 - The employee personal calendar lives at `/portal/employee/calendar` and combines the current user's work schedules, approved education schedules, approved leave dates, and personal approval summaries using existing APIs.
 - Keep electronic-approval state/loading in `useApprovalPageController.tsx`, document actions in `createApprovalDocumentActions.tsx`, and form/detail renderers in the focused `Approval*Parts` modules; do not rebuild `ApprovalPage.tsx` as a single page monolith.
+- The employee approval tab `참조문서` reuses the `shared` box for in-progress reference/reader documents, without an action-required dashboard filter. Completed references appear in `결재 완료문서` (role SHARED); read status does not move a document. References are view-only from submission; receive/decision/PDF buttons remain driven by server permissions.
+- `ApprovalFormBody.tsx` owns template-to-editor routing for compose, template selection and read-only previews. `utils/approvalForm.ts` supplies shared creation/preview defaults. Do not add separate mock/template-preview layouts; refresh the active template catalog when opening selection and preserve existing document/PDF snapshots.
 - Keep drawing-management dialogs in `DrawingManagementModals.tsx` and folder/upload validation helpers under `src/utils/drawingManagement.ts`.
 - Keep CSS entry files as import manifests and place rules in the focused files under `src/styles/` so purchase/training, leave, equipment, shell, and page styles remain independently maintainable.
+- Draft, board and notice body formatting share the lazy-loaded Tiptap `RichTextEditor` and `styles/rich-text.css`; `utils/richText.ts` owns the HTML whitelist shared by editing and detail display. Board/notice opt into safe HTTP(S) images and migrate the previous Markdown image syntax when editing. Draft images remain disabled; keep draft formatting aligned with backend `ApprovalRichTextPdfBody`. Do not restore browser `execCommand` editing. Initialize the editor after mount so Suspense cannot reuse a destroyed instance.
 - Keep backend endpoint changes coordinated with `src/api.ts` and `src/types.ts`.
 - Prefer existing components and styling conventions before adding new abstractions.
+- Equipment/mold composing and preview share `EquipmentProposalPeFields` for production-engineering self-requests; use `equipmentProposalReceiverId` across creation, template changes, default lines and submission. Frontend department matching is a display/default hint; the backend owns routing snapshots and returned `peSelfRequest` for detail views.
 - Keep `EMERGENCY_CALL_REQUEST` out of selectable template categories; new emergency work uses `WORK_REQUEST` with `EMERGENCY_CALL`. Preserve legacy template metadata and document rendering for existing approvals.
 
 ## Verification
 - Frontend build: `npm.cmd run build`.
+- Login/home routing, personal contacts and password-change regressions: `npm.cmd run test:account` (JSDOM and mocked API; never modifies real employee credentials).
 - Frontend dev server: `npm.cmd run dev`.
 - Frontend preview: `npm.cmd run preview`.
+- Rich-text component/serialization regressions: `npm.cmd run test:rich-text` (JSDOM, no live API or database).
+- Approval form/preview parity and catalog refresh regressions: `npm.cmd run test:approval-preview` (JSDOM, API responses mocked; Node 22.15+ for asset-loading hooks).
 
 ## Child DOX Index
 - No child AGENTS.md files are defined under `frontend/` yet.

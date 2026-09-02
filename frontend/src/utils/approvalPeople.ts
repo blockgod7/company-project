@@ -11,6 +11,7 @@ import type {
   User
 } from "../types";
 import type { ApprovalForm, ApprovalTemplateAdminForm, ApprovalTemplateField, ApprovalTemplateOption } from "./approvalDomainCore";
+import { purchaseReceiverId } from "./approvalDomainCore";
 export function employeeDisplay(employee?: Employee) {
   if (!employee) return "-";
   return `${employee.deptName ?? "-"} ${employee.empName}`;
@@ -68,6 +69,18 @@ export function productionEngineeringManagerId(employees: Employee[]) {
     employee.deptName === "생산기술" && (employee.roleCode === "MANAGER" || employee.jobTitle?.includes("팀장") || employee.positionName?.includes("팀장"))
   );
   return manager?.empId ?? employees.find((employee) => employee.loginId === "cho.pe")?.empId ?? null;
+}
+
+// Display/default hint only; the server snapshots the authoritative PROD_TECH code on submission.
+export function isProductionEngineeringRequester(user: User, employees: Employee[]) {
+  const deptName = (user.deptName ?? employees.find((employee) => employee.empId === user.empId)?.deptName ?? "").replace(/\s/g, "");
+  return deptName === "생산기술" || deptName === "생산기술팀";
+}
+
+export function equipmentProposalReceiverId(user: User, employees: Employee[]) {
+  if (!isProductionEngineeringRequester(user, employees)) return productionEngineeringManagerId(employees);
+  const purchaseEmployees = employees.filter((employee) => ["구매", "구매팀"].includes(employee.deptName ?? ""));
+  return purchaseReceiverId(purchaseEmployees) ?? purchaseEmployees[0]?.empId ?? null;
 }
 
 export function isDeptManagerUser(user: User, employees: Employee[], deptName: string) {

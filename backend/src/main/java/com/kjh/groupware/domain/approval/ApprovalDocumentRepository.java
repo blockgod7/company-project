@@ -193,12 +193,14 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
                     and receiverDecisionLine.lineOrder > receivedLine.lineOrder
                 )
             ))
-            or (:boxShared = true and exists (
+            or (:boxShared = true and d.status = 'IN_PROGRESS' and exists (
               select 1 from ApprovalLine sharedLine
               where sharedLine.document = d
                 and sharedLine.assignedEmp = :currentEmp
-                and sharedLine.lineType in ('REFERENCE', 'READER')
-                and sharedLine.status = 'READ'
+                and (
+                  sharedLine.lineType = 'REFERENCE'
+                  or (sharedLine.lineType = 'READER' and sharedLine.status = 'READ')
+                )
             ))
             or (:boxProcessed = true and exists (
               select 1 from ApprovalLine processedLine
@@ -212,6 +214,7 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
               select 1 from ApprovalLine visibleLine
               where visibleLine.document = d
                 and visibleLine.assignedEmp = :currentEmp
+                and (visibleLine.lineType <> 'REFERENCE' or d.status in ('IN_PROGRESS', 'APPROVED', 'REJECTED'))
               )
             )
             )
@@ -270,7 +273,7 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
             )
             or (
               l.assignedEmp = :currentEmp
-              and l.lineType in ('REFERENCE', 'READER')
+              and l.lineType = 'READER'
               and l.status = 'READ'
             )
             or (
@@ -368,6 +371,7 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
             or exists (
               select 1 from ApprovalLine involvedLine
               where involvedLine.document = d
+                and (involvedLine.lineType <> 'REFERENCE' or d.status in ('APPROVED', 'REJECTED'))
                 and (
                   involvedLine.assignedEmp = :currentEmp
                   or involvedLine.actedEmp = :currentEmp
@@ -394,6 +398,7 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
               where sharedLine.document = d
                 and sharedLine.lineType in ('REFERENCE', 'READER')
                 and sharedLine.assignedEmp = :currentEmp
+                and (sharedLine.lineType <> 'REFERENCE' or d.status in ('APPROVED', 'REJECTED'))
             ))
             or (:role = 'DELEGATED' and exists (
               select 1 from ApprovalLine delegatedLine
@@ -427,7 +432,25 @@ public interface ApprovalDocumentRepository extends JpaRepository<ApprovalDocume
         join ApprovalLine l on l.document = d
         where d.deletedYn = 'N'
           and l.assignedEmp = :approver
+          and (l.lineType <> 'REFERENCE' or d.status in ('IN_PROGRESS', 'APPROVED', 'REJECTED'))
         order by d.approvalId desc
         """)
     Page<ApprovalDocument> findVisibleToApprover(@Param("approver") Emp approver, Pageable pageable);
+
+    // Status-based reference visibility also covers legacy submitted lines still marked WAITING.
+    @Query("""
+        select d from ApprovalDocument d
+        where d.deletedYn = 'N'
+          and d.status = 'IN_PROGRESS'
+          and exists (
+            select 1 from ApprovalLine l
+            where l.document = d and l.assignedEmp = :currentEmp
+              and (
+                l.lineType = 'REFERENCE'
+                or (l.lineType = 'READER' and l.status = 'READ')
+              )
+          )
+        order by d.approvalId desc
+        """)
+    Page<ApprovalDocument> findSharedDocuments(@Param("currentEmp") Emp currentEmp, Pageable pageable);
 }

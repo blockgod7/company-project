@@ -333,6 +333,13 @@ abstract class ApprovalPdfRenderSupport {
         List<ApprovalLine> realApprovals = approvals.stream()
             .filter(line -> !ApprovalLine.STATUS_SKIPPED.equals(line.getStatus()))
             .toList();
+        if (proposal.isPeSelfRequest()) {
+            return new EquipmentApprovalGroups(
+                realApprovals.stream().filter(line -> purchaseInputOrder == null || line.getLineOrder() < purchaseInputOrder).toList(),
+                null, List.of(), purchaseInputLine,
+                purchaseInputOrder == null ? List.of() : realApprovals.stream().filter(line -> line.getLineOrder() > purchaseInputOrder).toList()
+            );
+        }
         return new EquipmentApprovalGroups(
             realApprovals.stream()
                 .filter(line -> peInputOrder == null || line.getLineOrder() < peInputOrder)
@@ -419,7 +426,7 @@ abstract class ApprovalPdfRenderSupport {
         float x = 62;
         float y = 526;
         float labelWidth = 82;
-        float valueWidth = 236;
+        float valueWidth = 174;
         float rowHeight = 34;
         drawInfoRow(content, font, x, y + rowHeight * 4, labelWidth, valueWidth, rowHeight, "문서번호", safe(document.getDocumentNo()));
         drawInfoRow(content, font, x, y + rowHeight * 3, labelWidth, valueWidth, rowHeight, "기안부서(자)", safe(document.getDraftDeptName()) + " / " + safe(document.getRequester().getEmpName()));
@@ -512,6 +519,11 @@ abstract class ApprovalPdfRenderSupport {
     }
 
     protected void drawClassicBody(PDPageContentStream content, PDFont font, ApprovalDocument document) throws IOException {
+        drawClassicBodyFrame(content);
+        drawWrappedText(content, font, plainTextContent(document.getContent()), 72, 338, 458, 10, 12);
+    }
+
+    protected void drawClassicBodyFrame(PDPageContentStream content) throws IOException {
         float x = 62;
         float y = 186;
         float width = 478;
@@ -522,7 +534,6 @@ abstract class ApprovalPdfRenderSupport {
         content.stroke();
         content.setLineWidth(0.7f);
         drawBox(content, x, y, width, height);
-        drawWrappedText(content, font, safe(document.getContent()), x + 10, y + height - 18, width - 20, 10, 12);
     }
 
     protected void drawClassicFooter(PDPageContentStream content, PDFont font, ApprovalDocument document, List<ApprovalLine> lines) throws IOException {
@@ -541,6 +552,25 @@ abstract class ApprovalPdfRenderSupport {
             .filter(line -> type.equals(line.getLineType()))
             .sorted(java.util.Comparator.comparing(ApprovalLine::getLineOrder))
             .toList();
+    }
+
+    protected String plainTextContent(String value) {
+        if (value == null || value.isBlank()) return "-";
+        return value
+            .replaceAll("(?is)<(?:script|style|iframe|object|embed|svg|math)[^>]*>.*?</(?:script|style|iframe|object|embed|svg|math)>", "")
+            .replaceAll("(?i)<br\\s*/?>", "\n")
+            .replaceAll("(?i)<li[^>]*>", "• ")
+            .replaceAll("(?i)</(?:p|div|li|h2|h3|blockquote)\\s*>", "\n")
+            .replaceAll("<[^>]+>", "")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replaceAll("[ \\t]+\\n", "\n")
+            .replaceAll("\\n{3,}", "\n\n")
+            .trim();
     }
 
     protected String lineSummary(List<ApprovalLine> lines, String type) {

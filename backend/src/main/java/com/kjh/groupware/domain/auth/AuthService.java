@@ -4,6 +4,8 @@ import com.kjh.groupware.domain.auth.dto.CurrentUserResponse;
 import com.kjh.groupware.domain.auth.dto.LoginOptionResponse;
 import com.kjh.groupware.domain.auth.dto.LoginRequest;
 import com.kjh.groupware.domain.auth.dto.LoginResponse;
+import com.kjh.groupware.domain.auth.dto.MyProfileResponse;
+import com.kjh.groupware.domain.auth.dto.MyProfileUpdateRequest;
 import com.kjh.groupware.domain.emp.Emp;
 import com.kjh.groupware.domain.emp.EmployeePermissionService;
 import com.kjh.groupware.domain.emp.EmpRepository;
@@ -22,6 +24,7 @@ import java.util.HexFormat;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -101,6 +104,7 @@ public class AuthService {
         }
         Claims claims = jwtTokenProvider.validateRefreshToken(refreshToken)
             .orElseThrow(() -> BusinessException.unauthorized("INVALID_REFRESH_TOKEN", "Refresh token is invalid"));
+        empRepository.acquireLoginLock(claims.getSubject());
         AuthRefreshToken savedToken = refreshTokenRepository.findByTokenHash(tokenHash(refreshToken))
             .orElseThrow(() -> BusinessException.unauthorized("INVALID_REFRESH_TOKEN", "Refresh token is invalid"));
         if (!savedToken.isUsable(LocalDateTime.now())) {
@@ -128,10 +132,49 @@ public class AuthService {
     }
 
     @Transactional
-    public void changePassword(String newPassword) {
-        Emp emp = currentEmpProvider.getCurrentEmp();
+    public void changePassword(String currentPassword, String newPassword) {
+        Emp emp = lockCurrentEmp();
+        String rateLimitKey = "password-change:" + emp.getEmpId();
+        try {
+            loginRateLimiter.assertAllowed(rateLimitKey, "self-service");
+        } catch (BusinessException ex) {
+            throw new BusinessException("PASSWORD_CHANGE_RATE_LIMITED",
+                "비밀번호 확인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.", HttpStatus.TOO_MANY_REQUESTS);
+        }
+        if (currentPassword == null || !passwordEncoder.matches(currentPassword, emp.getPasswordHash())) {
+            loginRateLimiter.recordFailure(rateLimitKey, "self-service");
+            throw BusinessException.badRequest("CURRENT_PASSWORD_MISMATCH", "현재 비밀번호가 일치하지 않습니다.");
+        }
+        if (newPassword == null || newPassword.isBlank() || newPassword.length() < 8
+            || newPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw BusinessException.badRequest("INVALID_NEW_PASSWORD", "새 비밀번호는 8자 이상, UTF-8 기준 72바이트 이하여야 합니다.");
+        }
+        if (passwordEncoder.matches(newPassword, emp.getPasswordHash())) {
+            throw BusinessException.badRequest("PASSWORD_UNCHANGED", "현재 비밀번호와 다른 새 비밀번호를 입력해 주세요.");
+        }
         emp.changePassword(passwordEncoder.encode(newPassword));
         refreshTokenRepository.deleteByEmp(emp);
+        loginRateLimiter.clear(rateLimitKey, "self-service");
+    }
+
+    @Transactional(readOnly = true)
+    public MyProfileResponse myProfile() {
+        return MyProfileResponse.from(currentEmpProvider.getCurrentEmp());
+    }
+
+    @Transactional
+    public MyProfileResponse updateMyProfile(MyProfileUpdateRequest request) {
+        Emp emp = lockCurrentEmp();
+        emp.updateContactInfo(request.email(), request.phone(), request.extensionNumber());
+        return MyProfileResponse.from(emp);
+    }
+
+    private Emp lockCurrentEmp() {
+        // Match login/refresh ordering: advisory lock first, then read and lock employee state.
+        String loginId = currentEmpProvider.getCurrentLoginId();
+        empRepository.acquireLoginLock(loginId);
+        return empRepository.findByLoginIdForUpdate(loginId).filter(Emp::isActiveUser)
+            .orElseThrow(() -> BusinessException.unauthorized("UNAUTHORIZED", "Authenticated employee was not found"));
     }
 
     private void saveRefreshToken(Emp emp, String refreshToken, String ipAddress, String userAgent) {

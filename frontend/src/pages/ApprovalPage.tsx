@@ -186,17 +186,19 @@ import type {
   PageResponse,
   User
 } from "../types";
-import { ClassicDraftEditor, downloadApprovalPdf } from "./ApprovalClassicParts";
+import { downloadApprovalPdf } from "./ApprovalClassicParts";
 import { ApprovalHolidayPanel } from "./ApprovalHolidayPanel";
 import { AnnualLeaveAdminPanel } from "./AnnualLeaveAdminPanel";
 import { LeavePolicyAdminPanel } from "./LeavePolicyAdminPanel";
 import { CompTimeAdminPanel } from "./CompTimeAdminPanel";
 import { LeaveAdminCasePanel } from "./LeaveAdminCasePanel";
 import { ApprovalDetailView } from "./ApprovalParts";
-import { EquipmentProposalEditor, equipmentProposalContent, LeaveRequestEditor, PurchaseRequestEditor, TemplateFieldInputs, TrainingReportEditor, TrainingRequestEditor, WorkRequestEditor } from "./ApprovalFormParts";
 import { APPROVAL_BOXES, isApprovalBox, TemplateSelectModalV2 } from "./ApprovalTemplateParts";
+import { ApprovalTemplateAdminWorkspace } from "./ApprovalTemplateAdminWorkspace";
+import { ApprovalFormBody } from "./ApprovalFormBody";
 import { SchedulerStatusPanel } from "./SchedulerStatusPanel";
 import { useApprovalPageController } from "./useApprovalPageController";
+import { ApprovalReferenceReadStatus } from "./ApprovalPurchaseTrainingDetails";
 import { createApprovalDocumentActions } from "./createApprovalDocumentActions";
 
 export function ApprovalPage({ user, launch, target, portal }: { user: User; launch: ApprovalLaunch | null; target: GlobalSearchTarget | null; portal: "employee" | "admin" }) {
@@ -271,6 +273,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
     setApprovalInfoOpen,
     templateAdminMessage,
     setTemplateAdminMessage,
+    templateStatusUpdating,
     delegation,
     setDelegation,
     delegationForm,
@@ -384,6 +387,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
   const primaryApprovalViews = [
     { id: "todo", label: "결재할 문서", box: "pending" as ApprovalBox, dashboardFilter: "actionRequired" as ApprovalDashboardFilter },
     { id: "received", label: "수신함", box: "received" as ApprovalBox },
+    { id: "shared", label: "참조문서", box: "shared" as ApprovalBox },
     { id: "progress", label: "결재진행문서", box: "processed" as ApprovalBox, dashboardFilter: "approvedInProgress" as ApprovalDashboardFilter },
     { id: "drafts", label: "임시보관함", box: "requested" as ApprovalBox, dashboardFilter: "drafts" as ApprovalDashboardFilter }
   ];
@@ -392,19 +396,20 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
       ? dashboardFilter?.dashboardFilter === "actionRequired" ? "todo"
         : dashboardFilter?.dashboardFilter === "approvedInProgress" ? "progress"
           : dashboardFilter?.dashboardFilter === "drafts" ? "drafts"
-            : box === "received" && !dashboardFilter
-              ? "received"
+            : (box === "received" || box === "shared") && !dashboardFilter
+              ? box
               : ""
       : ""
   );
   const isPrimaryDashboardFilter = ["actionRequired", "approvedInProgress", "drafts", "completedInvolved"].includes(dashboardFilter?.dashboardFilter ?? "");
   const approvalListLabel = dashboardFilter?.label ?? (box === "requested" ? "임시보관함" : approvalBoxes.find((item) => item.box === box)?.label ?? "문서");
+  const formContext = { user, employees, leaveUsage, compTimeSummary, holidays, leaveTypeOptions };
   const approvalEditorActions = (
     <div className="actions approval-editor-actions">
       <button type="button" className="ghost" onClick={() => setApprovalInfoOpen(true)}><Edit3 size={16} /> {isLeaveRequestForm || isLeaveCancelForm ? "결재 정보 수정" : "결재 정보"}</button>
       <button type="button" className="ghost" title="개인 기본 결재선 저장" onClick={() => void savePersonalDefaultLine()}><Save size={16} /> 기본 결재선 저장</button>
       <button type="button" className="ghost" onClick={() => void save(false)}><Save size={16} /> 임시저장</button>
-      {(isLeaveRequestForm || isLeaveCancelForm) && <button type="button" className="ghost" onClick={() => setLeavePreviewOpen(true)}><Eye size={16} /> 미리보기</button>}
+      <button type="button" className="ghost" onClick={() => setLeavePreviewOpen(true)}><Eye size={16} /> 미리보기</button>
       <button type="button" className="approval-submit-action" disabled={leaveOverbooked} title={leaveOverbooked ? "결재 중 휴가를 포함하면 연차를 초과합니다." : undefined} onClick={() => void save(true)}><Check size={16} /> 상신</button>
       <button type="button" className="ghost" onClick={() => selected ? setMode("detail") : setMode("list")}><X size={16} /> 취소</button>
     </div>
@@ -544,7 +549,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
               {permissions?.canWithdraw && <button className="ghost" onClick={withdraw}><RefreshCw size={16} /> 회수</button>}
               {permissions?.canRedraft && <button className="ghost" onClick={redraft}><Save size={16} /> 재상신</button>}
               {permissions?.canCancel && <button className="ghost" onClick={() => action("cancel")}><X size={16} /> 취소</button>}
-              {permissions?.canPrintPdf && selected.pdfStatus === "GENERATED" && selected.pdfFileId != null && <button className="ghost" onClick={() => downloadApprovalPdf(selected.approvalId, selected.documentNo ?? selected.title)}><Paperclip size={16} /> PDF 출력</button>}
+              {permissions?.canPrintPdf && selected.pdfStatus === "GENERATED" && selected.pdfFileId != null && <button className="ghost" onClick={() => downloadApprovalPdf(selected.approvalId, selected.documentNo ?? selected.title)}><Paperclip size={16} /> PDF 다운로드/인쇄</button>}
             </div>
             {managementMode && isApprovalAdmin && (
               <div className="approval-actions approval-actions-admin">
@@ -593,60 +598,22 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
         </div>
       )}
       {managementMode && mode === "templates" && isApprovalAdmin && (
-        <div className="approval-template-editor">
-          <div className="panel-head">
-            <div>
-              <h3>양식관리</h3>
-              <p className="muted-text">양식 수정은 새 버전으로 저장됩니다.</p>
-            </div>
-            <div className="actions">
-              <button type="button" className="ghost" onClick={newAdminTemplate}><Plus size={16} /> 새 양식</button>
-              <button type="button" onClick={() => void saveTemplateVersion()}><Save size={16} /> 새 버전 저장</button>
-            </div>
-          </div>
-          {templateAdminMessage && <p className="template-note"><span>{templateAdminMessage}</span></p>}
-          <div className="template-switcher">
-            {adminTemplates.map((template) => (
-              <button type="button" key={`${template.code}-${template.version}`} className={templateAdminForm.templateCode === template.code ? "active" : ""} onClick={() => selectAdminTemplate(template)}>
-                <strong>{template.name}</strong>
-                <span>{template.code} v{template.version ?? 1} · {template.activeYn === "N" ? "비활성" : "활성"}</span>
-              </button>
-            ))}
-          </div>
-          <div className="template-form">
-            <label>양식 코드<input value={templateAdminForm.templateCode} onChange={(event) => setTemplateAdminForm({ ...templateAdminForm, templateCode: event.target.value.toUpperCase() })} placeholder="DRAFT" /></label>
-            <label>양식명<input value={templateAdminForm.templateName} onChange={(event) => setTemplateAdminForm({ ...templateAdminForm, templateName: event.target.value })} placeholder="기안서" /></label>
-            <label>정렬순서<input type="number" value={templateAdminForm.sortOrder} onChange={(event) => setTemplateAdminForm({ ...templateAdminForm, sortOrder: Number(event.target.value) })} /></label>
-            <label className="checkbox-label"><input type="checkbox" checked={templateAdminForm.active} onChange={(event) => setTemplateAdminForm({ ...templateAdminForm, active: event.target.checked })} /> 활성 양식</label>
-            <label className="wide">설명<input value={templateAdminForm.description} onChange={(event) => setTemplateAdminForm({ ...templateAdminForm, description: event.target.value })} placeholder="양식 설명" /></label>
-            <label className="wide">필드 JSON<textarea value={templateAdminForm.fieldsJson} onChange={(event) => setTemplateAdminForm({ ...templateAdminForm, fieldsJson: event.target.value })} /></label>
-            <label className="wide">출력 레이아웃 JSON<textarea value={templateAdminForm.printLayoutJson} onChange={(event) => setTemplateAdminForm({ ...templateAdminForm, printLayoutJson: event.target.value })} /></label>
-          </div>
-          {templateAdminForm.templateCode && (
-            <div className="approval-template-line">
-              <div className="panel-head">
-                <div>
-                  <h3>양식별 기본 결재선</h3>
-                  <p className="muted-text">{templateAdminForm.templateCode} 양식 작성 시 우선 적용됩니다.</p>
-                </div>
-                <div className="actions">
-                  <button type="button" className="ghost" onClick={() => {
-                    const selectedTemplate = adminTemplates.find((template) => template.code === templateAdminForm.templateCode);
-                    if (selectedTemplate) void toggleTemplateActive(selectedTemplate, !templateAdminForm.active);
-                  }}>{templateAdminForm.active ? <X size={16} /> : <Check size={16} />} {templateAdminForm.active ? "비활성화" : "활성화"}</button>
-                  <button type="button" onClick={() => void saveTemplateDefaultLine()}><Save size={16} /> 결재선 저장</button>
-                </div>
-              </div>
-              <div className="line-picker-grid">
-                <EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={templateLineForm.agreementEmpIds} disabledIds={[...templateLineForm.approverEmpIds, ...templateLineForm.receiverEmpIds]} onChange={(agreementEmpIds) => setTemplateLineForm({ ...templateLineForm, agreementEmpIds })} />
-                <EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={templateLineForm.approverEmpIds} disabledIds={[...templateLineForm.agreementEmpIds, ...templateLineForm.receiverEmpIds]} ordered onChange={(approverEmpIds) => setTemplateLineForm({ ...templateLineForm, approverEmpIds })} />
-                <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={templateLineForm.receiverEmpIds} disabledIds={[...templateLineForm.agreementEmpIds, ...templateLineForm.approverEmpIds, ...templateLineForm.referenceEmpIds]} maxSelections={isLeaveTemplateCode(templateLineForm.templateCode) || isLeaveCancelTemplateCode(templateLineForm.templateCode) ? 1 : undefined} onChange={(receiverEmpIds) => setTemplateLineForm({ ...templateLineForm, receiverEmpIds })} />
-                <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={templateLineForm.referenceEmpIds} disabledIds={templateLineForm.receiverEmpIds} onChange={(referenceEmpIds) => setTemplateLineForm({ ...templateLineForm, referenceEmpIds })} />
-                <EmployeeMultiPicker title="연람자" user={user} employees={employees} selectedIds={templateLineForm.readerEmpIds} disabledIds={[]} onChange={(readerEmpIds) => setTemplateLineForm({ ...templateLineForm, readerEmpIds })} />
-              </div>
-            </div>
-          )}
-        </div>
+        <ApprovalTemplateAdminWorkspace
+          user={user}
+          employees={employees}
+          templates={adminTemplates}
+          form={templateAdminForm}
+          setForm={setTemplateAdminForm}
+          lineForm={templateLineForm}
+          setLineForm={setTemplateLineForm}
+          message={templateAdminMessage}
+          statusUpdating={templateStatusUpdating}
+          onNew={newAdminTemplate}
+          onSaveVersion={() => void saveTemplateVersion()}
+          onSelect={selectAdminTemplate}
+          onToggleActive={(template, active) => void toggleTemplateActive(template, active)}
+          onSaveDefaultLine={() => void saveTemplateDefaultLine()}
+        />
       )}
       {managementMode && mode === "operationSettings" && isApprovalAdmin && (
         <div className="approval-template-editor">
@@ -722,7 +689,8 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
               <button type="button" className="ghost" onClick={() => void changeBox(dashboardFilter.box)}>필터 해제</button>
             </div>
           )}
-          <ListSummary count={items.length} text={`${approvalListLabel} 문서`} />
+          <ListSummary count={items.length} text={box === "shared" && !dashboardFilter ? "참조문서" : `${approvalListLabel} 문서`} />
+          {box === "shared" && !dashboardFilter && <p className="muted-text">결재 진행 중인 참조·연람 문서입니다. 읽어도 이곳에 유지되며, 승인·반려로 종료되면 ‘결재 완료문서’에서 내 역할을 ‘참조/열람’으로 선택해 확인할 수 있습니다.</p>}
           <ListState
             loading={listLoading}
             error={listError}
@@ -754,12 +722,13 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
           />
           {isHolidayManager && isLeaveTemplateCode(selected.templateCode) && <LeaveAdminCasePanel approvalId={selected.approvalId} leaveTypes={parseLeaveSelections(approvalDraftData(selected).fieldValues).map((item) => item.type)} />}
           <AttachmentBox targetType="APPROVAL_DOCUMENT" targetId={selected.approvalId} readOnly={!permissions?.canEditDraft} canDownload={!!permissions?.canDownloadAttachment} />
+          <ApprovalReferenceReadStatus lines={selected.lines} />
         </DetailPage>
       )}
       {(mode === "create" || mode === "edit") && (
         <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
           <div className={`editor approval-editor${isLeaveRequestForm || isLeaveCancelForm ? " approval-editor-leave" : ""}`}>
-            {!(isLeaveRequestForm || isLeaveCancelForm || isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm || isTrainingRequestForm || isTrainingReportForm) && (
+            {!(isClassicDraftForm || isLeaveRequestForm || isLeaveCancelForm || isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm || isTrainingRequestForm || isTrainingReportForm || isEquipmentProposalForm) && (
               <div className="panel-head">
                 <div>
                   <h3>{mode === "edit" ? "전자결재 수정" : "전자결재 작성"}</h3>
@@ -799,30 +768,26 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
                 </div>
               </div>
             )}
-            {isClassicDraftForm && <ClassicDraftEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {(isLeaveRequestForm || isLeaveCancelForm) && <LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} headerActions={approvalEditorActions} onBalanceYearChange={isLeaveCancelForm ? (year) => void changeLeaveBalanceYear(year) : undefined} onChange={setForm} />}
-            {(isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm) && <WorkRequestEditor mode={isWorkRequestChangeForm ? "change" : isEmergencyCallRequestForm ? "emergency" : "request"} user={user} form={form} headerActions={approvalEditorActions} onChange={setForm} />}
-            {leavePreviewOpen && (isLeaveRequestForm || isLeaveCancelForm) && <div className="modal-backdrop"><div className="leave-form-preview-modal"><div className="modal-head"><div><h3>휴가 신청 미리보기</h3><p className="muted-text">현재 입력값 기준이며 상신 전까지 문서는 변경되지 않습니다.</p></div><button className="icon-button" onClick={() => setLeavePreviewOpen(false)}><X size={18} /></button></div><div className="leave-preview-readonly"><LeaveRequestEditor mode={isLeaveCancelForm ? "cancel" : "request"} user={user} employees={employees} form={form} leaveUsage={leaveUsage} compTimeSummary={compTimeSummary} holidays={holidays} leaveTypeOptions={leaveTypeOptions} onChange={() => undefined} /></div></div></div>}
-            {isPurchaseRequestForm && <PurchaseRequestEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {isTrainingRequestForm && <TrainingRequestEditor user={user} employees={employees} form={form} headerActions={approvalEditorActions} editingApprovalId={selected?.approvalId} onChange={setForm} />}
-            {isTrainingReportForm && <TrainingReportEditor user={user} employees={employees} form={form} headerActions={approvalEditorActions} editingApprovalId={selected?.approvalId} onChange={setForm} />}
-            {isEquipmentProposalForm && <EquipmentProposalEditor user={user} employees={employees} form={form} onChange={setForm} />}
-            {!isClassicDraftForm && !isLeaveRequestForm && !isLeaveCancelForm && !isWorkRequestForm && !isWorkRequestChangeForm && !isPurchaseRequestForm && !isTrainingRequestForm && !isTrainingReportForm && !isEquipmentProposalForm && (
-              <>
-            <div className="approval-form-grid">
-              <label>양식명<select value={form.templateCode} onChange={(event) => changeTemplate(event.target.value)}>{selectableTemplates.map((template) => <option key={template.code} value={template.code}>{template.name}</option>)}</select></label>
-              <label>문서 중요도<select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value as ApprovalForm["priority"] })}><option value="NORMAL">일반</option><option value="IMPORTANT">중요</option><option value="URGENT">긴급</option></select></label>
-              <label className="wide">문서 제목<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="문서 제목" /></label>
-              <label className="wide">문서 내용<textarea value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} placeholder="문서 내용을 입력하세요." /></label>
-            </div>
-            <div className="template-note"><strong>{selectedTemplate.name}</strong><span>{selectedTemplate.description}</span></div>
-            <TemplateFieldInputs
-              fields={parseTemplateFields(selectedTemplate.fieldsJson)}
-              values={form.fieldValues}
-              onChange={(name, value) => setForm({ ...form, fieldValues: { ...form.fieldValues, [name]: value } })}
+            <ApprovalFormBody
+              {...formContext}
+              form={form}
+              template={selectedTemplate}
+              templates={selectableTemplates}
+              onChange={setForm}
+              onTemplateChange={changeTemplate}
+              onBalanceYearChange={isLeaveCancelForm ? (year) => void changeLeaveBalanceYear(year) : undefined}
+              headerActions={approvalEditorActions}
+              editingApprovalId={selected?.approvalId}
             />
-              </>
-            )}
+            {leavePreviewOpen && <div className="modal-backdrop" role="presentation">
+              <div className="leave-form-preview-modal" role="dialog" aria-modal="true" aria-label={`${selectedTemplate.name} 미리보기`}>
+                <div className="modal-head">
+                  <div><h3>{selectedTemplate.name} 미리보기</h3><p className="muted-text">현재 입력값 기준의 읽기 전용 화면입니다. 결재 정보는 PDF·출력에 포함됩니다.</p></div>
+                  <button type="button" className="icon-button" onClick={() => setLeavePreviewOpen(false)} aria-label="미리보기 닫기"><X size={18} /></button>
+                </div>
+                <ApprovalFormBody {...formContext} form={form} template={selectedTemplate} templates={selectableTemplates} onChange={() => undefined} editingApprovalId={selected?.approvalId} readOnly />
+              </div>
+            </div>}
             {isDelegationEligibleForm && (
               <div className="approval-delegation-option">
                 <label>
@@ -845,8 +810,8 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
           templates={visibleTemplates}
           selected={previewTemplate}
           fallbackActive={templateFallbackActive}
-          previewDeptName={currentUserDeptName(user, employees) || "-"}
-          previewRequesterName={user.empName}
+          context={formContext}
+          leaveDefaultReceiverEmpId={operationSettings?.leaveDefaultReceiverEmpId}
           onSelect={setPreviewTemplate}
           onCancel={() => setTemplateModalOpen(false)}
           onConfirm={confirmTemplate}

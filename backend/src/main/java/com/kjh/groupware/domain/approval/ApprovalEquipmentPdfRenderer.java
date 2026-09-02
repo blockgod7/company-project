@@ -58,9 +58,10 @@ class ApprovalEquipmentPdfRenderer extends ApprovalPdfRenderSupport {
                 float width = right - left;
                 float middle = left + width / 2f;
 
-                drawDepartmentStamp(content, font, left, 748, 190, "사용부서", requesterStamp(document), groups.userLines());
+                drawDepartmentStamp(content, font, left, 748, 190, proposal.isPeSelfRequest() ? "통합결재" : "사용부서", requesterStamp(document), groups.userLines());
                 drawEquipmentTitle(content, font, 210, 748, 180, equipmentProposalTitle(document), dateText(document.getRequestedAt()));
-                drawDepartmentStamp(content, font, 390, 748, 185, "주관부서", sectionLeadStamp(proposal.getPeAssignee(), groups.peSubmitterLine()), groups.peLines());
+                if (proposal.isPeSelfRequest()) drawSelfRequestNotice(content, font, 390, 748, 185);
+                else drawDepartmentStamp(content, font, 390, 748, 185, "주관부서", sectionLeadStamp(proposal.getPeAssignee(), groups.peSubmitterLine()), groups.peLines());
 
                 drawInfoRow(content, font, left, 724, 70, 115, 24, "요청부서", safe(proposal.getRequestDeptName()));
                 drawInfoRow(content, font, left + 185, 724, 70, 115, 24, "완료요구일", safe(proposal.getRequiredCompletionDate()));
@@ -107,9 +108,10 @@ class ApprovalEquipmentPdfRenderer extends ApprovalPdfRenderSupport {
                 float width = right - left;
                 float middle = left + width / 2f;
 
-                drawDepartmentStamp(content, font, left, 746, 180, "사용부서", requesterStamp(document), groups.userLines());
+                drawDepartmentStamp(content, font, left, 746, 180, proposal.isPeSelfRequest() ? "통합결재" : "사용부서", requesterStamp(document), groups.userLines());
                 drawMoldTitle(content, font, left + 180, 746, 190, proposal, dateText(document.getRequestedAt()));
-                drawDepartmentStamp(content, font, left + 370, 746, 177, "주관부서", sectionLeadStamp(proposal.getPeAssignee(), groups.peSubmitterLine()), groups.peLines());
+                if (proposal.isPeSelfRequest()) drawSelfRequestNotice(content, font, left + 370, 746, 177);
+                else drawDepartmentStamp(content, font, left + 370, 746, 177, "주관부서", sectionLeadStamp(proposal.getPeAssignee(), groups.peSubmitterLine()), groups.peLines());
 
                 drawInfoRow(content, font, left, 716, 72, 108, 24, "고객사", safe(proposal.getCustomerName()));
                 drawInfoRow(content, font, left + 180, 716, 72, 118, 24, "설비명", safe(proposal.getEquipmentName()));
@@ -122,7 +124,8 @@ class ApprovalEquipmentPdfRenderer extends ApprovalPdfRenderSupport {
                 drawLabeledBox(content, font, left, 592, width, 76, "사유", proposal.getCurrentState(), 4);
                 drawMoldPartTable(content, font, proposal, left, 518, width);
                 drawLabeledBox(content, font, left, 368, middle - left, 150, "요구사항", proposal.getRequirements(), 7);
-                drawLabeledBox(content, font, middle, 368, right - middle, 150, "주관(설계)부서 의견", proposal.getPeOpinion(), 7);
+                drawLabeledBox(content, font, middle, 368, right - middle, 150, "주관(설계)부서 의견", proposal.isPeSelfRequest() && proposal.getDesignOpinion() != null && !proposal.getDesignOpinion().isBlank()
+                    ? safe(proposal.getPeOpinion()) + "\n설계 의견: " + proposal.getDesignOpinion() : proposal.getPeOpinion(), 7);
                 drawLabeledBox(content, font, left, 292, middle - left, 76, "지시사항", proposal.getInstructions(), 3);
                 drawLabeledBox(content, font, middle, 292, right - middle, 76, "구매 의견", proposal.getPurchaseOpinion(), 3);
                 drawEconomicReviewBox(content, font, left, 228, width, 64, proposal);
@@ -142,6 +145,13 @@ class ApprovalEquipmentPdfRenderer extends ApprovalPdfRenderSupport {
         } catch (IOException ex) {
             throw BusinessException.badRequest("PDF_GENERATION_FAILED", "Failed to generate mold fixture proposal PDF");
         }
+    }
+
+    private void drawSelfRequestNotice(PDPageContentStream content, PDFont font, float x, float y, float width) throws IOException {
+        drawBox(content, x, y, width, 72);
+        drawCenteredText(content, font, "생산기술 자체 요청", x, y + 48, width, 10, 24);
+        drawCenteredText(content, font, "요청·주관 통합 결재", x, y + 30, width, 9, 24);
+        drawCenteredText(content, font, "좌측 결재란 참조", x, y + 12, width, 8, 24);
     }
 
     private String equipmentProposalTitle(ApprovalDocument document) {

@@ -296,6 +296,12 @@ public class Emp extends BaseEntity {
         this.loginFailCount = 0;
     }
 
+    public void updateContactInfo(String email, String phone, String extensionNumber) {
+        this.email = email;
+        this.phone = phone;
+        this.extensionNumber = extensionNumber;
+    }
+
     public void changePassword(String passwordHash) {
         this.passwordHash = passwordHash;
         this.mustChangePasswordYn = "N";

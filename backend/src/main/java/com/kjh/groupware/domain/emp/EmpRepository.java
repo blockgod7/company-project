@@ -18,6 +18,10 @@ public interface EmpRepository extends JpaRepository<Emp, Long> {
     Optional<Emp> findByLoginId(String loginId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Emp e where e.loginId = :loginId")
+    Optional<Emp> findByLoginIdForUpdate(@Param("loginId") String loginId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from Emp e where e.empId = :empId")
     Optional<Emp> findByIdForUpdate(@Param("empId") Long empId);
 

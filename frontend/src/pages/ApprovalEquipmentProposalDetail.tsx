@@ -177,11 +177,12 @@ import type {
   PageResponse,
   User
 } from "../types";
-import { EquipmentProposalUserSection, MoldFixtureProposalUserSection } from "./ApprovalEquipmentProposalParts";
+import { EquipmentProposalPeFields, EquipmentProposalUserSection, MoldFixtureProposalUserSection } from "./ApprovalEquipmentProposalParts";
 import { LeaveRequestDetailView } from "./ApprovalLeaveParts";
 import { ApprovalOpinionList, ClassicDraftDetailView, signatureDisplayName } from "./ApprovalClassicParts";
 import { emptyStampColumn, padStampColumns } from "./ApprovalStampUtils";
 import type { StampDisplayColumn } from "./ApprovalStampUtils";
+import { ApprovalDocumentHeader, ApprovalDocumentMeta, ApprovalDocumentPdfNotice, ApprovalDocumentSectionHeader } from "./ApprovalDocumentWebParts";
 export function EquipmentProposalDetailView({
   user,
   approval,
@@ -215,7 +216,6 @@ export function EquipmentProposalDetailView({
   const purchaseEmployees = employees.filter((employee) => employee.deptName === "구매");
   const canAssignPe = draft.canAssignPe && isDeptManagerUser(user, employees, "생산기술");
   const purchaseAgreementDisabledIds = [approval.requesterEmpId, draft.purchaseAssigneeEmpId, ...purchaseApproverIds].filter((id): id is number => typeof id === "number");
-  const approvalGroups = equipmentApprovalGroups(approval, draft);
   const proposalTitle = equipmentProposalTitle(approval.templateCode);
   const moldFixture = isMoldFixtureTemplateCode(approval.templateCode);
 
@@ -224,23 +224,20 @@ export function EquipmentProposalDetailView({
   }
 
   return (
-    <article className="approval-detail equipment-proposal-detail">
-      <section className="approval-detail-section">
-        <h3>{proposalTitle}</h3>
-        <dl className="approval-meta-grid">
-          <dt>문서번호</dt><dd>{approval.documentNo ?? "상신 시 자동 생성"}</dd>
-          <dt>제목</dt><dd>{approval.title}</dd>
-          <dt>단계</dt><dd>{equipmentStageLabel(draft.workflowStage)}</dd>
-          <dt>기안자</dt><dd>{approval.requesterName}</dd>
-          <dt>기안부서</dt><dd>{approval.draftDeptName ?? approval.requesterDeptName ?? "-"}</dd>
-        </dl>
-      </section>
+    <article className="approval-detail equipment-proposal-detail approval-document-web">
+      <ApprovalDocumentHeader eyebrow="전자결재 · 기안 공문" title={proposalTitle} description={approval.title} />
+      <ApprovalDocumentMeta items={[
+        { label: "문서번호", value: approval.documentNo ?? "상신 시 자동 생성" },
+        { label: "기안자", value: approval.requesterName },
+        { label: "기안부서", value: approval.draftDeptName ?? approval.requesterDeptName ?? "-" },
+        { label: "진행단계", value: draft.peSelfRequest && draft.workflowStage === "USER_APPROVAL" ? "요청·주관 통합 결재" : equipmentStageLabel(draft.workflowStage) }
+      ]} />
+      {draft.peSelfRequest && <p className="muted-text">생산기술 자체 요청 · 요청·주관 통합 결재 후 구매부서로 전달됩니다.</p>}
 
       {moldFixture ? (
         <MoldFixtureProposalUserSection
           readOnly
           value={(name) => String(draft[name as keyof EquipmentProposal] ?? "")}
-          stamp={<EquipmentSectionStamp requester={approval} lines={approvalGroups.userLines} />}
         >
           <AttachmentBox targetType="APPROVAL_EQUIPMENT_USER" targetId={approval.approvalId} readOnly={!draft.canEditUserSection} canDownload={!!approval.permissions?.canDownloadAttachment} />
         </MoldFixtureProposalUserSection>
@@ -249,17 +246,13 @@ export function EquipmentProposalDetailView({
           templateCode={approval.templateCode}
           readOnly
           value={(name) => String(draft[name as keyof EquipmentProposal] ?? "")}
-          stamp={<EquipmentSectionStamp requester={approval} lines={approvalGroups.userLines} />}
         >
           <AttachmentBox targetType="APPROVAL_EQUIPMENT_USER" targetId={approval.approvalId} readOnly={!draft.canEditUserSection} canDownload={!!approval.permissions?.canDownloadAttachment} />
         </EquipmentProposalUserSection>
       )}
 
-      <section className="approval-detail-section">
-        <div className="equipment-section-head">
-          <h3>주관부서 작성란</h3>
-          <EquipmentSectionStamp leadLine={approvalGroups.peSubmitterLine} lines={approvalGroups.peLines} />
-        </div>
+      <section className="approval-detail-section approval-document-section">
+        <ApprovalDocumentSectionHeader title="주관부서 작성란" description="기술·설계 의견과 주관부서 경제성 검토를 작성합니다." badge={draft.canEditPeSection ? "현재 단계" : "조회"} />
         {draft.canEditPeSection && (
           <div className="section-top-actions">
             <button type="button" className="ghost" onClick={() => onSave?.(draft)}><Save size={16} /> 저장</button>
@@ -274,11 +267,7 @@ export function EquipmentProposalDetailView({
             </select>
           </label>
         )}
-        <div className="approval-form-grid">
-          <label className="wide"><span>주관부서(PE) 의견</span><textarea value={draft.peOpinion ?? ""} readOnly={!draft.canEditPeSection} onChange={(event) => change("peOpinion", event.target.value)} /></label>
-          <label className="wide"><span>설계 의견</span><textarea value={draft.designOpinion ?? ""} readOnly={!draft.canEditPeSection} onChange={(event) => change("designOpinion", event.target.value)} /></label>
-          <label className="wide"><span>경제성 검토 - 주관 부서</span><textarea value={draft.peEconomicReview ?? ""} readOnly={!draft.canEditPeSection} onChange={(event) => change("peEconomicReview", event.target.value)} /></label>
-        </div>
+        <EquipmentProposalPeFields value={(name) => String(draft[name as keyof EquipmentProposal] ?? "")} readOnly={!draft.canEditPeSection} onChange={(name, value) => change(name as keyof EquipmentProposal, value)} />
         {draft.canEditPeSection && (
           <EmployeeMultiPicker
             title="주관부서 결재자"
@@ -293,11 +282,8 @@ export function EquipmentProposalDetailView({
         <AttachmentBox targetType="APPROVAL_EQUIPMENT_PE" targetId={approval.approvalId} readOnly={!draft.canEditPeSection} canDownload={!!approval.permissions?.canDownloadAttachment} />
       </section>
 
-      <section className="approval-detail-section">
-        <div className="equipment-section-head">
-          <h3>구매부서 작성란</h3>
-          <EquipmentSectionStamp leadLine={approvalGroups.purchaseSubmitterLine} lines={approvalGroups.purchaseLines} />
-        </div>
+      <section className="approval-detail-section approval-document-section">
+        <ApprovalDocumentSectionHeader title="구매부서 작성란" description="업체·납기·가격·첨부자료와 구매 의견을 작성합니다." badge={draft.canEditPurchaseSection ? "현재 단계" : "조회"} />
         {draft.canEditPurchaseSection && (
           <div className="section-top-actions">
             <button type="button" className="ghost" onClick={() => onSave?.(draft)}><Save size={16} /> 저장</button>
@@ -352,84 +338,9 @@ export function EquipmentProposalDetailView({
         <AttachmentBox targetType="APPROVAL_EQUIPMENT_PURCHASE" targetId={approval.approvalId} readOnly={!draft.canEditPurchaseSection} canDownload={!!approval.permissions?.canDownloadAttachment} />
       </section>
 
-      <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+      <ApprovalDocumentPdfNotice available={approval.pdfStatus === "GENERATED" && approval.pdfFileId != null} />
     </article>
   );
-}
-
-function equipmentApprovalGroups(approval: Approval, proposal: EquipmentProposal) {
-  const approvalLines = approval.lines
-    .filter((line) => line.lineType === "APPROVAL")
-    .slice()
-    .sort((a, b) => a.lineOrder - b.lineOrder);
-  const peInputLine = approvalLines.find((line) => line.comment === "PE_INPUT_COMPLETED")
-    ?? (proposal.workflowStage === "PE_INPUT" ? approvalLines.find((line) => line.status === "PENDING" && line.assignedEmpId === proposal.peAssigneeEmpId) : undefined);
-  const purchaseInputLine = approvalLines.find((line) => line.comment === "PURCHASE_INPUT_COMPLETED")
-    ?? (proposal.workflowStage === "PURCHASE_INPUT" ? approvalLines.find((line) => line.status === "PENDING" && line.assignedEmpId === proposal.purchaseAssigneeEmpId) : undefined);
-  const peInputOrder = peInputLine?.lineOrder ?? null;
-  const purchaseInputOrder = purchaseInputLine?.lineOrder ?? null;
-  const realApprovalLines = approvalLines.filter((line) => line.status !== "SKIPPED");
-  return {
-    userLines: realApprovalLines.filter((line) => peInputOrder == null || line.lineOrder < peInputOrder),
-    peSubmitterLine: peInputLine,
-    peLines: peInputOrder == null ? [] : realApprovalLines.filter((line) => line.lineOrder > peInputOrder && (purchaseInputOrder == null || line.lineOrder < purchaseInputOrder)),
-    purchaseSubmitterLine: purchaseInputLine,
-    purchaseLines: purchaseInputOrder == null ? [] : realApprovalLines.filter((line) => line.lineOrder > purchaseInputOrder)
-  };
-}
-
-function EquipmentSectionStamp({ requester, leadLine, lines }: { requester?: Approval; leadLine?: ApprovalLine; lines: ApprovalLine[] }) {
-  const leadLinePersonId = leadLine ? approvalLinePersonId(leadLine) : null;
-  const leadLineIsDirectApprover = !!leadLine
-    && leadLine.status === "SKIPPED"
-    && lines.some((line) => approvalLinePersonId(line) === leadLinePersonId);
-  const visibleLeadLine = leadLineIsDirectApprover ? null : leadLine;
-  const writerColumn = requester ? {
-      key: "requester",
-      position: requester.requesterPositionName ?? "기안자",
-      name: requester.requesterName,
-      date: requester.requestedAt,
-      muted: false,
-      delegateText: null as string | null
-    } : visibleLeadLine ? {
-      key: `lead-${visibleLeadLine.lineId}`,
-      position: visibleLeadLine.positionSnapshot ?? visibleLeadLine.approverPositionName ?? "작성자",
-      name: visibleLeadLine.empNameSnapshot ?? visibleLeadLine.actedEmpName ?? visibleLeadLine.approverName,
-      date: visibleLeadLine.signedAt ?? visibleLeadLine.actedAt,
-      muted: visibleLeadLine.status !== "SKIPPED" && visibleLeadLine.status !== "APPROVED" && visibleLeadLine.status !== "REJECTED",
-      delegateText: delegatedActionText(visibleLeadLine)
-    } : emptyStampColumn("writer-empty");
-  const approvalColumns = lines.map((line) => ({
-      key: String(line.lineId),
-      position: line.positionSnapshot ?? line.approverPositionName ?? "결재자",
-      name: line.status === "APPROVED" || line.status === "REJECTED" ? signatureDisplayName(line) : line.approverName,
-      date: line.signedAt ?? line.actedAt,
-      muted: line.status !== "APPROVED" && line.status !== "REJECTED",
-      delegateText: delegatedActionText(line)
-    }));
-  const visibleColumns = padStampColumns([writerColumn, ...approvalColumns].slice(0, 3));
-
-  return (
-    <div className="approval-stamp-wrap equipment-section-stamp">
-      <div className="approval-stamp-label">결재</div>
-      <div className="approval-stamp-table">
-        {visibleColumns.map((column) => (
-          <div className="approval-stamp-column" key={column.key}>
-            <div className="stamp-position">{column.header}</div>
-            <div className={`stamp-signature${column.muted ? " stamp-signature-muted" : ""}`}>{column.name}</div>
-            <div className="stamp-date">
-              {column.date ? formatDate(column.date) : ""}
-              {column.delegateText && <span className="stamp-delegate">{column.delegateText}</span>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function approvalLinePersonId(line: ApprovalLine) {
-  return line.assignedEmpId ?? line.approverEmpId;
 }
 
 function equipmentStageLabel(stage: EquipmentProposal["workflowStage"]) {

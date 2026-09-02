@@ -3,6 +3,7 @@ package com.kjh.groupware.domain.approval;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kjh.groupware.domain.approval.dto.ApprovalRequest;
 import com.kjh.groupware.domain.approval.dto.EquipmentProposalRequest;
 import com.kjh.groupware.domain.approval.dto.EquipmentProposalResponse;
@@ -31,6 +32,36 @@ public class ApprovalEquipmentProposalService {
     private final ApprovalReminderService reminderService;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+
+    public ApprovalRequest normalizeRequest(Emp requester, ApprovalRequest request, boolean submitting) {
+        if (!ApprovalEquipmentProposal.isProposalTemplate(request.templateCode())) return request;
+        try {
+            JsonNode parsed = request.formDataJson() == null || request.formDataJson().isBlank()
+                ? objectMapper.createObjectNode() : objectMapper.readTree(request.formDataJson());
+            if (!(parsed instanceof ObjectNode root)) {
+                throw BusinessException.badRequest("APPROVAL_FORM_INVALID_JSON", "품의서 양식 데이터가 올바르지 않습니다.");
+            }
+            ObjectNode fields = root.path("fields") instanceof ObjectNode nested ? nested : root;
+            boolean selfRequest = ApprovalEquipmentRequestMode.isProductionEngineering(requester);
+            fields.put(ApprovalEquipmentRequestMode.FIELD, selfRequest ? ApprovalEquipmentRequestMode.PE_SELF : ApprovalEquipmentRequestMode.STANDARD);
+            fields.put("requestDeptName", requester.getDept() == null ? "" : requester.getDept().getDeptName());
+            List<Long> receivers = request.receiverEmpIds();
+            if (selfRequest) {
+                Emp receiver = receivers != null && receivers.size() == 1 && receivers.get(0) != null
+                    ? empRepository.findById(receivers.get(0)).filter(Emp::isActiveUser)
+                        .filter(emp -> emp.getDept() != null && "PURCHASE".equals(emp.getDept().getDeptCode())).orElse(null)
+                    : null;
+                if (receiver == null) receiver = empRepository.findActiveByDeptCodeOrderForRouting("PURCHASE").stream().findFirst().orElse(null);
+                if (receiver == null && submitting) throw BusinessException.badRequest("EQUIPMENT_PURCHASE_ASSIGNEE_NOT_FOUND", "구매부서 수신자를 찾지 못했습니다. 구매부서 계정을 확인해 주세요.");
+                receivers = receiver == null ? List.of() : List.of(receiver.getEmpId());
+                root.set("receiverEmpIds", objectMapper.valueToTree(receivers));
+            }
+            return new ApprovalRequest(request.title(), request.content(), request.templateCode(), objectMapper.writeValueAsString(root),
+                request.priority(), request.agreementEmpIds(), request.approverEmpIds(), receivers, request.referenceEmpIds(), request.readerEmpIds(), request.draft());
+        } catch (JsonProcessingException ex) {
+            throw BusinessException.badRequest("APPROVAL_FORM_INVALID_JSON", "품의서 양식 데이터가 올바르지 않습니다.");
+        }
+    }
 
     @Transactional
     public void syncFromApprovalRequest(ApprovalDocument document, ApprovalRequest request) {
@@ -63,6 +94,10 @@ public class ApprovalEquipmentProposalService {
             text(fields, "moldNo", ""),
             text(fields, "moldPartsJson", "")
         );
+        if (ApprovalEquipmentRequestMode.isSelfRequest(document)) {
+            proposal.updatePeSection(text(fields, "peOpinion", ""), text(fields, "designOpinion", ""), text(fields, "peEconomicReview", ""));
+            proposal.assignPe(document.getRequester());
+        }
         proposalRepository.save(proposal);
     }
 
@@ -243,6 +278,15 @@ public class ApprovalEquipmentProposalService {
             return false;
         }
         if (ApprovalEquipmentProposal.STAGE_USER_APPROVAL.equals(proposal.getWorkflowStage())) {
+            if (ApprovalEquipmentRequestMode.isSelfRequest(document)) {
+                Emp purchaseAssignee = lines.stream().filter(ApprovalLine::isReceiver).map(ApprovalLine::getAssignedEmp)
+                    .filter(emp -> emp != null && emp.isActiveUser() && emp.getDept() != null && "PURCHASE".equals(emp.getDept().getDeptCode()))
+                    .findFirst().orElseGet(() -> defaultAssignee("PURCHASE", "EQUIPMENT_PURCHASE_ASSIGNEE_NOT_FOUND"));
+                proposal.moveToPurchaseInput(purchaseAssignee);
+                lines.add(createTypedLine(document, purchaseAssignee, ApprovalLine.TYPE_APPROVAL, nextOrder(lines), true));
+                notificationService.notifyEmp(purchaseAssignee.getEmpId(), "품의서 구매 작성", "생산기술 자체 요청의 통합 결재가 완료되어 구매 작성 단계로 전달되었습니다.", "APPROVAL", document.getApprovalId());
+                return true;
+            }
             Emp peAssignee = defaultAssignee("PROD_TECH", "EQUIPMENT_PE_ASSIGNEE_NOT_FOUND");
             proposal.moveToPeInput(peAssignee);
             ApprovalLine line = createTypedLine(document, peAssignee, ApprovalLine.TYPE_APPROVAL, nextOrder(lines), true);

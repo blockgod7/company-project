@@ -140,17 +140,28 @@ class ApprovalPdfRenderer extends ApprovalPdfRenderSupport {
 
 
     private ApprovalGeneratedPdf renderClassicDraft(ApprovalDocument document, List<ApprovalLine> lines) {
-        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            PDPage page = new PDPage(PDRectangle.A4);
-            pdf.addPage(page);
+        try (PDDocument pdf = ApprovalRichTextPdfBody.render(document.getContent());
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = pdf.getPage(0);
             PDFont font = loadFont(pdf);
-            try (PDPageContentStream content = new PDPageContentStream(pdf, page)) {
+            try (PDPageContentStream content = new PDPageContentStream(pdf, page, PDPageContentStream.AppendMode.APPEND, true, true)) {
                 drawClassicLogo(pdf, content);
                 drawCenteredText(content, font, "기 안 서", 0, 735, 595, 18, 20);
                 drawClassicDraftInfo(content, font, document, lines);
                 drawClassicApprovalBox(content, font, document, lines);
-                drawClassicBody(content, font, document);
+                drawClassicBodyFrame(content);
                 drawClassicFooter(content, font, document, lines);
+            }
+            for (int index = 0; index < pdf.getNumberOfPages(); index++) {
+                try (PDPageContentStream content = new PDPageContentStream(pdf, pdf.getPage(index),
+                    PDPageContentStream.AppendMode.APPEND, true, true)) {
+                    if (index > 0) {
+                        drawText(content, font, "기안서 본문 (계속)", 62, 792, 12);
+                        drawFittedText(content, font, safe(document.getDocumentNo()) + " · " + safe(document.getTitle()),
+                            62, 772, 478, 9);
+                    }
+                    drawCenteredText(content, font, (index + 1) + " / " + pdf.getNumberOfPages(), 0, 36, 595, 8, 30);
+                }
             }
             pdf.save(output);
             byte[] bytes = output.toByteArray();

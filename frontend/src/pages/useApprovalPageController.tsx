@@ -27,7 +27,8 @@ import {
   LEAVE_TYPE_OPTIONS,
   leaveReceiverId,
   leaveUsageFieldValues,
-  productionEngineeringManagerId,
+  equipmentProposalReceiverId,
+  isProductionEngineeringRequester,
   purchaseReceiverId,
   selectableLeaveTypeOptions,
   templateAdminFormFromOption,
@@ -130,6 +131,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   const [selectedSavedLineId, setSelectedSavedLineId] = useState("");
   const [approvalInfoOpen, setApprovalInfoOpen] = useState(false);
   const [templateAdminMessage, setTemplateAdminMessage] = useState("");
+  const [templateStatusUpdating, setTemplateStatusUpdating] = useState(false);
   const [delegation, setDelegation] = useState<ApprovalDelegationApi | null>(null);
   const [delegationForm, setDelegationForm] = useState<ApprovalDelegationForm>(() => defaultDelegationForm());
   const [delegationMessage, setDelegationMessage] = useState("");
@@ -144,11 +146,8 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   const isHolidayManager = isFullAdmin || user.permissions.includes("LEAVE_ADMIN");
   const isLeavePolicyManager = isFullAdmin || user.permissions.includes("LEAVE_POLICY_ADMIN");
   const canViewPreview = canViewPlannedFeatures(user);
-  const visibleTemplates = canViewPreview
-    ? templates
-    : templates.filter((template) => isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code)
-      || isWorkRequestTemplateCode(template.code) || isWorkRequestChangeTemplateCode(template.code)
-      || isTrainingTemplateCode(template.code));
+  // The public template API already returns only the latest active templates.
+  const visibleTemplates = templates;
 
   async function load(
     targetBox: ApprovalBox,
@@ -352,7 +351,10 @@ export function useApprovalPageController({ user, launch, target }: { user: User
     const isPurchaseRequest = isPurchaseTemplateCode(templateCode);
     const isTrainingRequest = isTrainingRequestTemplateCode(templateCode);
     const isTrainingTemplate = isTrainingTemplateCode(templateCode);
-    const peManagerId = productionEngineeringManagerId(employees);
+    const equipmentReceiverEmpId = equipmentProposalReceiverId(user, employees);
+    const equipmentReceiverMessage = isProductionEngineeringRequester(user, employees)
+      ? equipmentReceiverEmpId ? "생산기술 자체 요청은 통합 결재 후 구매부서로 전달됩니다." : "구매부서 수신자를 찾지 못했습니다. 구매부서 계정을 확인해 주세요."
+      : equipmentReceiverEmpId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요.";
     const purchaseReceiverEmpId = purchaseReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
     const leaveReceiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
@@ -375,8 +377,8 @@ export function useApprovalPageController({ user, launch, target }: { user: User
           return;
         }
         if (isEquipmentProposal) {
-          setForm((current) => ({ ...current, receiverEmpIds: peManagerId ? [peManagerId] : [] }));
-          setDefaultLineMessage(peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요.");
+          setForm((current) => ({ ...current, receiverEmpIds: equipmentReceiverEmpId ? [equipmentReceiverEmpId] : [] }));
+          setDefaultLineMessage(equipmentReceiverMessage);
           return;
         }
         setDefaultLineMessage("");
@@ -387,7 +389,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
           ...current,
           agreementEmpIds: defaultLineIds(defaultLine.steps, "AGREEMENT"),
           approverEmpIds: defaultLineIds(defaultLine.steps, "APPROVAL"),
-          receiverEmpIds: isLeaveFlow ? (leaveReceiverEmpId ? [leaveReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isPurchaseRequest ? (purchaseReceiverEmpId ? [purchaseReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER")) : isTrainingTemplate ? (trainingReceiverEmpId ? [trainingReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isEquipmentProposal ? (peManagerId ? [peManagerId] : []) : defaultLineIds(defaultLine.steps, "RECEIVER"),
+          receiverEmpIds: isLeaveFlow ? (leaveReceiverEmpId ? [leaveReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isPurchaseRequest ? (purchaseReceiverEmpId ? [purchaseReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER")) : isTrainingTemplate ? (trainingReceiverEmpId ? [trainingReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isEquipmentProposal ? (equipmentReceiverEmpId ? [equipmentReceiverEmpId] : []) : defaultLineIds(defaultLine.steps, "RECEIVER"),
           referenceEmpIds: defaultLineIds(defaultLine.steps, "REFERENCE"),
           readerEmpIds: defaultLineIds(defaultLine.steps, "READER")
         };
@@ -399,7 +401,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
         : isTrainingTemplate
         ? trainingReceiverEmpId ? "교육 문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
         : isEquipmentProposal
-        ? peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요."
+        ? equipmentReceiverMessage
         : defaultLine.source === "TEMPLATE" ? "양식별 기본 결재선을 적용했습니다." : "개인 기본 결재선을 적용했습니다.");
     } catch {
       if (isLeaveFlow) {
@@ -418,8 +420,8 @@ export function useApprovalPageController({ user, launch, target }: { user: User
         return;
       }
       if (isEquipmentProposal) {
-        setForm((current) => ({ ...current, receiverEmpIds: peManagerId ? [peManagerId] : [] }));
-        setDefaultLineMessage(peManagerId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요.");
+        setForm((current) => ({ ...current, receiverEmpIds: equipmentReceiverEmpId ? [equipmentReceiverEmpId] : [] }));
+        setDefaultLineMessage(equipmentReceiverMessage);
         return;
       }
       setDefaultLineMessage("");
@@ -580,6 +582,9 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   async function toggleTemplateActive(template: ApprovalTemplateOption, active: boolean) {
     setApprovalError("");
     setTemplateAdminMessage("");
+    const previousActive = template.activeYn !== "N";
+    setTemplateStatusUpdating(true);
+    setTemplateAdminForm((current) => current.templateCode === template.code ? { ...current, active } : current);
     try {
       const saved = await api<ApprovalTemplateApi>(`/approval-templates/${encodeURIComponent(template.code)}/status?active=${active}`, { method: "PATCH" });
       const savedOption = templateOptionFromApi(saved);
@@ -588,7 +593,10 @@ export function useApprovalPageController({ user, launch, target }: { user: User
       await loadAdminTemplates(saved.templateCode);
       setTemplateAdminMessage(active ? "양식을 활성화했습니다." : "양식을 비활성화했습니다.");
     } catch (err) {
+      setTemplateAdminForm((current) => current.templateCode === template.code ? { ...current, active: previousActive } : current);
       setApprovalError(err instanceof Error ? err.message : "양식 상태 변경 중 오류가 발생했습니다.");
+    } finally {
+      setTemplateStatusUpdating(false);
     }
   }
 
@@ -964,7 +972,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
     leaveTypeOptions, setLeaveTypeOptions, leaveExclusions, setLeaveExclusions, leavePreviewOpen, setLeavePreviewOpen, templateAdminForm, setTemplateAdminForm,
     templateLineForm, setTemplateLineForm, pendingFiles, setPendingFiles, employees, setEmployees, approvalError, setApprovalError,
     defaultLineMessage, setDefaultLineMessage, savedApprovalLines, setSavedApprovalLines, selectedSavedLineId, setSelectedSavedLineId, approvalInfoOpen, setApprovalInfoOpen,
-    templateAdminMessage, setTemplateAdminMessage, delegation, setDelegation, delegationForm, setDelegationForm, delegationMessage, setDelegationMessage,
+    templateAdminMessage, setTemplateAdminMessage, templateStatusUpdating, delegation, setDelegation, delegationForm, setDelegationForm, delegationMessage, setDelegationMessage,
     operationSettingsForm, setOperationSettingsForm, operationSettings, setOperationSettings, operationSettingsMessage, setOperationSettingsMessage, approvalActionComment, setApprovalActionComment,
     approvalSearch, setApprovalSearch, appliedApprovalSearchScope, isApprovalAdmin, isHolidayManager, isLeavePolicyManager, canViewPreview, visibleTemplates, load,
     loadDeletedApprovals, loadRetentionAudits, downloadRetentionAuditCsv, loadApprovalBoxes, loadEmployees, loadLeaveUsage, changeLeaveBalanceYear, loadCompTimeSummary,

@@ -127,7 +127,9 @@ export const APPROVAL_TEMPLATE_CATEGORIES: ApprovalTemplateCategory[] = [
   { id: "purchase", label: "4. 구매", codes: ["PURCHASE"] },
   { id: "education", label: "5. 교육 및 제안", codes: ["TRAINING_REQUEST", "TRAINING_CHANGE", "TRAINING_REPORT"] }
 ];
-export const ENABLE_TEMPLATE_FALLBACK = import.meta.env.DEV || import.meta.env.VITE_ENABLE_TEMPLATE_FALLBACK === "true";
+const UNSELECTABLE_TEMPLATE_CODES = new Set(["EMERGENCY_CALL_REQUEST", "CONSULT"]);
+const ADMIN_HIDDEN_TEMPLATE_CODES = new Set(["CONSULT"]);
+export const ENABLE_TEMPLATE_FALLBACK = import.meta.env?.DEV || import.meta.env?.VITE_ENABLE_TEMPLATE_FALLBACK === "true";
 export const LEAVE_TYPE_OPTIONS = [
   "연차",
   "오전반차",
@@ -210,9 +212,9 @@ export function approvalTemplateByCode(templates: ApprovalTemplateOption[], temp
     ?? DEFAULT_APPROVAL_TEMPLATES.find((item) => item.code === templateCode);
 }
 
-export function categorizedTemplateGroups(templates: ApprovalTemplateOption[]) {
+function buildCategorizedTemplateGroups(templates: ApprovalTemplateOption[]) {
   const byCode = new Map(templates.map((template) => [template.code, template]));
-  return APPROVAL_TEMPLATE_CATEGORIES
+  const groups = APPROVAL_TEMPLATE_CATEGORIES
     .map((category) => ({
       ...category,
       templates: category.codes
@@ -220,6 +222,27 @@ export function categorizedTemplateGroups(templates: ApprovalTemplateOption[]) {
         .filter((template): template is ApprovalTemplateOption => Boolean(template))
     }))
     .filter((category) => category.templates.length > 0);
+  const categorizedCodes = new Set(APPROVAL_TEMPLATE_CATEGORIES.flatMap((category) => category.codes));
+  const uncategorizedTemplates = templates.filter((template) => !categorizedCodes.has(template.code));
+
+  if (uncategorizedTemplates.length) {
+    groups.push({
+      id: "other",
+      label: "6. 기타 양식",
+      codes: uncategorizedTemplates.map((template) => template.code),
+      templates: uncategorizedTemplates
+    });
+  }
+
+  return groups;
+}
+
+export function categorizedTemplateGroups(templates: ApprovalTemplateOption[]) {
+  return buildCategorizedTemplateGroups(templates.filter((template) => !UNSELECTABLE_TEMPLATE_CODES.has(template.code)));
+}
+
+export function categorizedAdminTemplateGroups(templates: ApprovalTemplateOption[]) {
+  return buildCategorizedTemplateGroups(templates.filter((template) => !ADMIN_HIDDEN_TEMPLATE_CODES.has(template.code)));
 }
 
 export function selectableApprovalTemplates(templates: ApprovalTemplateOption[]) {

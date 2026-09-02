@@ -27,6 +27,18 @@ export type User = {
   mustChangePassword?: boolean;
 };
 
+export type MyProfile = {
+  loginId: string;
+  empNo: string | null;
+  empName: string;
+  deptName: string | null;
+  positionName: string | null;
+  jobTitle: string | null;
+  email: string | null;
+  phone: string | null;
+  extensionNumber: string | null;
+};
+
 export type EffectiveMenu = {
   menuId: number;
   menuCode: string;
@@ -499,6 +511,7 @@ export type ApprovalOperationSettings = {
 };
 
 export type EquipmentProposal = {
+  peSelfRequest?: boolean;
   approvalId: number;
   workflowStage: "USER_APPROVAL" | "PE_INPUT" | "PE_APPROVAL" | "PURCHASE_INPUT" | "PURCHASE_APPROVAL" | "COMPLETED";
   requestDeptName: string | null;

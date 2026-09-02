@@ -5,6 +5,8 @@ import com.kjh.groupware.domain.auth.dto.LoginOptionResponse;
 import com.kjh.groupware.domain.auth.dto.LoginRequest;
 import com.kjh.groupware.domain.auth.dto.LoginResponse;
 import com.kjh.groupware.domain.auth.dto.PasswordChangeRequest;
+import com.kjh.groupware.domain.auth.dto.MyProfileResponse;
+import com.kjh.groupware.domain.auth.dto.MyProfileUpdateRequest;
 import com.kjh.groupware.global.response.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -17,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -93,9 +96,21 @@ public class AuthController {
     }
 
     @PostMapping("/change-password")
-    public ApiResponse<Void> changePassword(@Valid @RequestBody PasswordChangeRequest request) {
-        authService.changePassword(request.newPassword());
-        return ApiResponse.ok(null, "비밀번호가 변경되었습니다. 다시 로그인해 주세요.");
+    public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody PasswordChangeRequest request) {
+        authService.changePassword(request.currentPassword(), request.newPassword());
+        return ResponseEntity.ok()
+            .header(HttpHeaders.SET_COOKIE, expiredRefreshCookie().toString())
+            .body(ApiResponse.ok(null, "비밀번호가 변경되었습니다. 다시 로그인해 주세요."));
+    }
+
+    @GetMapping("/profile")
+    public ApiResponse<MyProfileResponse> myProfile() {
+        return ApiResponse.ok(authService.myProfile());
+    }
+
+    @PutMapping("/profile")
+    public ApiResponse<MyProfileResponse> updateMyProfile(@Valid @RequestBody MyProfileUpdateRequest request) {
+        return ApiResponse.ok(authService.updateMyProfile(request));
     }
 
     private ResponseEntity<ApiResponse<LoginResponse>> withRefreshCookie(AuthService.AuthenticatedLogin login) {

@@ -597,7 +597,7 @@ function ApprovalLineSection({ title, lines }: { title: string; lines: ApprovalL
           {lines.slice().sort((a, b) => a.lineOrder - b.lineOrder).map((line, index) => (
             <div className="approval-line" key={line.lineId}>
               <strong>{index + 1}. {line.empNameSnapshot ?? line.approverName}</strong>
-              <span>{line.deptNameSnapshot ?? line.approverDeptName ?? "-"} · {line.positionSnapshot ?? line.approverPositionName ?? "-"} · {lineStatusLabel(line.status)}</span>
+              <span>{line.deptNameSnapshot ?? line.approverDeptName ?? "-"} · {line.positionSnapshot ?? line.approverPositionName ?? "-"} · {line.lineType === "REFERENCE" ? (line.readAt ? "읽음" : "미열람") : lineStatusLabel(line.status)}</span>
               {lineDueText(line) && <span className="due-text">{lineDueText(line)}</span>}
               {delegatedActionText(line) && (
                 <span className="delegated-action-text">
@@ -616,7 +616,8 @@ function ApprovalLineSection({ title, lines }: { title: string; lines: ApprovalL
 export function ApprovalHistorySection({ lines }: { lines: ApprovalLine[] }) {
   const decisionLines = lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL").slice().sort((a, b) => a.lineOrder - b.lineOrder);
   const receiverLines = lines.filter((line) => line.lineType === "RECEIVER");
-  const referenceLines = lines.filter((line) => line.lineType === "REFERENCE" || line.lineType === "READER");
+  const referenceLines = lines.filter((line) => line.lineType === "REFERENCE");
+  const readerLines = lines.filter((line) => line.lineType === "READER");
   return (
     <section className="approval-detail-section approval-history-section">
       <h3>결재 현황 및 이력</h3>
@@ -630,8 +631,28 @@ export function ApprovalHistorySection({ lines }: { lines: ApprovalLine[] }) {
           </div>
         ))}
         {receiverLines.length > 0 && <div className="approval-history-row shared"><strong>수신</strong><span>{receiverLines.map((line) => line.empNameSnapshot ?? line.approverName).join(", ")}</span><span>최종 결재 완료 후 수신</span></div>}
-        {referenceLines.length > 0 && <div className="approval-history-row shared"><strong>참조</strong><span>{referenceLines.map((line) => line.empNameSnapshot ?? line.approverName).join(", ")}</span><span>최종 결재 완료 후 공유</span></div>}
+        {referenceLines.map((line) => <div className="approval-history-row shared" key={line.lineId}><strong>참조</strong><span>{line.empNameSnapshot ?? line.approverName}</span><span>{line.readAt ? `읽음 · ${formatDate(line.readAt)}` : "미열람 · 상신 이후 열람 가능"}</span></div>)}
+        {readerLines.length > 0 && <div className="approval-history-row shared"><strong>연람</strong><span>{readerLines.map((line) => line.empNameSnapshot ?? line.approverName).join(", ")}</span><span>결재라인 완료 후 열람 가능</span></div>}
       </div>
     </section>
+  );
+}
+
+export function ApprovalReferenceReadStatus({ lines }: { lines: ApprovalLine[] }) {
+  const references = lines.filter((line) => line.lineType === "REFERENCE");
+  if (!references.length) return null;
+  return (
+    <details className="approval-detail-section">
+      <summary>참조 열람 현황</summary>
+      <div className="approval-history-list">
+        {references.map((line) => (
+          <div className="approval-history-row shared" key={line.lineId}>
+            <strong>참조</strong>
+            <span>{line.empNameSnapshot ?? line.approverName}</span>
+            <span>{line.readAt ? `읽음 · ${formatDate(line.readAt)}` : "미열람"}</span>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }

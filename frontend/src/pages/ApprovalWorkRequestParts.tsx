@@ -80,20 +80,34 @@ function WorkTypeSelector({ value, fieldEmployee, onChange }: { value: WorkRow["
   </fieldset>;
 }
 
-export function WorkRequestEditor({ mode, user, form, headerActions, onChange }: { mode: "request" | "emergency" | "change"; user: User; form: ApprovalForm; headerActions?: ReactNode; onChange: (form: ApprovalForm) => void }) {
+export function WorkRequestEditor({ mode, user, form, headerActions, onChange, readOnly = false }: { mode: "request" | "emergency" | "change"; user: User; form: ApprovalForm; headerActions?: ReactNode; onChange: (form: ApprovalForm) => void; readOnly?: boolean }) {
   const [candidates, setCandidates] = useState<Employee[]>([]);
   const [candidatesLoaded, setCandidatesLoaded] = useState(false);
   const [schedules, setSchedules] = useState<WorkSchedule[]>([]);
   const [workerPickerOpen, setWorkerPickerOpen] = useState(false);
   const [workerPickerEmpId, setWorkerPickerEmpId] = useState<number | null>(null);
   const delegated = user.permissions.includes("WORK_REQUEST_DELEGATE") || user.permissions.includes("WORK_REQUEST_ADMIN") || user.roleCode === "ADMIN" || user.permissions.includes("FULL_ADMIN");
-  useEffect(() => { void api<Employee[]>("/work-schedules/candidates").then(setCandidates).finally(() => setCandidatesLoaded(true)); }, []);
-  useEffect(() => { if (mode === "change") void api<WorkSchedule[]>(`/work-schedules/changeable${delegated ? "?all=true" : ""}`).then(setSchedules); }, [mode, delegated]);
+  useEffect(() => {
+    let active = true;
+    void api<Employee[]>("/work-schedules/candidates")
+      .then((items) => { if (active) setCandidates(items); })
+      .catch(() => { if (active) setCandidates([]); })
+      .finally(() => { if (active) setCandidatesLoaded(true); });
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    if (mode !== "change") return;
+    let active = true;
+    void api<WorkSchedule[]>(`/work-schedules/changeable${delegated ? "?all=true" : ""}`)
+      .then((items) => { if (active) setSchedules(items); })
+      .catch(() => { if (active) setSchedules([]); });
+    return () => { active = false; };
+  }, [mode, delegated]);
   const employees = candidates.length ? candidates : [{ empId: user.empId, empName: user.empName, deptId: user.deptId, deptName: user.deptName, workCategory: "FIELD" } as Employee];
   const requestMode = mode === "emergency" ? "emergency" : "request";
   const workRows = useMemo(
-    () => parseRows<WorkRow>(form.fieldValues.workEntriesJson, delegated && mode === "request" ? [] : [blankWork(user.empId, requestMode)]),
-    [form.fieldValues.workEntriesJson, user.empId, requestMode, delegated, mode]
+    () => parseRows<WorkRow>(form.fieldValues.workEntriesJson, delegated && mode === "request" ? [] : [blankWork(user.empId, requestMode, candidates.find((item) => item.empId === user.empId)?.workCategory === "MANAGEMENT")]),
+    [form.fieldValues.workEntriesJson, user.empId, requestMode, delegated, mode, candidates]
   );
   const commonWorkDate = form.fieldValues.workDate || workRows[0]?.workDate || today();
   const changeRows = useMemo(() => parseRows<ChangeRow>(form.fieldValues.workChangesJson, schedules[0] ? [blankChange(schedules[0])] : []), [form.fieldValues.workChangesJson, schedules]);
@@ -128,7 +142,7 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
     }
   });
   useEffect(() => {
-    if (mode !== "change" && candidatesLoaded && !form.fieldValues.workEntriesJson) {
+    if (!readOnly && mode !== "change" && candidatesLoaded && !form.fieldValues.workEntriesJson) {
       const requester = candidates.find((item) => item.empId === user.empId);
       if (mode === "request" && delegated) {
         setWorkRows([]);
@@ -137,10 +151,10 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
         setWorkRows([blankWork(user.empId, requestMode, requester?.workCategory === "MANAGEMENT")]);
       }
     }
-  }, [mode, candidates, candidatesLoaded, form.fieldValues.workEntriesJson, user.empId, requestMode, delegated]);
+  }, [mode, candidates, candidatesLoaded, form.fieldValues.workEntriesJson, user.empId, requestMode, delegated, readOnly]);
   useEffect(() => {
-    if (mode === "change" && schedules[0] && !form.fieldValues.workChangesJson) setChangeRows([blankChange(schedules[0])]);
-  }, [mode, schedules, form.fieldValues.workChangesJson]);
+    if (!readOnly && mode === "change" && schedules[0] && !form.fieldValues.workChangesJson) setChangeRows([blankChange(schedules[0])]);
+  }, [mode, schedules, form.fieldValues.workChangesJson, readOnly]);
   const updateWork = (index: number, next: Partial<WorkRow>) => setWorkRows(workRows.map((row, i) => i === index ? { ...row, ...next } : row));
   const updateChange = (index: number, next: Partial<ChangeRow>) => setChangeRows(changeRows.map((row, i) => i === index ? { ...row, ...next } : row));
   const updateWorkTime = (index: number, field: "startTime" | "endTime", value: string) => {
@@ -170,8 +184,8 @@ export function WorkRequestEditor({ mode, user, form, headerActions, onChange }:
   const automaticTitles = ["근무신청서", "비상호출 신청서", "근무 변경·취소계",
     departmentTitle + " 근무 신청서", departmentTitle + " 비상호출 신청서", departmentTitle + " 근무 변경·취소계"];
   useEffect(() => {
-    if (!form.title.trim() || automaticTitles.includes(form.title)) onChange({ ...form, title: generatedTitle });
-  }, [mode, departmentTitle]);
+    if (!readOnly && (!form.title.trim() || automaticTitles.includes(form.title))) onChange({ ...form, title: generatedTitle });
+  }, [mode, departmentTitle, readOnly]);
 
   const changeWorker = (index: number, empId: number) => {
     const employee = employees.find((item) => item.empId === empId);

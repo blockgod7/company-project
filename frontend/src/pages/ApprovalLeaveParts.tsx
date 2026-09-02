@@ -334,6 +334,8 @@ function LeaveConditionalDetails({ selections, values, workCategory, onChange }:
 function LeaveCalendarInline({ mode, selections, lockedSelections, pendingCancelSelections, holidays, leaveTypeOptions, compTimeSummary, unpaidLeaveEligible, onChange }: { mode: "request" | "cancel"; selections: LeaveSelection[]; lockedSelections: LeaveUsage["selections"]; pendingCancelSelections: LeaveUsage["pendingCancelSelections"]; holidays: ApprovalHoliday[]; leaveTypeOptions: string[]; compTimeSummary: CompTimeSummary | null; unpaidLeaveEligible: boolean; onChange: (selections: LeaveSelection[]) => void }) {
   const initialDate = selections[0]?.date ? new Date(`${selections[0].date}T00:00:00`) : new Date();
   const [visibleMonth, setVisibleMonth] = useState(new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
+  // Keep interaction order separately: selections are stored in date order.
+  const [lastRequestType, setLastRequestType] = useState(() => selections[selections.length - 1]?.type ?? "연차");
   const selectedMap = new Map(selections.map((selection) => [selection.date, selection]));
   const lockedByDate = new Map<string, LeaveUsage["selections"]>();
   lockedSelections.forEach((selection) => lockedByDate.set(selection.date, [...(lockedByDate.get(selection.date) ?? []), selection]));
@@ -376,10 +378,12 @@ function LeaveCalendarInline({ mode, selections, lockedSelections, pendingCancel
     if (!selectedYearAllows(date)) return;
     const selectedDate = new Date(`${date}T00:00:00`);
     if (selectedDate.getDay() === 0 || selectedDate.getDay() === 6 || holidayMap.has(date)) return;
-    const options = allowedTypes(lockedItems);
+    const options = allowedTypes(lockedItems).filter((type) => type !== "대체휴무" || !compTimeUnavailable(""));
     if (!options.length) return;
     const locked = lockedItems[0];
-    const type = locked?.type === "오전반차" || locked?.type === "공가(오전)" ? "오후반차" : locked?.type === "오후반차" || locked?.type === "공가(오후)" ? "오전반차" : "연차";
+    const fallbackType = locked?.type === "오전반차" || locked?.type === "공가(오전)" ? "오후반차" : locked?.type === "오후반차" || locked?.type === "공가(오후)" ? "오전반차" : "연차";
+    const type = options.includes(lastRequestType) ? lastRequestType : options.includes(fallbackType) ? fallbackType : options[0];
+    setLastRequestType(type);
     onChange([...selections, { date, type, days: leaveDayValue(type) }].sort((a, b) => a.date.localeCompare(b.date)));
   }
   function toggleCancelSelection(locked: LeaveUsage["selections"][number]) {
@@ -407,7 +411,9 @@ function LeaveCalendarInline({ mode, selections, lockedSelections, pendingCancel
   }
   function changeType(date: string, type: string) {
     const current = selectedMap.get(date);
+    if (cancelMode || !current || !allowedTypes(lockedByDate.get(date)).includes(type)) return;
     if (type === "대체휴무" && compTimeUnavailable(current?.type ?? "")) return;
+    setLastRequestType(type);
     onChange(selections.map((selection) => selection.date === date ? { ...selection, type, days: leaveDayValue(type) } : selection));
   }
 

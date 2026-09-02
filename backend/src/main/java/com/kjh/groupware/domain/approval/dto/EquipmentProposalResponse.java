@@ -5,6 +5,7 @@ import com.kjh.groupware.domain.approval.ApprovalEquipmentProposal;
 public record EquipmentProposalResponse(
     Long approvalId,
     String workflowStage,
+    boolean peSelfRequest,
     String requestDeptName,
     String equipmentName,
     String requiredCompletionDate,
@@ -60,6 +61,7 @@ public record EquipmentProposalResponse(
         return new EquipmentProposalResponse(
             proposal.getApprovalId(),
             proposal.getWorkflowStage(),
+            proposal.isPeSelfRequest(),
             proposal.getRequestDeptName(),
             proposal.getEquipmentName(),
             proposal.getRequiredCompletionDate(),

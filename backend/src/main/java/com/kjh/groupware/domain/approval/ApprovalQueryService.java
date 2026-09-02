@@ -55,7 +55,7 @@ public class ApprovalQueryService {
         BOX_AGREEMENT, "합의대기",
         BOX_PENDING, "결재대기",
         BOX_RECEIVED, "수신함",
-        BOX_SHARED, "참조/연람",
+        BOX_SHARED, "참조문서",
         BOX_REQUESTED, "기안문서",
         BOX_PROCESSED, "처리문서",
         BOX_ALL, "전체문서"
@@ -245,12 +245,8 @@ public class ApprovalQueryService {
                 .map(line -> summary(line.getDocument())));
         }
         if (BOX_SHARED.equals(normalizedBox)) {
-            return PageResponse.from(lineRepository.findByAssignedEmpAndLineTypeInAndStatusInOrderByLineIdDesc(
-                currentEmp,
-                List.of(ApprovalLine.TYPE_REFERENCE, ApprovalLine.TYPE_READER),
-                List.of(ApprovalLine.STATUS_READ),
-                linePageRequest
-            ).map(line -> summary(line.getDocument())));
+            return PageResponse.from(documentRepository.findSharedDocuments(currentEmp, documentPageRequest)
+                .map(this::summary));
         }
         if (BOX_PROCESSED.equals(normalizedBox)) {
             return PageResponse.from(lineRepository.findByAssignedEmpInAndStatusInOrderByLineIdDesc(
@@ -291,6 +287,7 @@ public class ApprovalQueryService {
         List<ApprovalLine> lines = lineRepository.findByDocumentOrderByLineOrderAsc(document);
         try {
             permissionService.assertCanView(currentEmp, document, lines);
+            lines.forEach(line -> line.markReferenceRead(currentEmp));
             auditApproval(currentEmp, AuditActionType.READ, document, "문서 조회", true, ipAddress, userAgent);
             return response(document, lines, currentEmp);
         } catch (BusinessException ex) {

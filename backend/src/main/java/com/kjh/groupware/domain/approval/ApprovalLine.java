@@ -240,6 +240,15 @@ public class ApprovalLine extends BaseEntity {
         this.readAt = LocalDateTime.now();
     }
 
+    public void markReferenceRead(Emp viewer) {
+        // Opening a share is not reading it. Record only the assigned viewer's first actual read.
+        if (isReference() && isAssignedTo(viewer) && readAt == null && "N".equals(document.getDeletedYn())
+            && (document.isPending() || ApprovalDocument.STATUS_APPROVED.equals(document.getStatus())
+                || ApprovalDocument.STATUS_REJECTED.equals(document.getStatus()))) {
+            markRead();
+        }
+    }
+
     public void completeReceipt(Emp actedEmp, String comment) {
         this.status = STATUS_RECEIPT_COMPLETED;
         this.comment = comment;

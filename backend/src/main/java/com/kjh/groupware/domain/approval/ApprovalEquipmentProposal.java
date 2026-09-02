@@ -272,6 +272,10 @@ public class ApprovalEquipmentProposal extends BaseEntity {
         this.peAssignee = assignee;
     }
 
+    public boolean isPeSelfRequest() {
+        return ApprovalEquipmentRequestMode.isSelfRequest(approval);
+    }
+
     public void assignPurchase(Emp assignee) {
         this.purchaseAssignee = assignee;
     }

@@ -38,25 +38,30 @@ function App() {
     navigateToItem: (item) => navigateUrl(pathForSearchItem(item))
   });
 
-  async function loadMe() {
-    try {
-      const me = await api<User>("/auth/me");
-      setUser(me);
-      setAuthStatus("authenticated");
-    } catch {
-      clearTokens();
-      setUser(null);
-      setAuthStatus("anonymous");
-    }
-  }
-
   useEffect(() => {
+    let cancelled = false;
+    async function restoreSession() {
+      try {
+        const me = await api<User>("/auth/me");
+        if (cancelled) return;
+        // A fresh visit (including restored login) starts at home, not the previous URL.
+        navigateUrl(pathForRoute("dashboard"), { replace: true });
+        setUser(me);
+        setAuthStatus("authenticated");
+      } catch {
+        if (cancelled) return;
+        clearTokens();
+        setUser(null);
+        setAuthStatus("anonymous");
+      }
+    }
     if (localStorage.getItem("accessToken")) {
-      void loadMe();
+      void restoreSession();
     } else {
       setAuthStatus("anonymous");
     }
     const expire = () => {
+      cancelled = true;
       setMessage("세션이 만료되었습니다. 다시 로그인해 주세요.");
       setUser(null);
       setAuthStatus("anonymous");
@@ -64,21 +69,18 @@ function App() {
       navigateUrl("/login", { replace: true });
     };
     window.addEventListener("session-expired", expire);
-    return () => window.removeEventListener("session-expired", expire);
-  }, [navigateUrl]);
+    return () => { cancelled = true; window.removeEventListener("session-expired", expire); };
+    // Authentication restoration runs once per mount; normal menu navigation must not reset to home.
+  }, []);
 
   useEffect(() => {
     if (authStatus === "anonymous" && location.pathname !== "/login") {
-      navigateUrl("/login", {
-        replace: true,
-        state: { from: `${location.pathname}${location.search}` }
-      });
+      navigateUrl("/login", { replace: true });
       return;
     }
     if (authStatus !== "authenticated") return;
     if (location.pathname === "/login") {
-      const requested = (location.state as { from?: string } | null)?.from;
-      navigateUrl(requested || pathForRoute("dashboard"), { replace: true });
+      navigateUrl(pathForRoute("dashboard"), { replace: true });
       return;
     }
     if (navigation && navigation.canonicalPath !== location.pathname) {
@@ -93,7 +95,13 @@ function App() {
     setAuthStatus("anonymous");
     setApprovalLaunch(null);
     globalSearch.resetTarget();
+    setMessage("");
     navigateUrl("/login", { replace: true });
+  }
+
+  function passwordChanged() {
+    logout();
+    setMessage("비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해 주세요.");
   }
 
   function navigate(nextRoute: Route) {
@@ -128,8 +136,7 @@ function App() {
           setUser(login);
           setAuthStatus("authenticated");
           setMessage("");
-          const requested = (location.state as { from?: string } | null)?.from;
-          navigateUrl(requested || pathForRoute("dashboard"), { replace: true });
+          navigateUrl(pathForRoute("dashboard"), { replace: true });
         }}
         message={message}
       />
@@ -137,7 +144,7 @@ function App() {
   }
 
   if (user.mustChangePassword) {
-    return <PasswordChangePage empName={user.empName} onChanged={() => setUser({ ...user, mustChangePassword: false })} onLogout={logout} />;
+    return <PasswordChangePage empName={user.empName} onChanged={passwordChanged} onLogout={logout} />;
   }
 
   if (navigation?.portal === "admin" && !canUseAdminPortal) {
@@ -158,6 +165,7 @@ function App() {
       onNavigate={navigate}
       onNavigatePath={(path) => navigateUrl(path)}
       onLogout={logout}
+      onPasswordChanged={passwordChanged}
     >
       {navigation ? (
         <AppRouteContent

@@ -5,3 +5,5 @@
 @import "./styles/app-foundation.css";
 @import "./styles/app-shell.css";
 @import "./styles/app-pages.css";
+@import "./styles/rich-text.css";
+@import "./styles/account-settings.css";

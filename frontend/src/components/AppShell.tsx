@@ -27,6 +27,7 @@ import type { PortalMode } from "../navigation";
 import type { EffectiveMenu, User } from "../types";
 import { routeLabels, type Route } from "../utils/approvalDomain";
 import { MenuSettingsDialog } from "./MenuSettingsDialog";
+import { AccountSettingsDialog } from "./AccountSettingsDialog";
 
 const menuIcons: Record<string, LucideIcon> = {
   home: Home,
@@ -55,6 +56,7 @@ type AppShellProps = {
   onNavigate: (route: Route) => void;
   onNavigatePath: (path: string) => void;
   onLogout: () => void;
+  onPasswordChanged: () => void;
   children: ReactNode;
 };
 
@@ -71,9 +73,11 @@ export function AppShell({
   onNavigate,
   onNavigatePath,
   onLogout,
+  onPasswordChanged,
   children
 }: AppShellProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [portalSwitcherOpen, setPortalSwitcherOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const portalSwitcherRef = useRef<HTMLDivElement>(null);
@@ -161,7 +165,8 @@ export function AppShell({
         <div className="sidebar-personal-zone">
           <div className="profile">
             <div className="avatar"><UserRound size={38} /></div>
-            <strong title={user.empName}>{user.empName}</strong>
+            <button type="button" className="profile-name-button" aria-label={`${user.empName} 내 정보 설정`}
+              aria-haspopup="dialog" onClick={() => setAccountOpen(true)} title="내 정보 설정">{user.empName}</button>
             <span title={`${user.deptName ?? "소속 미정"} · ${user.roleCode}`}>{user.deptName ?? "소속 미정"} · {user.roleCode}</span>
           </div>
           <button
@@ -280,7 +285,8 @@ export function AppShell({
                 )}
               </div>
             )}
-            <span className="userbar-name" title={user.empName}>{user.empName}</span>
+            <button type="button" className="userbar-name account-name-button" aria-label={`${user.empName} 내 정보 설정`}
+              aria-haspopup="dialog" onClick={() => setAccountOpen(true)} title="내 정보 설정">{user.empName}<UserCog size={16} /></button>
             <span className="role">{user.roleCode}</span>
             <button className="icon-button" onClick={onLogout} title="로그아웃">
               <LogOut size={18} />
@@ -298,6 +304,7 @@ export function AppShell({
         onSave={effectiveMenus.updatePreferences}
         onReset={effectiveMenus.resetPreferences}
       />
+      {accountOpen && <AccountSettingsDialog onClose={() => setAccountOpen(false)} onPasswordChanged={onPasswordChanged} />}
     </div>
   );
 }

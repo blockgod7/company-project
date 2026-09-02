@@ -1,187 +1,14 @@
-﻿import { TrainingTemplatePreview } from "./ApprovalTrainingParts";
-import {
-  ArrowDown,
-  ArrowUp,
-  CalendarDays,
-  Check,
-  ClipboardCheck,
-  Download,
-  Edit3,
-  Eye,
-  FileText,
-  Flag,
-  History,
-  Inbox,
-  Paperclip,
-  Plus,
-  RefreshCw,
-  Save,
-  Search,
-  Trash2,
-  Upload,
-  UserRound,
-  X
-} from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
-import type { ChangeEvent, ReactNode } from "react";
-import { api, authenticatedFetch, jsonBody } from "../api";
-import schunkLogo from "../assets/schunk-carbon-logo.png";
-import { ApprovalListTable, ApprovalRetentionAuditTable, DeletedApprovalListTable } from "../components/ApprovalTables";
-import { CardHeader } from "../components/CardHeader";
-import { AttachmentBox, DraftAttachmentPicker, EditorHeader, EditorTools, ReadDetail, RichContent } from "../components/ContentTools";
-import { ApprovalLineTableEditor, EmployeeMultiPicker } from "../components/EmployeePickers";
-import { Empty, EmptyDetail } from "../components/Empty";
-import { DetailPage, ListSummary, Toolbar, TwoPane } from "../components/PageLayout";
-import { uploadAttachments } from "../utils/attachments";
-import type { DraftAttachment } from "../utils/attachments";
-import {
-  approvalProgress,
-  delegatedActionText,
-  documentPrefix,
-  isDelegatedAction,
-  lineActedName,
-  lineAssignedName,
-  lineDueText,
-  lineStatusLabel,
-  lineTypeLabel,
-  priorityLabel,
-  receiverProgress,
-  retentionAuditActionLabel,
-  stageLabel,
-  statusLabel,
-  templateName
-} from "../utils/approvalLabels";
-import {
-  approvalContent,
-  approvalDraftData,
-  approvalLinePerson,
-  approvalOpinionLines,
-  approvalTemplateByCode,
-  APPROVAL_TEMPLATE_CATEGORIES,
-  blankMoldFixturePart,
-  blankPurchaseItem,
-  categorizedTemplateGroups,
-  currentUserDeptName,
-  DEFAULT_APPROVAL_SEARCH,
-  DEFAULT_APPROVAL_TEMPLATES,
-  defaultApprovalForm,
-  defaultDelegationForm,
-  defaultLineIds,
-  defaultLinePayload,
-  defaultOperationSettingsForm,
-  employeeDisplay,
-  employeesByIds,
-  ENABLE_TEMPLATE_FALLBACK,
-  equipmentProposalCapacityLabel,
-  equipmentProposalGeneratedTitle,
-  equipmentProposalItemFallback,
-  equipmentProposalItemLabel,
-  equipmentProposalTitle,
-  firstReceiverLineOrder,
-  firstSelectableApprovalTemplate,
-  formatApprovalLines,
-  formatDayValue,
-  formatEmployeeList,
-  formatShortDate,
-  idsFromJson,
-  isDeptManagerUser,
-  isDraftTemplateCode,
-  isEquipmentProposalTemplateCode,
-  isLeaveCancelTemplateCode,
-  isLeaveTemplateCode,
-  isWorkRequestChangeTemplateCode,
-  isWorkRequestTemplateCode,
-  isMoldFixtureTemplateCode,
-  isPurchaseTemplateCode,
-  isReceiverRoutedTemplateCode,
-  isRequiredTemplateField,
-  isTrainingReportTemplateCode,
-  isTrainingRequestTemplateCode,
-  isTrainingTemplateCode,
-  lastReceiverLineOrder,
-  LEAVE_TYPE_OPTIONS,
-  leaveCancelContent,
-  leaveDateRangeText,
-  leaveDayValue,
-  leaveRequestContent,
-  leaveSummary,
-  leaveUsageFieldValues,
-  localDateKey,
-  moldFixturePartsJson,
-  normalizeMoldFixtureParts,
-  normalizePurchaseItems,
-  parseLeaveSelections,
-  parseMoldFixtureParts,
-  parsePurchaseItems,
-  parseTemplateFields,
-  productionEngineeringManagerId,
-  PURCHASE_BU_CODES,
-  PURCHASE_RECEIVER_LOGIN_ID,
-  purchaseBuTotal,
-  purchaseDefaultFieldValues,
-  purchaseItemsJson,
-  purchaseReceiptDate,
-  purchaseReceiverId,
-  purchaseRequestContent,
-  remainingAnnualDaysText,
-  selectableApprovalTemplates,
-  templateAdminFormFromOption,
-  templateOptionFromApi,
-  todayDate,
-  TRAINING_RECEIVER_LOGIN_ID,
-  trainingReceiverId,
-  trainingReportContent,
-  trainingReportDefaultFieldValues,
-  trainingRequestClosingText,
-  trainingRequestContent,
-  trainingRequestDefaultFieldValues,
-  validatePurchaseRequest,
-  validateTrainingReport,
-  validateTrainingRequest,
-  withLeaveCancelTemplate
-} from "../utils/approvalDomain";
-import type {
-  ApprovalBox,
-  ApprovalBoxApi,
-  ApprovalCategory,
-  ApprovalDashboardFilter,
-  ApprovalDelegationForm,
-  ApprovalForm,
-  ApprovalLaunch,
-  ApprovalOperationSettingsForm,
-  ApprovalSearchForm,
-  ApprovalTemplateAdminForm,
-  ApprovalTemplateCategory,
-  ApprovalTemplateField,
-  ApprovalTemplateOption,
-  ContentMode,
-  LeaveSelection,
-  MoldFixturePart,
-  PurchaseRequestItem
-} from "../utils/approvalDomain";
-import { formatDate } from "../utils/date";
-import type { GlobalSearchTarget } from "../utils/search";
-import type {
-  Approval,
-  ApprovalDelegationApi,
-  ApprovalDefaultLineApi,
-  ApprovalDefaultLineStepApi,
-  ApprovalLine,
-  ApprovalOperationSettings,
-  ApprovalSummary,
-  ApprovalTemplateApi,
-  AuditLog,
-  Employee,
-  EquipmentProposal,
-  LeaveUsage,
-  PageResponse,
-  User
-} from "../types";
+import { Maximize2, Minimize2, RotateCcw, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Empty } from "../components/Empty";
+import { APPROVAL_TEMPLATE_CATEGORIES, categorizedTemplateGroups, type ApprovalBox, type ApprovalTemplateOption } from "../utils/approvalDomain";
+import { ApprovalTemplatePreview } from "./ApprovalTemplatePreview";
+import type { ApprovalFormContext } from "./ApprovalFormBody";
 export const APPROVAL_BOXES: { box: ApprovalBox; label: string }[] = [
   { box: "agreement", label: "합의대기" },
   { box: "pending", label: "결재대기" },
   { box: "received", label: "수신함" },
-  { box: "shared", label: "참조/연람" },
+  { box: "shared", label: "참조문서" },
   { box: "requested", label: "기안문서" },
   { box: "processed", label: "처리문서" },
   { box: "all", label: "전체문서" }
@@ -191,21 +18,33 @@ export function isApprovalBox(value: string): value is ApprovalBox {
   return APPROVAL_BOXES.some((item) => item.box === value);
 }
 
-export function TemplateSelectModalV2({ templates, selected, fallbackActive, previewDeptName, previewRequesterName, onSelect, onCancel, onConfirm }: {
+export function TemplateSelectModalV2({ templates, selected: selection, fallbackActive, context, leaveDefaultReceiverEmpId, onSelect, onCancel, onConfirm }: {
   templates: ApprovalTemplateOption[];
   selected: ApprovalTemplateOption;
   fallbackActive: boolean;
-  previewDeptName: string;
-  previewRequesterName: string;
+  context: ApprovalFormContext;
+  leaveDefaultReceiverEmpId?: number | null;
   onSelect: (template: ApprovalTemplateOption) => void;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  // Resolve from the current catalog, not the object saved when it was clicked.
+  const selected = templates.find((template) => template.code === selection.code) ?? selection;
   const [selectedCategoryId, setSelectedCategoryId] = useState(() => {
     const initial = categorizedTemplateGroups(templates).find((category) => category.templates.some((template) => template.code === selected.code));
     return initial?.id ?? APPROVAL_TEMPLATE_CATEGORIES[0].id;
   });
   const [keyword, setKeyword] = useState("");
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const [maximized, setMaximized] = useState(false);
+
+  function resetWindowSize() {
+    // Native CSS resizing writes inline dimensions; clear only those dimensions.
+    dialogRef.current?.style.removeProperty("width");
+    dialogRef.current?.style.removeProperty("height");
+    setMaximized(false);
+  }
+
   const groups = categorizedTemplateGroups(templates);
   const activeCategory = groups.find((category) => category.id === selectedCategoryId) ?? groups[0];
   const filteredTemplates = (activeCategory?.templates ?? []).filter((template) => {
@@ -224,10 +63,16 @@ export function TemplateSelectModalV2({ templates, selected, fallbackActive, pre
 
   return (
     <div className="modal-backdrop" role="presentation">
-      <div className="template-select-modal template-select-modal-v2" role="dialog" aria-modal="true" aria-label="양식 선택">
+      <div ref={dialogRef} className={`template-select-modal template-select-modal-v2${maximized ? " is-maximized" : ""}`} role="dialog" aria-modal="true" aria-label="양식 선택">
         <div className="modal-head">
           <h3>양식선택</h3>
-          <button type="button" className="icon-button" onClick={onCancel} title="닫기"><X size={18} /></button>
+          <div className="template-window-actions">
+            <button type="button" className="ghost" onClick={resetWindowSize} title="창 크기 초기화"><RotateCcw size={16} /> 기본 크기</button>
+            <button type="button" className="ghost" onClick={() => setMaximized((current) => !current)} aria-pressed={maximized}>
+              {maximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}{maximized ? "이전 크기" : "크게 보기"}
+            </button>
+            <button type="button" className="icon-button" onClick={onCancel} title="닫기" aria-label="양식 선택 닫기"><X size={18} /></button>
+          </div>
         </div>
         <div className="template-select-toolbar">
           <label>
@@ -264,285 +109,17 @@ export function TemplateSelectModalV2({ templates, selected, fallbackActive, pre
             </div>
             <div className="template-preview">
               <h3>양식 미리보기</h3>
-              <TemplatePaperPreview template={selected} previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
-              {!isReceiverRoutedTemplateCode(selected.code) && <div className="paper-preview legacy-template-summary">
-                <h2>{selected.name} - 기안자명</h2>
-                <div className="preview-grid">
-                  <strong>기안부서</strong><span>{previewDeptName}</span>
-                  <strong>기안자</strong><span>{previewRequesterName}</span>
-                  <strong>문서번호</strong><span>상신 시 자동생성</span>
-                  <strong>결재</strong><span>합의/결재자 표시</span>
-                </div>
-              </div>}
+              <p className="template-preview-note">{selected.name} · v{selected.version ?? 1} · 현재 작성 양식과 동일한 화면입니다.</p>
+              <ApprovalTemplatePreview template={selected} context={context} leaveDefaultReceiverEmpId={leaveDefaultReceiverEmpId} />
             </div>
           </div>
         </div>
-        <div className="modal-actions">
+        <div className="modal-actions template-window-footer">
+          <span className="template-resize-hint">{maximized ? "이전 크기로 돌아가면 직접 크기를 조절할 수 있습니다." : "오른쪽 아래 모서리를 드래그해 창 크기를 조절하세요."}</span>
           <button type="button" className="ghost" onClick={onCancel}>취소</button>
           <button type="button" onClick={onConfirm} disabled={!selected}>확인</button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function TemplatePaperPreview({ template, previewDeptName, previewRequesterName }: {
-  template: ApprovalTemplateOption;
-  previewDeptName: string;
-  previewRequesterName: string;
-}) {
-  if (isWorkRequestTemplateCode(template.code)) {
-    return (
-      <div className="template-work-preview">
-        <div className="template-work-head">
-          <span>잔업·특근·야간·비상호출 근무자를 한 문서에서 신청합니다</span>
-          <h2>근무신청서</h2>
-          <p>공통 근무일자를 정하고 근무자별 근무 구분과 업무내용을 입력합니다. 비상호출은 다른 근무 구분과 함께 선택할 수 없습니다.</p>
-        </div>
-        <div className="template-work-applicant">
-          <div><span>신청부서</span><strong>{previewDeptName || "-"}</strong></div>
-          <div><span>신청자</span><strong>{previewRequesterName}</strong></div>
-          <div><span>작성일</span><strong>{todayDate()}</strong></div>
-          <div><span>근무일자</span><strong>{todayDate()}</strong></div>
-        </div>
-        <div className="template-work-section-title"><strong>근무자별 신청 내역</strong><span>여러 명 일괄 신청 가능</span></div>
-        <div className="template-work-table">
-          <strong>근무자</strong><strong>선택 구분</strong><strong>시간</strong><strong>대체근무</strong>
-          <span>{previewRequesterName}</span><span>특근 + 잔업</span><span>08:30~20:00</span><span className="accent">선택</span>
-          <span>추가 근무자</span><span>야간 잔업</span><span>20:00~08:00</span><span>-</span>
-        </div>
-        <div className="template-work-content"><strong>근무내용</strong><span>근무자별 업무 내용을 입력합니다.</span></div>
-        <div className="template-work-note">대체휴무 · 특근 4시간 이상 근무 시 1일</div>
-        <TemplateWorkRoute previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
-      </div>
-    );
-  }
-
-  if (isWorkRequestChangeTemplateCode(template.code)) {
-    return (
-      <div className="template-work-preview template-work-change-preview">
-        <div className="template-work-head change">
-          <span>승인된 원 근무는 수정하지 않고 별도 결재로 처리합니다</span>
-          <h2>근무 변경·취소계</h2>
-          <p>변경 또는 취소할 근무를 선택하고 처리 내용과 사유를 기록합니다.</p>
-        </div>
-        <div className="template-work-applicant">
-          <div><span>신청부서</span><strong>{previewDeptName || "-"}</strong></div>
-          <div><span>신청자</span><strong>{previewRequesterName}</strong></div>
-          <div><span>작성일</span><strong>{todayDate()}</strong></div>
-        </div>
-        <div className="template-work-section-title"><strong>변경·취소 대상</strong><span>처리 구분 선택</span></div>
-        <div className="template-work-change-flow">
-          <div><span>원 근무</span><strong>{todayDate()} · 특근</strong><small>08:30~17:30 · 기존 업무 내용</small></div>
-          <b>→</b>
-          <div className="after"><span>변경 후</span><strong>변경 근무일 · 특근</strong><small>변경 시간 · 변경 업무 내용</small></div>
-        </div>
-        <div className="template-work-change-reason"><strong>처리</strong><span>변경 / 취소</span><strong>사유</strong><span>변경·취소 사유를 필수로 입력합니다.</span></div>
-        <div className="template-work-note change">최종 승인 시 예정 근무 일정에 변경 또는 취소 내용이 반영됩니다.</div>
-        <TemplateWorkRoute previewDeptName={previewDeptName} previewRequesterName={previewRequesterName} />
-      </div>
-    );
-  }
-  if (isPurchaseTemplateCode(template.code)) {
-
-    return (
-      <div className="template-paper template-purchase-preview">
-        <div className="template-purchase-head">
-          <TemplateMiniStamp label="결재" writer={previewRequesterName} />
-          <h2>구매요구서</h2>
-          <TemplateMiniStamp label="수신" writer="임나영" compact />
-        </div>
-        <div className="template-purchase-meta">
-          <strong>부서명</strong><span>{previewDeptName}</span>
-          <strong>성명</strong><span>{previewRequesterName}</span>
-          <strong>청구일</strong><span>{todayDate()}</span>
-          <strong>요구일</strong><span>작성자 입력</span>
-          <strong>접수일</strong><span>수신 확인 시 자동 기입</span>
-          <strong>입고일</strong><span>구매부서 입력</span>
-          <strong>제목</strong><span className="wide">예: 구매요구서 - 안전장갑 외 3건 - 생산팀</span>
-        </div>
-        <div className="template-purchase-items">
-          <span>품명</span><span>규격</span><span>수량</span><span>용도</span>
-          <span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span>
-          <span></span><span></span><span></span><span></span>
-        </div>
-        <div className="template-purchase-bu-title">BU 비용분할 <b>합계 100%</b></div>
-        <div className="template-purchase-bu">
-          {PURCHASE_BU_CODES.map((code) => <span key={code}>{code}<br />%</span>)}
-        </div>
-        <div className="template-attachment">첨부&nbsp;&nbsp; 견적서 / 사양서 / 참고자료</div>
-      </div>
-    );
-  }
-
-  if (isTrainingRequestTemplateCode(template.code) || isTrainingReportTemplateCode(template.code)) {
-    return <TrainingTemplatePreview
-      mode={isTrainingReportTemplateCode(template.code) ? "report" : template.code === "TRAINING_CHANGE" ? "change" : "request"}
-      requesterName={previewRequesterName}
-      deptName={previewDeptName}
-    />;
-  }
-
-  if (isLeaveTemplateCode(template.code) || isLeaveCancelTemplateCode(template.code)) {
-    const cancelMode = isLeaveCancelTemplateCode(template.code);
-    return (
-      <div className="template-leave-web-preview">
-        <div className="template-leave-web-head">
-          <span>{cancelMode ? "승인된 휴가를 날짜별로 취소합니다" : "달력에서 날짜별 휴가 종류를 선택합니다"}</span>
-          <h2>{cancelMode ? "휴가 취소계" : "휴가계"}</h2>
-          <p>{cancelMode ? "취소할 날짜만 선택하면 해당 일수만 복원됩니다." : "주말과 휴일은 선택할 수 없으며 한 문서에는 같은 연도만 신청할 수 있습니다."}</p>
-        </div>
-        <div className="template-leave-web-applicant">
-          <div><span>신청자</span><strong>{previewRequesterName}</strong></div>
-          <div><span>부서</span><strong>{previewDeptName || "-"}</strong></div>
-          <div><span>신청일</span><strong>{todayDate()}</strong></div>
-        </div>
-        {!cancelMode && (
-          <div className="template-leave-web-metrics">
-            <div><span>총 휴가 일수</span><strong>30<small>일</small></strong></div>
-            <div><span>신청 전 사용 일수</span><strong>3.5<small>일</small></strong></div>
-            <div className="accent"><span>이번 신청 휴가 일수</span><strong>0<small>일</small></strong></div>
-          </div>
-        )}
-        <div className="template-leave-web-calendar">
-          <div className="template-leave-web-calendar-head"><button type="button">‹</button><strong>2026년 8월</strong><button type="button">›</button></div>
-          <div className="template-leave-web-week"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
-          <div className="template-leave-web-days">
-            {Array.from({ length: 35 }, (_, index) => {
-              const day = index - 5;
-              const currentMonth = day >= 1 && day <= 31;
-              const disabled = !currentMonth || index % 7 === 0 || index % 7 === 6 || day === 15 || day === 17;
-              return <span key={index} className={disabled ? "disabled" : ""}>{currentMonth ? day : ""}</span>;
-            })}
-          </div>
-          <small>{cancelMode ? "결재 완료된 휴가 날짜만 선택할 수 있습니다." : "날짜를 선택하면 연차·반차·병가 등 휴가 종류를 지정할 수 있습니다."}</small>
-        </div>
-        <div className="template-leave-web-route">
-          <strong>결재</strong>
-          <div><span>작성</span><b>{previewRequesterName}</b><small>{previewDeptName || "신청 부서"}</small></div>
-          <div><span>검토</span><b>부서 결재자</b><small>차장</small></div>
-          <div><span>승인</span><b>최종 결재자</b><small>부장</small></div>
-          <strong>수신</strong>
-          <div><span>수신</span><b>허인성</b><small>인사총무 · 대리</small></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isMoldFixtureTemplateCode(template.code)) {
-    return (
-      <div className="template-paper template-equipment-preview template-mold-preview">
-        <div className="template-equipment-top">
-          <TemplateMiniStamp label="사용부서" writer={previewRequesterName} />
-          <div className="template-equipment-title">
-            <strong>금형 치공구 품의서</strong>
-            <span>작성일자: {todayDate()}</span>
-          </div>
-          <TemplateMiniStamp label="주관부서" writer="" />
-        </div>
-        <div className="template-mold-info">
-          <strong>품목</strong><span>□ 금형&nbsp;&nbsp; □ 치공구</span>
-          <strong>사용부서</strong><span>{previewDeptName}</span>
-          <strong>제품(기종)명</strong><span></span>
-          <strong>제작유형</strong><span>□ 고객지급&nbsp;&nbsp; □ 투자&nbsp;&nbsp; □ 설계 및 제작&nbsp;&nbsp; □ 구매&nbsp;&nbsp; □ 수리</span>
-          <strong>사유</strong><span className="large"></span>
-        </div>
-        <div className="template-mold-parts">
-          <strong>부품 정보</strong>
-          <span>부품명</span><span>CAVITY</span><span>재질</span><span>수량</span><span>금형번호</span>
-          <span></span><span></span><span></span><span></span><span></span>
-        </div>
-        <div className="template-equipment-body">
-          <div>요구사항</div><div>지시사항</div>
-          <div>설계 의견</div><div>구매 의견</div>
-        </div>
-        <div className="template-attachment">첨부&nbsp;&nbsp; □ 분말금형기초자료&nbsp;&nbsp; □ 제품도면&nbsp;&nbsp; □ 부품도면&nbsp;&nbsp; □ 견적서</div>
-      </div>
-    );
-  }
-
-  if (isEquipmentProposalTemplateCode(template.code)) {
-    const title = equipmentProposalTitle(template.code);
-    return (
-      <div className="template-paper template-equipment-preview">
-        <div className="template-equipment-top">
-          <TemplateMiniStamp label="사용부서" writer={previewRequesterName} />
-          <div className="template-equipment-title">
-            <strong>{title}</strong>
-            <span>작성일 : {todayDate()}</span>
-          </div>
-          <TemplateMiniStamp label="주관부서" writer="" />
-        </div>
-        <div className="template-equipment-info">
-          <strong>요청부서</strong><span>{previewDeptName}</span>
-          <strong>완료요구일</strong><span></span>
-          <strong className="type-label">구분</strong><span className="type-options">□구입 □제작 □개선<br />□수리 □매각 □폐기</span>
-          <strong>{equipmentProposalItemLabel(template.code)}</strong><span></span>
-          <strong>{equipmentProposalCapacityLabel(template.code)}</strong><span></span>
-        </div>
-        <div className="template-equipment-body">
-          <div>현상</div><div>주관부서(PE) 의견</div>
-          <div>요구사항</div><div>설계 의견</div>
-          <div>지시 사항</div><div>구매 의견</div>
-        </div>
-        <div className="template-economic">
-          <strong>경제성 검토</strong>
-          <span>사용부서</span>
-          <span>주관 부서</span>
-        </div>
-        <div className="template-attachment">첨부&nbsp;&nbsp; □ 계약서&nbsp;&nbsp; □ 견적서&nbsp;&nbsp; □ 도면&nbsp;&nbsp; □ 설비사양서</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="template-paper template-draft-preview">
-      <div className="template-draft-logo-wrap">
-        <img src={schunkLogo} alt="SCHUNK" />
-      </div>
-      <h2>{template.name}</h2>
-      <div className="template-draft-head">
-        <div className="template-draft-info">
-          <strong>문서번호</strong><span>상신 후 자동생성</span>
-          <strong>기안부서(자)</strong><span>{previewDeptName} / {previewRequesterName}</span>
-          <strong>기안일자</strong><span>{todayDate()}</span>
-          <strong>제목</strong><span>{template.name}</span>
-        </div>
-        <div className="template-draft-stamp">
-          <div>작성</div><div>검토</div><div>승인</div>
-          <div>{previewRequesterName}</div><div></div><div></div>
-        </div>
-      </div>
-      <div className="template-draft-body">본문</div>
-      <div className="template-draft-footer">
-        <span>수신</span><span>참조</span><span>열람</span><span>상태</span>
-      </div>
-    </div>
-  );
-}
-
-function TemplateWorkRoute({ previewDeptName, previewRequesterName }: { previewDeptName: string; previewRequesterName: string }) {
-  return (
-    <div className="template-work-route">
-      <strong>결재</strong>
-      <div><span>작성</span><b>{previewRequesterName}</b><small>{previewDeptName || "신청 부서"}</small></div>
-      <div><span>검토</span><b>부서 결재자</b><small>결재선 적용</small></div>
-      <div><span>승인</span><b>최종 결재자</b><small>결재선 적용</small></div>
-    </div>
-  );
-}
-
-function TemplateMiniStamp({ label, writer, compact = false }: { label: string; writer: string; compact?: boolean }) {
-  return (
-    <div className={`template-mini-stamp${compact ? " compact" : ""}`}>
-      <div className="stamp-side">{label}</div>
-      <div className="stamp-cell">작성</div>
-      {!compact && <div className="stamp-cell">검토</div>}
-      {!compact && <div className="stamp-cell">승인</div>}
-      <div className="stamp-name">{writer}</div>
-      {!compact && <div className="stamp-name"></div>}
-      {!compact && <div className="stamp-name"></div>}
     </div>
   );
 }

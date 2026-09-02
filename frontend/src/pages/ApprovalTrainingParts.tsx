@@ -3,7 +3,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../api";
 import type { Employee, User, TrainingSchedule } from "../types";
 import {
-  todayDate,
   trainingReportDefaultFieldValues,
   trainingRequestDefaultFieldValues,
   type ApprovalForm
@@ -179,13 +178,6 @@ export function TrainingReportEditor(props: TrainingEditorProps) {
   return <TrainingEditor {...props} mode="report" />;
 }
 
-export function TrainingTemplatePreview({ mode, requesterName, deptName }: { mode: TrainingMode; requesterName: string; deptName: string }) {
-  const values = { requesterName, deptName, requestDate: todayDate(), reportDate: todayDate(), signatureName: requesterName, requestType: "수강" };
-  return <div className="training-web-form training-template-preview">
-    <TrainingDocumentOverview mode={mode} values={values} />
-    <TrainingDocumentFields mode={mode} values={values} preview />
-  </div>;
-}
 function TrainingSourcePicker({ mode, form, editingApprovalId, onChange }: Pick<TrainingEditorProps, "form" | "editingApprovalId" | "onChange"> & { mode: TrainingMode }) {
   const [items, setItems] = useState<TrainingSchedule[]>([]);
   const [error, setError] = useState("");

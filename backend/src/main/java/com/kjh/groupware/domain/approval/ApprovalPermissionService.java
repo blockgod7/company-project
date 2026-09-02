@@ -33,6 +33,10 @@ public class ApprovalPermissionService {
         boolean delegatedActedDecisionAssignee = lines.stream().anyMatch(line -> line.isDecisionLine() && isActedBy(line, emp));
         boolean receiver = lines.stream().anyMatch(line -> line.isReceiver() && line.isAssignedTo(emp));
         boolean shared = lines.stream().anyMatch(line -> (line.isReference() || line.isReader()) && line.isAssignedTo(emp));
+        boolean reference = lines.stream().anyMatch(line -> line.isReference() && line.isAssignedTo(emp));
+        boolean viewByReference = reference && Set.of(
+            ApprovalDocument.STATUS_IN_PROGRESS, ApprovalDocument.STATUS_APPROVED, ApprovalDocument.STATUS_REJECTED
+        ).contains(document.getStatus());
         boolean auditAdmin = canViewAllDocuments(emp);
         boolean leaveAdmin = canViewAllLeaveDocuments(emp) && isLeaveDocument(document);
         boolean sensitiveLeave = isSensitiveLeaveDocument(document);
@@ -52,7 +56,7 @@ public class ApprovalPermissionService {
         boolean viewByReadyReceiver = receiverRoutedReadyForReceiver && receiver;
         boolean canView = requester || decisionAssignee || delegatedPendingDecisionAssignee
             || delegatedActedDecisionAssignee || viewByPostApprovalRole || broadAdminView;
-        canView = canView || viewByReadyReceiver;
+        canView = canView || viewByReadyReceiver || viewByReference;
         boolean canPrintPdf = canView
             && approved
             && ApprovalDocument.PDF_STATUS_GENERATED.equals(document.getPdfStatus())

@@ -45,6 +45,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import com.kjh.groupware.domain.dept.Dept;
+import com.kjh.groupware.domain.approval.dto.EquipmentProposalRequest;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -63,7 +67,9 @@ class ApprovalServiceWorkflowTest {
     private final NotificationService notificationService = mock(NotificationService.class);
     private final EmpSignatureService signatureService = mock(EmpSignatureService.class);
     private final ApprovalPdfService pdfService = mock(ApprovalPdfService.class);
-    private final ApprovalEquipmentProposalService equipmentProposalService = mock(ApprovalEquipmentProposalService.class);
+    private ApprovalEquipmentProposalService equipmentProposalService;
+    private final ApprovalEquipmentProposalRepository equipmentProposalRepository = mock(ApprovalEquipmentProposalRepository.class);
+    private final Map<Long, ApprovalEquipmentProposal> equipmentProposals = new HashMap<>();
     private final EquipmentManagementService equipmentManagementService = mock(EquipmentManagementService.class);
     private final ApprovalDelegationService delegationService = mock(ApprovalDelegationService.class);
     private final ApprovalReminderService reminderService = mock(ApprovalReminderService.class);
@@ -159,7 +165,7 @@ class ApprovalServiceWorkflowTest {
             return lines.stream()
                 .filter(line -> line.getDocument() == document)
                 .sorted(Comparator.comparing(ApprovalLine::getLineOrder))
-                .toList();
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         });
         when(lineRepository.findByIdForUpdate(any())).thenAnswer(invocation -> lines.stream()
             .filter(line -> line.getLineId().equals(invocation.getArgument(0)))
@@ -282,6 +288,17 @@ class ApprovalServiceWorkflowTest {
             mock(BereavementPolicyRepository.class),
             mock(com.kjh.groupware.domain.file.AttachFileRepository.class)
         );
+        equipmentProposalService = new ApprovalEquipmentProposalService(equipmentProposalRepository, documentRepository, lineRepository, empRepository, currentEmpProvider, reminderService, notificationService, new ObjectMapper());
+        when(equipmentProposalRepository.findByApprovalApprovalId(any())).thenAnswer(i -> Optional.ofNullable(equipmentProposals.get(i.getArgument(0))));
+        when(equipmentProposalRepository.findByApprovalIdForUpdate(any())).thenAnswer(i -> Optional.ofNullable(equipmentProposals.get(i.getArgument(0))));
+        when(equipmentProposalRepository.save(any())).thenAnswer(i -> {
+            ApprovalEquipmentProposal proposal = i.getArgument(0);
+            ReflectionTestUtils.setField(proposal, "approvalId", proposal.getApproval().getApprovalId());
+            equipmentProposals.put(proposal.getApprovalId(), proposal);
+            return proposal;
+        });
+        when(empRepository.findActiveByDeptCodeOrderForRouting(anyString())).thenAnswer(i -> emps.values().stream()
+            .filter(emp -> emp.getDept() != null && emp.getDept().getDeptCode().equals(i.getArgument(0))).toList());
         draftService = new ApprovalDraftService(
             documentRepository,
             lineRepository,
@@ -335,6 +352,132 @@ class ApprovalServiceWorkflowTest {
         );
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"EQUIPMENT_PROPOSAL", "MOLD_FIXTURE_PROPOSAL"})
+    void productionEngineeringSelfRequestGoesToPurchaseOnlyAfterAllDecisions(String code) throws Exception {
+        configureEquipment(code, true);
+        currentEmp.set(emps.get(1L));
+        ApprovalRequest request = equipmentRequest(code, "STANDARD", false);
+        Long id = draftService.create(request, "test", "test").approvalId();
+        ApprovalDocument document = createdDocument(id);
+        ApprovalEquipmentProposal proposal = equipmentProposals.get(id);
+        assertThat(proposal.isPeSelfRequest()).isTrue();
+        assertThat(proposal.getPeOpinion()).isEqualTo("기술 검토");
+        assertThat(proposal.getDesignOpinion()).isEqualTo("설계 검토");
+        assertThat(orderedLines(document)).filteredOn(ApprovalLine::isReceiver).extracting(line -> line.getAssignedEmp().getEmpId()).containsExactly(6L);
+        assertThat(orderedLines(document)).filteredOn(line -> ApprovalLine.STATUS_PENDING.equals(line.getStatus())).extracting(line -> line.getAssignedEmp().getEmpId()).containsExactly(2L);
+        decideEquipment(id, 2L);
+        decideEquipment(id, 4L);
+        assertThat(proposal.getWorkflowStage()).isEqualTo("USER_APPROVAL");
+        assertThat(proposal.getPurchaseAssignee()).isNull();
+        // Changing the employee's department must not change an already submitted route.
+        ReflectionTestUtils.setField(emps.get(1L), "dept", department("OTHER"));
+        decideEquipment(id, 5L);
+        assertThat(proposal.getWorkflowStage()).isEqualTo("PURCHASE_INPUT");
+        assertThat(proposal.getPurchaseAssignee().getEmpId()).isEqualTo(6L);
+        assertThat(orderedLines(document)).filteredOn(line -> ApprovalLine.STATUS_PENDING.equals(line.getStatus())).extracting(line -> line.getAssignedEmp().getEmpId()).containsExactly(6L);
+        assertThat(orderedLines(document)).noneMatch(line -> "PE_INPUT_COMPLETED".equals(line.getComment()));
+        currentEmp.set(emps.get(6L));
+        assertThatThrownBy(() -> workflowService.approve(id, new ApprovalActionRequest("premature"), "test", "test")).isInstanceOf(BusinessException.class);
+        EquipmentProposalRequest purchase = new ObjectMapper().convertValue(Map.of("approverEmpIds", List.of(8L), "purchaseOpinion", "구매 검토"), EquipmentProposalRequest.class);
+        equipmentProposalService.submitPurchase(id, purchase);
+        decideEquipment(id, 8L);
+        assertThat(proposal.getWorkflowStage()).isEqualTo("COMPLETED");
+        assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
+        verify(pdfService).generateForFinalApproval(document);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"EQUIPMENT_PROPOSAL", "MOLD_FIXTURE_PROPOSAL"})
+    void externalRequestCannotForgeSelfRoutingAndStillVisitsProductionEngineering(String code) {
+        configureEquipment(code, false);
+        currentEmp.set(emps.get(1L));
+        Long id = draftService.create(equipmentRequest(code, "PE_SELF", false), "test", "test").approvalId();
+        assertThat(equipmentProposals.get(id).isPeSelfRequest()).isFalse();
+        decideEquipment(id, 2L);
+        decideEquipment(id, 4L);
+        decideEquipment(id, 5L);
+        assertThat(equipmentProposals.get(id).getWorkflowStage()).isEqualTo("PE_INPUT");
+        assertThat(equipmentProposals.get(id).getPurchaseAssignee()).isNull();
+    }
+
+    @Test
+    void legacyUnmarkedPeRequestKeepsItsExistingRoute() {
+        configureEquipment("EQUIPMENT_PROPOSAL", true);
+        currentEmp.set(emps.get(1L));
+        Long id = draftService.create(equipmentRequest("EQUIPMENT_PROPOSAL", "STANDARD", false), "test", "test").approvalId();
+        createdDocument(id).updateFormDataJson("{\"fields\":{}}", "legacy");
+        decideEquipment(id, 2L);
+        decideEquipment(id, 4L);
+        decideEquipment(id, 5L);
+        assertThat(equipmentProposals.get(id).getWorkflowStage()).isEqualTo("PE_INPUT");
+    }
+
+    @Test
+    void selfRequestDraftUpdatesPeFieldsAndRequiresAnotherApprover() {
+        configureEquipment("MOLD_FIXTURE_PROPOSAL", true);
+        currentEmp.set(emps.get(1L));
+        ApprovalRequest request = equipmentRequest("MOLD_FIXTURE_PROPOSAL", "STANDARD", true);
+        Long id = draftService.create(request, "test", "test").approvalId();
+        draftService.updateDraft(id, request, "test", "test");
+        assertThat(equipmentProposals.get(id).getDesignOpinion()).isEqualTo("설계 검토");
+        ApprovalRequest selfApproval = new ApprovalRequest(request.title(), request.content(), request.templateCode(), request.formDataJson(), "NORMAL", List.of(), List.of(1L), List.of(6L), List.of(), List.of(), false);
+        assertThatThrownBy(() -> draftService.submit(id, selfApproval, "test", "test")).isInstanceOf(BusinessException.class);
+        draftService.submit(id, equipmentRequest("MOLD_FIXTURE_PROPOSAL", "STANDARD", false), "test", "test");
+        assertThat(equipmentProposals.get(id).isPeSelfRequest()).isTrue();
+    }
+
+    private void configureEquipment(String code, boolean self) {
+        when(templateRepository.findTopByTemplateCodeAndActiveYnOrderByVersionDesc(code, "Y")).thenReturn(Optional.of(ApprovalTemplate.builder().templateCode(code).templateName(code).version(1).fieldsJson("[]").activeYn("Y").build()));
+        ReflectionTestUtils.setField(emps.get(1L), "dept", department(self ? "PROD_TECH" : "OTHER"));
+        ReflectionTestUtils.setField(emps.get(3L), "dept", department("PROD_TECH"));
+        ReflectionTestUtils.setField(emps.get(6L), "dept", department("PURCHASE"));
+    }
+
+    private Dept department(String code) {
+        Dept dept = mock(Dept.class);
+        when(dept.getDeptCode()).thenReturn(code);
+        when(dept.getDeptName()).thenReturn(code);
+        return dept;
+    }
+
+    private ApprovalRequest equipmentRequest(String code, String mode, boolean draft) {
+        return new ApprovalRequest("품의", "content", code, "{\"fields\":{\"equipmentRequestMode\":\"" + mode + "\",\"requestDeptName\":\"생산기술\",\"peOpinion\":\"기술 검토\",\"designOpinion\":\"설계 검토\",\"peEconomicReview\":\"경제성 검토\"}}", "NORMAL", List.of(2L), List.of(4L, 5L), List.of(3L), List.of(), List.of(), draft);
+    }
+
+    private void decideEquipment(Long id, Long empId) {
+        currentEmp.set(emps.get(empId));
+        workflowService.approve(id, new ApprovalActionRequest("검토 완료"), "test", "test");
+    }
+
+    @Test
+    void referencesOpenOnSubmissionAndLoseAccessOnWithdrawalWithoutOpeningReceivers() {
+        currentEmp.set(emps.get(1L));
+        ApprovalRequest draft = request(List.of(), List.of(4L), List.of(6L), List.of(7L), List.of(8L), true);
+        Long id = draftService.create(draft, "test", "test").approvalId();
+        ApprovalDocument document = createdDocument(id);
+        assertThat(permissionService.permissions(emps.get(7L), document, orderedLines(document)).canView()).isFalse();
+        verify(notificationService, times(0)).notifyEmp(eq(7L), anyString(), anyString(), eq("APPROVAL"), eq(id));
+        ApprovalRequest submit = request(List.of(), List.of(4L), List.of(6L), List.of(7L), List.of(8L), false);
+        draftService.submit(id, submit, "test", "test");
+        assertThat(permissionService.permissions(emps.get(7L), document, orderedLines(document)).canView()).isTrue();
+        assertThat(permissionService.permissions(emps.get(6L), document, orderedLines(document)).canView()).isFalse();
+        assertThat(permissionService.permissions(emps.get(8L), document, orderedLines(document)).canView()).isFalse();
+        verify(notificationService).notifyEmp(eq(7L), eq("참조 문서 도착"), anyString(), eq("APPROVAL"), eq(id));
+        assertThat(orderedLines(document)).filteredOn(ApprovalLine::isReference)
+            .extracting(ApprovalLine::getReadAt).containsOnlyNulls();
+        workflowService.withdraw(id, new ApprovalActionRequest("수정"), "test", "test");
+        currentEmp.set(emps.get(7L));
+        assertThatThrownBy(() -> service.findOne(id, "test", "test")).isInstanceOf(BusinessException.class);
+        currentEmp.set(emps.get(1L));
+        draftService.submit(id, submit, "test", "test");
+        verify(notificationService, times(2)).notifyEmp(eq(7L), eq("참조 문서 도착"), anyString(), eq("APPROVAL"), eq(id));
+        currentEmp.set(emps.get(4L));
+        workflowService.reject(id, new ApprovalActionRequest("반려"), "test", "test");
+        currentEmp.set(emps.get(7L));
+        assertThat(service.findOne(id, "test", "test").permissions().canView()).isTrue();
+    }
+
     @Test
     void agreementApprovalReceiptAndShareFlow() {
         currentEmp.set(emps.get(1L));
@@ -349,6 +492,11 @@ class ApprovalServiceWorkflowTest {
         ApprovalDocument document = createdDocument(approvalId);
         List<ApprovalLine> documentLines = orderedLines(document);
 
+        assertThat(permissionService.permissions(emps.get(7L), document, documentLines).canView()).isTrue();
+        assertThat(permissionService.permissions(emps.get(7L), document, documentLines).canPrintPdf()).isFalse();
+        assertThat(permissionService.permissions(emps.get(6L), document, documentLines).canView()).isFalse();
+        assertThat(permissionService.permissions(emps.get(8L), document, documentLines).canView()).isFalse();
+        verify(notificationService).notifyEmp(eq(7L), eq("참조 문서 도착"), anyString(), eq("APPROVAL"), eq(approvalId));
         assertThat(document.getDocumentNo()).startsWith("PUR-");
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_IN_PROGRESS);
         assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_AGREEMENT_PROGRESS);
@@ -436,6 +584,7 @@ class ApprovalServiceWorkflowTest {
         assertThat(document.getStatus()).isEqualTo(ApprovalDocument.STATUS_APPROVED);
         assertThat(document.getCurrentStage()).isEqualTo(ApprovalDocument.STAGE_COMPLETED);
         verify(pdfService).generateForFinalApproval(document);
+        verify(notificationService, times(1)).notifyEmp(eq(7L), eq("참조 문서 도착"), anyString(), eq("APPROVAL"), eq(approvalId));
         assertThat(orderedLines(document)).filteredOn(ApprovalLine::isReceiver).extracting(ApprovalLine::getStatus)
             .containsExactly(ApprovalLine.STATUS_READ);
         assertThatThrownBy(() -> workflowService.submitPurchaseApproval(
@@ -526,7 +675,7 @@ class ApprovalServiceWorkflowTest {
                 ApprovalLine.STATUS_REJECTED,
                 ApprovalLine.STATUS_SKIPPED,
                 ApprovalLine.STATUS_SKIPPED,
-                ApprovalLine.STATUS_SKIPPED,
+                ApprovalLine.STATUS_READ,
                 ApprovalLine.STATUS_SKIPPED
             );
         assertThatThrownBy(() -> workflowService.approve(document.getApprovalId(), new ApprovalActionRequest("late"), "127.0.0.1", "test"))
