@@ -23,6 +23,12 @@ public class MenuGlobalSearchProvider implements GlobalSearchProvider {
 
     @Override
     public GlobalSearchGroupResponse search(String keyword, int limit, Emp currentEmp) {
+        return search(keyword, limit, currentEmp, null);
+    }
+
+    @Override
+    public GlobalSearchGroupResponse search(String keyword, int limit, Emp currentEmp, String status) {
+        String menuStatus = "ACTIVE".equals(status) ? "IMPLEMENTED" : status;
         String normalized = keyword.toLowerCase(Locale.ROOT);
         List<GlobalSearchItemResponse> items = Stream.concat(
                 menuService.findEffectiveFor(currentEmp, "EMPLOYEE").stream(),
@@ -30,6 +36,7 @@ public class MenuGlobalSearchProvider implements GlobalSearchProvider {
             )
             .filter(menu -> !menu.hidden() && menu.menuPath() != null)
             .filter(menu -> matches(menu, normalized))
+            .filter(menu -> menuStatus == null || "ALL".equals(menuStatus) || menuStatus.equals(menu.implementationStatus()))
             .limit(limit)
             .map(menu -> new GlobalSearchItemResponse(
                 "MENU", menu.menuId(), null, "menu", menu.menuName(),

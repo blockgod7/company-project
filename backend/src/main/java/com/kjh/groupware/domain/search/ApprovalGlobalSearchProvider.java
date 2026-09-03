@@ -35,6 +35,12 @@ public class ApprovalGlobalSearchProvider implements GlobalSearchProvider {
 
     @Override
     public GlobalSearchGroupResponse search(String keyword, int limit, Emp currentEmp) {
+        return search(keyword, limit, currentEmp, null);
+    }
+
+    @Override
+    public GlobalSearchGroupResponse search(String keyword, int limit, Emp currentEmp, String status) {
+        boolean hasStatus = status != null && !"ALL".equals(status);
         List<Emp> decisionAssignees = delegationService.decisionAssigneesFor(currentEmp);
         if (decisionAssignees == null || decisionAssignees.isEmpty()) {
             decisionAssignees = List.of(currentEmp);
@@ -44,8 +50,8 @@ public class ApprovalGlobalSearchProvider implements GlobalSearchProvider {
             keyword,
             false,
             "",
-            false,
-            "",
+            hasStatus,
+            hasStatus ? status : "",
             false,
             currentEmp,
             currentEmp,

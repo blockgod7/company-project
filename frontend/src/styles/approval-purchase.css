@@ -1,0 +1,76 @@
+/* Purchase forms follow the compact cards and toolbar used by leave/training. */
+.purchase-web-form,
+.purchase-web-detail { display: grid; min-width: 0; gap: 16px; color: #0f172a; container-type: inline-size; }
+.purchase-web-card { min-width: 0; padding: 20px; border: 1px solid #dbe4ee; border-radius: 12px; background: #fff; }
+.purchase-overview { display: grid; gap: 16px; }
+.purchase-web-head { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.purchase-web-head > div:first-child { min-width: 0; }
+.purchase-eyebrow { color: #0f766e; font-size: 12px; font-weight: 800; }
+.purchase-web-head h2 { margin: 4px 0; font-size: 25px; line-height: 1.4; }
+.purchase-web-head p { margin: 0; color: #64748b; font-size: 13px; line-height: 1.6; }
+.purchase-web-head > .approval-editor-actions { gap: 7px; }
+.purchase-web-head > .approval-editor-actions button { flex: 0 0 auto; min-width: 0; min-height: 36px; padding: 7px 9px; font-size: 12px; }
+.purchase-web-head > .approval-editor-actions button svg { width: 14px; height: 14px; }
+.purchase-web-head .purchase-approval-submit { background: var(--blue); border-color: var(--blue); color: #fff; }
+.purchase-applicant-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; overflow: hidden; border: 1px solid #dbe4ee; border-radius: 10px; }
+.purchase-applicant-row > div { display: flex; flex-wrap: wrap; align-items: baseline; min-width: 0; gap: 6px 18px; padding: 12px 16px; border-right: 1px solid #dbe4ee; }
+.purchase-applicant-row > div:last-child { border-right: 0; }
+.purchase-applicant-row dt { color: #64748b; font-size: 12px; }
+.purchase-applicant-row dd { margin: 0; color: #0f172a; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.purchase-web-fields { display: grid; min-width: 0; gap: 16px; }
+.purchase-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.purchase-section-head > div { display: flex; align-items: center; gap: 8px; }
+.purchase-section-head > div > svg { color: #0f766e; }
+.purchase-section-head h3 { margin: 0; font-size: 15px; font-weight: 800; }
+.purchase-section-head button { min-height: 34px; padding: 6px 10px; font-size: 12px; }
+.purchase-help { color: #64748b; font-size: 11px; }
+.purchase-section-description { margin: -6px 0 14px; color: #64748b; font-size: 12px; line-height: 1.6; }
+.purchase-field-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.purchase-field-grid > .wide { grid-column: 1 / -1; }
+.purchase-field { display: grid; align-content: start; min-width: 0; gap: 6px; margin: 0; }
+.purchase-field > span:first-child { color: #475569; font-size: 12px; font-weight: 750; }
+.purchase-field input,
+.purchase-web-table input { width: 100%; min-width: 0; min-height: 40px; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; color: #0f172a; font: inherit; font-size: 14px; line-height: 1.6; }
+.purchase-field input:hover,
+.purchase-web-table input:hover { border-color: #94a3b8; }
+.purchase-field input:focus-visible,
+.purchase-web-table input:focus-visible { outline: 2px solid #99f6e4; outline-offset: 1px; border-color: #0f766e; }
+.purchase-value { display: block; min-height: 40px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 7px; background: #f8fafc; color: #334155; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.purchase-field-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+.purchase-table-scroll { overflow-x: auto; border: 1px solid #dbe4ee; border-radius: 9px; }
+.purchase-table-scroll:focus-visible { outline: 2px solid #0f766e; outline-offset: 3px; }
+.purchase-web-table { width: 100%; min-width: 560px; margin: 0; border-collapse: collapse; table-layout: fixed; }
+.purchase-web-table th { padding: 10px 12px; background: #f8fafc; color: #475569; font-size: 12px; font-weight: 750; text-align: left; }
+.purchase-web-table th:nth-child(3) { width: 15%; }
+.purchase-web-table td { padding: 10px 8px; border-top: 1px solid #e2e8f0; font-size: 14px; vertical-align: top; overflow-wrap: anywhere; }
+.purchase-web-table td > span { display: block; padding: 3px 4px; white-space: pre-wrap; line-height: 1.7; }
+.purchase-web-table .purchase-remove-cell { width: 46px; text-align: center; vertical-align: middle; }
+.purchase-remove-cell button { padding: 6px; }
+.purchase-web-table .purchase-empty { padding: 24px; color: #64748b; text-align: center; }
+.purchase-total { padding: 5px 10px; border: 1px solid #fed7aa; border-radius: 6px; background: #fff7ed; color: #9a3412; font-size: 12px; font-weight: 750; }
+.purchase-total.is-complete { border-color: #99f6e4; background: #f0fdfa; color: #0f766e; }
+.purchase-split-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.purchase-split-grid > .purchase-field { flex: 0 0 96px; }
+.purchase-split-grid .purchase-value { min-height: 36px; padding: 7px 9px; }
+.purchase-percent-input { position: relative; min-width: 0; }
+.purchase-percent-input input { min-height: 36px; padding: 7px 36px 7px 9px; font-variant-numeric: tabular-nums; }
+.purchase-percent-input > span { position: absolute; right: 26px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 12px; pointer-events: none; }
+.purchase-document-status { display: flex; flex-wrap: wrap; gap: 10px 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; }
+.purchase-document-status strong { margin-left: 8px; color: #334155; font-weight: 650; overflow-wrap: anywhere; }
+.purchase-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@container (max-width: 1000px) {
+  .purchase-web-head { align-items: flex-start; flex-direction: column; gap: 14px; }
+  .purchase-web-head > .approval-editor-actions { justify-content: flex-start; }
+}
+@container (max-width: 600px) {
+  .purchase-web-card { padding: 16px; }
+  .purchase-web-head { align-items: stretch; }
+  .purchase-web-head > .approval-editor-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .purchase-web-head > .approval-editor-actions button { min-height: 44px; width: 100%; }
+  .purchase-applicant-row,
+  .purchase-field-grid { grid-template-columns: minmax(0, 1fr); }
+  .purchase-applicant-row > div { padding: 10px 12px; border-right: 0; border-bottom: 1px solid #dbe4ee; }
+  .purchase-applicant-row > div:last-child { border-bottom: 0; }
+  .purchase-applicant-row dt { min-width: 50px; }
+
+}

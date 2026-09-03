@@ -1,19 +1,23 @@
 import "./rich-text-dom";
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, mock, test } from "node:test";
-import React, { useState } from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import React, { useEffect, useState } from "react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { ApprovalFormBody, type ApprovalFormContext } from "../src/pages/ApprovalFormBody";
 import { ApprovalTemplatePreview } from "../src/pages/ApprovalTemplatePreview";
+import { ApprovalInfoModal } from "../src/pages/ApprovalInfoModal";
+import { useApprovalPageController } from "../src/pages/useApprovalPageController";
+import { useApprovalLineLibrary } from "../src/pages/useApprovalLineLibrary";
+import { defaultLinePayload, type ApprovalLineSelection } from "../src/utils/approvalPeople";
 import { ApprovalPage } from "../src/pages/ApprovalPage";
-import { ApprovalHistorySection, ApprovalReferenceReadStatus } from "../src/pages/ApprovalPurchaseTrainingDetails";
+import { ApprovalHistorySection, ApprovalReferenceReadStatus, PurchaseRequestDetailView, TrainingRequestDetailView, TrainingReportDetailView } from "../src/pages/ApprovalPurchaseTrainingDetails";
 import { EquipmentProposalUserSection } from "../src/pages/ApprovalEquipmentProposalParts";
 import { LeaveRequestEditor } from "../src/pages/ApprovalLeaveParts";
 import { TemplateSelectModalV2 } from "../src/pages/ApprovalTemplateParts";
 import { createApprovalDocumentActions } from "../src/pages/createApprovalDocumentActions";
 import { createApprovalForm } from "../src/utils/approvalForm";
 import { LEAVE_TYPE_OPTIONS, parseLeaveSelections, todayDate, type ApprovalForm, type ApprovalTemplateOption } from "../src/utils/approvalDomain";
-import type { ApprovalLine, Employee, LeaveUsage, User } from "../src/types";
+import type { Approval, ApprovalDefaultLineApi, ApprovalLine, Employee, LeaveUsage, User } from "../src/types";
 
 const user: User = { empId: 7, loginId: "preview-test", empName: "테스트 작성자", genderCode: "FEMALE", roleCode: "USER", deptId: 2, deptName: "테스트부서", permissions: [] };
 const employee = { ...user, workCategory: "MANAGEMENT", positionName: "대리" } as Employee;
@@ -236,13 +240,14 @@ test("catalog refresh updates the selected version, name, description, fields an
   const latest = { ...old, name: "수정 양식", description: "수정된 설명", version: 5, fieldsJson: '[{"name":"new","label":"새 항목","type":"select","options":["새 선택지"]}]' };
   const props = { selected: old, fallbackActive: false, context, onSelect: () => {}, onCancel: () => {}, onConfirm: () => {} };
   const view = render(<TemplateSelectModalV2 {...props} templates={[old]} />);
+  fireEvent.click(screen.getByRole("button", { name: "미리보기", exact: true }));
   assert.ok(screen.getByLabelText("이전 항목"));
   view.rerender(<TemplateSelectModalV2 {...props} templates={[latest]} />);
   assert.equal(screen.queryByLabelText("이전 항목"), null);
   const field = screen.getByLabelText("새 항목") as HTMLSelectElement;
   assert.ok([...field.options].some((item) => item.text === "새 선택지"));
   assert.match(view.container.querySelector(".template-preview-note")?.textContent ?? "", /수정 양식 · v5/);
-  assert.match(view.container.querySelector(".template-description-box")?.textContent ?? "", /수정된 설명/);
+  assert.match(view.container.querySelector(".template-choice-description")?.textContent ?? "", /수정된 설명/);
   assert.equal((screen.getByLabelText("문서 제목") as HTMLInputElement).value, "수정 양식");
 });
 
@@ -316,6 +321,33 @@ test("creation and preview share versioned defaults, with no changes to source/w
   assert.equal(actual.fieldValues.reportDate, todayDate());
 });
 
+test("template descriptions support selection without opening preview, and toggling preserves selection and search", () => {
+  const first = template("CUSTOM_NEW_FORM", { name: "일반 신청", description: "일반 업무에 사용하는 신청서" });
+  const second = template("CUSTOM_OTHER_FORM", { name: "장비 신청", description: "장비 교체와 점검을 요청하는 양식" });
+  const onConfirm = mock.fn();
+  function Selector() {
+    const [selected, setSelected] = useState(first);
+    return <TemplateSelectModalV2 templates={[first, second]} selected={selected} fallbackActive={false} context={context} onSelect={setSelected} onConfirm={() => onConfirm(selected.code)} onCancel={() => {}} />;
+  }
+  render(<Selector />);
+  assert.equal(screen.queryByRole("region", { name: "양식 미리보기" }), null);
+  assert.ok(within(screen.getByRole("button", { name: "장비 신청", exact: true })).getByText(second.description));
+  fireEvent.change(screen.getByPlaceholderText("검색어 입력"), { target: { value: "교체" } });
+  assert.equal(screen.queryByRole("button", { name: "일반 신청", exact: true }), null);
+  fireEvent.click(screen.getByText(second.description));
+  assert.equal(screen.getByRole("button", { name: "장비 신청", exact: true }).getAttribute("aria-pressed"), "true");
+  fireEvent.click(screen.getByRole("button", { name: "확인", exact: true }));
+  assert.deepEqual(onConfirm.mock.calls[0].arguments, [second.code]);
+  fireEvent.click(screen.getByRole("button", { name: "미리보기", exact: true }));
+  const preview = screen.getByRole("region", { name: "양식 미리보기" });
+  assert.equal((within(preview).getByLabelText("문서 제목") as HTMLInputElement).value, second.name);
+  assert.equal(screen.getByRole("button", { name: "미리보기 닫기" }).getAttribute("aria-expanded"), "true");
+  fireEvent.click(screen.getByRole("button", { name: "미리보기 닫기" }));
+  assert.equal(screen.queryByRole("region", { name: "양식 미리보기" }), null);
+  assert.equal((screen.getByPlaceholderText("검색어 입력") as HTMLInputElement).value, "교체");
+  assert.equal(screen.getByRole("button", { name: "장비 신청", exact: true }).getAttribute("aria-pressed"), "true");
+});
+
 test("template dialog maximizes and restores native resized dimensions without losing selection or search", () => {
   const selected = template("CUSTOM_NEW_FORM", { name: "크기 조절 테스트" });
   const onSelect = mock.fn();
@@ -323,7 +355,9 @@ test("template dialog maximizes and restores native resized dimensions without l
   const onCancel = mock.fn();
   render(<TemplateSelectModalV2 templates={[selected]} selected={selected} fallbackActive={false} context={context} onSelect={onSelect} onConfirm={onConfirm} onCancel={onCancel} />);
   const dialog = screen.getByRole("dialog", { name: "양식 선택" });
+  fireEvent.click(screen.getByRole("button", { name: "미리보기", exact: true }));
   const preview = dialog.querySelector(".approval-template-live-preview");
+  assert.ok(preview);
   fireEvent.change(screen.getByPlaceholderText("검색어 입력"), { target: { value: "크기" } });
   // CSS resize is a browser gesture. These are the inline dimensions it produces.
   dialog.style.width = "1000px";
@@ -387,8 +421,8 @@ for (const code of ["EQUIPMENT_PROPOSAL", "MOLD_FIXTURE_PROPOSAL"]) {
     const peUser = { ...user, deptName: "생산기술", roleCode: "USER" as const };
     const peEmployee = { ...employee, deptName: "생산기술" };
     const manager = { ...employee, empId: 41, deptName: "생산기술", roleCode: "MANAGER", positionName: "팀장" };
-    const purchaser = { ...employee, empId: 42, deptName: "구매", loginId: "purchase-test" };
-    const staff = [peEmployee, manager, purchaser];
+    const purchaser = { ...employee, empId: 42, deptName: "구매", loginId: "e4019" };
+    const staff = [peEmployee, manager, { ...purchaser, empId: 40, loginId: "another-purchaser" }, purchaser];
     const peContext = { ...context, user: peUser, employees: staff };
     const option = template(code);
     let latest = createApprovalForm(option, peUser, staff, null);
@@ -424,3 +458,235 @@ test("equipment compose and preview share the compact layout without changing th
   assert.ok(!view.container.querySelector(".equipment-request-fields"));
   assert.ok(view.container.querySelector(".mold-fixture-form"));
 });
+
+const approvalInfoStaff = [employee, ...[8, 9, 10, 11, 12].map((empId) => ({ ...employee, empId, empName: `직원${empId}` }))];
+const approvalInfoSelection: ApprovalLineSelection = {
+  agreementEmpIds: [8], approverEmpIds: [9], receiverEmpIds: [10], referenceEmpIds: [11], readerEmpIds: [12]
+};
+
+function mockApprovalLineStore(initial: ApprovalDefaultLineApi[] = []) {
+  let lines = initial;
+  const writes: { method: string; payload: any }[] = [];
+  mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    assert.ok(url.includes("/approval-default-lines/me"), "This fixture must only call the mocked personal-line API");
+    const method = init?.method ?? "GET";
+    const payload = init?.body ? JSON.parse(String(init.body)) : null;
+    if (method !== "GET") writes.push({ method, payload });
+    if (method === "PUT") {
+      const saved = { defaultLineId: 101, lineName: payload.lineName, defaultType: "PERSONAL", source: "PERSONAL", templateCode: null, steps: payload.steps } as ApprovalDefaultLineApi;
+      lines = [...lines, saved];
+      return Response.json({ success: true, data: saved });
+    }
+    if (method === "PATCH") lines = lines.map((line) => ({ ...line, lineName: payload.lineName }));
+    if (method === "DELETE") lines = [];
+    return Response.json({ success: true, data: method === "GET" ? lines : null });
+  });
+  return writes;
+}
+
+test("shared approval info saves and reloads reusable roles without receivers, and renames and deletes personal lines through the personal-line API", async () => {
+  const writes = mockApprovalLineStore();
+  const names = ["공통 결재선", "변경된 결재선"];
+  mock.method(window, "prompt", () => names.shift() ?? "");
+  mock.method(window, "confirm", () => true);
+  let closed = false;
+  function Editor() {
+    const [selection, setSelection] = useState(approvalInfoSelection);
+    const [error, setError] = useState("");
+    const [message, setMessage] = useState("");
+    const library = useApprovalLineLibrary({ selection, onApply: setSelection, setApprovalError: setError, setDefaultLineMessage: setMessage });
+    useEffect(() => { void library.loadSavedApprovalLines(); }, [library.loadSavedApprovalLines]);
+    return <section className="approval-editor approval-editor-leave"><ApprovalInfoModal open user={user} employees={approvalInfoStaff}
+      selection={selection} onChange={setSelection} library={library} error={error} message={message} maxReceivers={1} onClose={() => { closed = true; }} /></section>;
+  }
+  const view = render(<Editor />);
+  const dialog = screen.getByRole("dialog", { name: "결재 정보" });
+  const controls = within(dialog);
+  assert.equal(view.container.contains(dialog), false, "Document layout must not contain the dialog");
+  for (const title of ["합의자", "결재자", "수신자", "참조자"]) assert.ok(controls.getByRole("heading", { name: title }));
+  fireEvent.click(controls.getByRole("button", { name: "결재선 저장" }));
+  await controls.findByRole("option", { name: "공통 결재선" });
+  assert.deepEqual(writes[0], { method: "PUT", payload: defaultLinePayload(approvalInfoSelection, "공통 결재선", false) });
+  fireEvent.click(controls.getByRole("button", { name: "직원9 삭제" }));
+  fireEvent.click(controls.getByRole("button", { name: "결재선 저장" }));
+  assert.match(controls.getByRole("alert").textContent ?? "", /결재자를 1명 이상/);
+  assert.equal(writes.length, 1);
+  fireEvent.click(controls.getByRole("button", { name: "불러오기" }));
+  assert.ok(controls.getByRole("button", { name: "직원9 삭제" }));
+  assert.equal(controls.queryByRole("alert"), null);
+  fireEvent.click(controls.getByRole("button", { name: "이름 변경" }));
+  await controls.findByRole("option", { name: "변경된 결재선" });
+  assert.deepEqual(writes[1], { method: "PATCH", payload: { lineName: "변경된 결재선" } });
+  fireEvent.click(controls.getByRole("button", { name: "삭제", exact: true }));
+  await controls.findByRole("option", { name: "저장된 결재선 없음" });
+  assert.equal(writes[2].method, "DELETE");
+  assert.equal((controls.getByRole("button", { name: "불러오기" }) as HTMLButtonElement).disabled, true);
+  fireEvent.click(controls.getByRole("button", { name: "적용", exact: true }));
+  assert.equal(closed, true);
+});
+
+for (const [code, Detail] of [["TRAINING_REQUEST", TrainingRequestDetailView], ["TRAINING_REPORT", TrainingReportDetailView]] as const) {
+  test(`${code}: receiver approval uses the common line library while applying only agreement and approval roles`, async () => {
+    const saved = { defaultLineId: 101, defaultType: "PERSONAL", source: "PERSONAL", templateCode: null,
+      ...defaultLinePayload(approvalInfoSelection, "공통 결재선") } as ApprovalDefaultLineApi;
+    mockApprovalLineStore([saved]);
+    const approval = { approvalId: 1, templateCode: code, title: "교육 결재 테스트", status: "IN_PROGRESS", currentStage: "RECEIVER_PROGRESS",
+      requesterName: "작성 직원", content: "", formDataJson: JSON.stringify({ fields: {} }),
+      lines: [{ lineId: 1, lineOrder: 1, lineType: "RECEIVER", assignedEmpId: user.empId, approverEmpId: user.empId,
+        approverName: user.empName, status: "RECEIVED" }] } as Approval;
+    let submitted: number[][] | undefined;
+    const view = render(<Detail user={user} employees={approvalInfoStaff} approval={approval}
+      onSubmitTrainingApprovalLine={(agreements, approvers) => { submitted = [agreements, approvers]; }} />);
+    fireEvent.click(screen.getByRole("button", { name: "결재 정보", exact: true }));
+    const dialog = screen.getByRole("dialog", { name: "결재 정보" });
+    const controls = within(dialog);
+    assert.equal(view.container.contains(dialog), false);
+    await controls.findByRole("option", { name: "공통 결재선" });
+    for (const name of ["결재선 저장", "불러오기", "이름 변경", "삭제"]) assert.ok(controls.getByRole("button", { name, exact: true }));
+    assert.equal(controls.queryByRole("heading", { name: "수신자" }), null);
+    assert.equal(controls.queryByRole("heading", { name: "참조자" }), null);
+    fireEvent.click(controls.getByRole("button", { name: "불러오기" }));
+    assert.ok(controls.getByRole("button", { name: "직원8 삭제" }));
+    assert.ok(controls.getByRole("button", { name: "직원9 삭제" }));
+    fireEvent.click(controls.getByRole("button", { name: "적용", exact: true }));
+    assert.equal(screen.queryByRole("dialog", { name: "결재 정보" }), null);
+    fireEvent.click(screen.getByRole("button", { name: "주관부서 결재 상신", exact: true }));
+    assert.deepEqual(submitted, [[8], [9]]);
+  });
+}
+
+
+test("purchase receiver loads a common approval line and submits it without exposing document signatures", async () => {
+  const saved = { defaultLineId: 101, defaultType: "PERSONAL", source: "PERSONAL", templateCode: null,
+    ...defaultLinePayload(approvalInfoSelection, "구매팀 결재선") } as ApprovalDefaultLineApi;
+  mockApprovalLineStore([saved]);
+  const approval = { approvalId: 81, templateCode: "PURCHASE", title: "안전장갑 구매", status: "IN_PROGRESS", currentStage: "RECEIVER_PROGRESS",
+    requesterName: "작성 직원", content: "", formDataJson: JSON.stringify({ fields: { requiredDate: "2026-09-10" } }),
+    lines: [{ lineId: 1, lineOrder: 1, lineType: "RECEIVER", assignedEmpId: user.empId, approverEmpId: user.empId,
+      approverName: user.empName, status: "RECEIVED" }] } as Approval;
+  let submitted: number[][] | undefined;
+  let deliveryDate: string | undefined;
+  const view = render(<PurchaseRequestDetailView user={user} employees={approvalInfoStaff} approval={approval}
+    onSaveDeliveryDate={(value) => { deliveryDate = value; }}
+    onSubmitPurchaseApprovalLine={(agreements, approvers) => { submitted = [agreements, approvers]; }} />);
+  assert.equal(view.container.querySelector(".purchase-paper-stamp-head, .approval-lines"), null);
+  assert.equal((screen.getByRole("button", { name: "구매팀 결재 상신" }) as HTMLButtonElement).disabled, true);
+  fireEvent.change(screen.getByLabelText("입고일"), { target: { value: "2026-09-12" } });
+  fireEvent.click(screen.getByRole("button", { name: "입고일 저장" }));
+  assert.equal(deliveryDate, "2026-09-12");
+  fireEvent.click(screen.getByRole("button", { name: "결재 정보", exact: true }));
+  const dialog = screen.getByRole("dialog", { name: "결재 정보" });
+  assert.equal(view.container.contains(dialog), false);
+  const controls = within(dialog);
+  await controls.findByRole("option", { name: "구매팀 결재선" });
+  fireEvent.click(controls.getByRole("button", { name: "불러오기" }));
+  assert.equal(controls.queryByRole("heading", { name: "수신자" }), null);
+  fireEvent.click(controls.getByRole("button", { name: "적용", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "구매팀 결재 상신" }));
+  assert.deepEqual(submitted, [[8], [9]]);
+  view.rerender(<PurchaseRequestDetailView user={{ ...user, empId: 99 }} employees={approvalInfoStaff} approval={approval} />);
+  assert.equal(screen.queryByRole("button", { name: "입고일 저장" }), null);
+  assert.equal(screen.queryByRole("button", { name: "결재 정보", exact: true }), null);
+});
+
+
+test("legacy personal lines preserve each document's receiver, including manually cleared receivers", async () => {
+  const saved = { defaultLineId: 101, source: "PERSONAL", defaultType: "PERSONAL", templateCode: null,
+    ...defaultLinePayload(approvalInfoSelection, "기존 공통 결재선") } as ApprovalDefaultLineApi;
+  const writes = mockApprovalLineStore([saved]);
+  const view = renderHook(() => {
+    const [selection, setSelection] = useState<ApprovalLineSelection>({ ...approvalInfoSelection, receiverEmpIds: [128] });
+    const library = useApprovalLineLibrary({ selection, onApply: setSelection, setApprovalError: () => {}, setDefaultLineMessage: () => {} });
+    return { selection, setSelection, library };
+  });
+  await act(async () => { await view.result.current.library.loadSavedApprovalLines(); });
+  // Purchase, education, a manually assigned document, and a cleared field reuse the same line.
+  for (const receiverEmpIds of [[128], [153], [12], []]) {
+    act(() => view.result.current.setSelection({ ...approvalInfoSelection, agreementEmpIds: [], approverEmpIds: [], receiverEmpIds }));
+    act(() => view.result.current.library.applySavedApprovalLine());
+    assert.deepEqual(view.result.current.selection.receiverEmpIds, receiverEmpIds);
+    assert.deepEqual(view.result.current.selection.agreementEmpIds, [8]);
+    assert.deepEqual(view.result.current.selection.approverEmpIds, [9]);
+  }
+  assert.equal(writes.length, 0, "Legacy stored lines and documents must not be rewritten");
+});
+
+test("automatic personal defaults retain document receivers, while template-specific defaults can supply them", async () => {
+  const purchaser = { ...employee, empId: 128, empName: "김재근", loginId: "e4019", deptName: "구매" };
+  const hr = { ...employee, empId: 153, empName: "허인성", loginId: "e7016", deptName: "인사총무" };
+  const staff = [employee, ...approvalInfoStaff.slice(1), purchaser, hr];
+  let sourceType: ApprovalDefaultLineApi["source"] = "PERSONAL";
+  mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    assert.equal(init?.method ?? "GET", "GET", "Default loading must only read");
+    const url = String(input);
+    let data: unknown = [];
+    if (url.includes("/emps?")) data = { content: staff, totalPages: 1 };
+    else if (url.includes("/approvals?")) data = { content: [], totalElements: 0 };
+    else if (url.includes("/approval-operation-settings")) data = { leaveDefaultReceiverEmpId: 10 };
+    else if (url.includes("/approval-default-lines/effective")) data = { source: sourceType, steps: defaultLinePayload(approvalInfoSelection).steps };
+    return Response.json({ success: true, data });
+  });
+  const view = renderHook(() => useApprovalPageController({ user, launch: null, target: null }));
+  await waitFor(() => {
+    assert.equal(view.result.current.employees.length, staff.length);
+    assert.equal(view.result.current.operationSettings?.leaveDefaultReceiverEmpId, 10);
+  });
+  for (const [code, expected] of [["PURCHASE", [128]], ["TRAINING_REQUEST", [153]], ["LEAVE", [10]], ["DRAFT", [153]], ["WORK_REQUEST", [153]], ["WORK_REQUEST_CHANGE", [153]], ["CONSULT", []]] as const) {
+    act(() => view.result.current.setForm(createApprovalForm(template(code), user, staff, null, 10)));
+    await act(async () => { await view.result.current.applyDefaultLine(code); });
+    assert.deepEqual(view.result.current.form.receiverEmpIds, [...expected], code);
+  }
+  act(() => view.result.current.setForm({ ...view.result.current.form, receiverEmpIds: [12] }));
+  await act(async () => { await view.result.current.applyDefaultLine("CONSULT"); });
+  assert.deepEqual(view.result.current.form.receiverEmpIds, [12], "A manually selected receiver survives automatic personal defaults");
+  sourceType = "TEMPLATE";
+  await act(async () => { await view.result.current.applyDefaultLine("CONSULT"); });
+  assert.deepEqual(view.result.current.form.receiverEmpIds, [10], "Template-specific receiver configuration remains supported");
+  sourceType = "PERSONAL";
+  act(() => {
+    view.result.current.setEmployees(staff.filter(person => person.empId !== 128));
+    view.result.current.setForm(createApprovalForm(template("PURCHASE"), user, [], null));
+  });
+  await act(async () => { await view.result.current.applyDefaultLine("PURCHASE"); });
+  assert.deepEqual(view.result.current.form.receiverEmpIds, [], "Missing purchase defaults must never adopt the previous form's receiver");
+});
+
+
+for (const code of ["EQUIPMENT_PROPOSAL", "MOLD_FIXTURE_PROPOSAL", "DRAFT", "WORK_REQUEST", "WORK_REQUEST_CHANGE"]) {
+  test(code + ": default receivers agree across creation, template switching and draft payloads", async () => {
+    const peUser = { ...user, deptName: "생산기술" };
+    const staff = [
+      { ...employee, deptName: "생산기술" },
+      { ...employee, empId: 93, loginId: "another-purchaser", deptName: "구매" },
+      { ...employee, empId: 128, loginId: "e4019", empName: "김재근", deptName: "구매" },
+      { ...employee, empId: 153, loginId: "e7016", empName: "허인성", deptName: "인사총무" }
+    ];
+    const option = template(code);
+    const expected = code.includes("PROPOSAL") ? [128] : [153];
+    const form = createApprovalForm(option, peUser, staff, null);
+    assert.deepEqual(form.receiverEmpIds, expected);
+    const setForm = mock.fn();
+    let error = "";
+    const noop = () => {};
+    const baseController = {
+      templates: [option, template("PURCHASE")], employees: staff, leaveUsage: null, pendingFiles: [], mode: "create", selected: null,
+      setForm, setDefaultLineMessage: noop, applyDefaultLine: noop,
+      setApprovalError: (message: string) => { error = message; }, setPendingFiles: noop, setSelected: noop,
+      setMode: noop, setBox: noop, refreshEquipmentProposal: async () => {}, load: async () => {}
+    };
+    createApprovalDocumentActions(peUser, { ...baseController, form: createApprovalForm(template("PURCHASE"), peUser, staff, null) } as unknown as Parameters<typeof createApprovalDocumentActions>[1]).changeTemplate(code);
+    assert.deepEqual((setForm.mock.calls[0].arguments[0] as ApprovalForm).receiverEmpIds, expected);
+    let payload: any;
+    mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      assert.ok(String(input).endsWith("/approvals/drafts"));
+      assert.equal(init?.method, "POST");
+      payload = JSON.parse(String(init?.body));
+      return Response.json({ success: true, data: { approvalId: 900, templateCode: code } });
+    });
+    await createApprovalDocumentActions(peUser, { ...baseController, form } as unknown as Parameters<typeof createApprovalDocumentActions>[1]).save(false);
+    assert.equal(error, "");
+    assert.deepEqual(payload.receiverEmpIds, expected);
+    assert.deepEqual(JSON.parse(payload.formDataJson).receiverEmpIds, expected);
+  });
+}

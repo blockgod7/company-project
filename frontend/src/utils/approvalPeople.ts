@@ -11,7 +11,7 @@ import type {
   User
 } from "../types";
 import type { ApprovalForm, ApprovalTemplateAdminForm, ApprovalTemplateField, ApprovalTemplateOption } from "./approvalDomainCore";
-import { purchaseReceiverId } from "./approvalDomainCore";
+import { purchaseRequestReceiverId } from "./approvalDomainCore";
 export function employeeDisplay(employee?: Employee) {
   if (!employee) return "-";
   return `${employee.deptName ?? "-"} ${employee.empName}`;
@@ -80,7 +80,7 @@ export function isProductionEngineeringRequester(user: User, employees: Employee
 export function equipmentProposalReceiverId(user: User, employees: Employee[]) {
   if (!isProductionEngineeringRequester(user, employees)) return productionEngineeringManagerId(employees);
   const purchaseEmployees = employees.filter((employee) => ["구매", "구매팀"].includes(employee.deptName ?? ""));
-  return purchaseReceiverId(purchaseEmployees) ?? purchaseEmployees[0]?.empId ?? null;
+  return purchaseRequestReceiverId(purchaseEmployees);
 }
 
 export function isDeptManagerUser(user: User, employees: Employee[], deptName: string) {
@@ -95,7 +95,11 @@ export function isDeptManagerUser(user: User, employees: Employee[], deptName: s
       || employee?.positionName?.includes("팀장"));
 }
 
-export function defaultLinePayload(form: ApprovalForm, lineName = "내 기본 결재선", includeReceivers = true) {
+export type ApprovalLineSelection = Pick<ApprovalForm,
+  "agreementEmpIds" | "approverEmpIds" | "receiverEmpIds" | "referenceEmpIds" | "readerEmpIds"
+>;
+
+export function defaultLinePayload(form: ApprovalLineSelection, lineName = "내 기본 결재선", includeReceivers = true) {
   let order = 1;
   const steps = [
     ...form.agreementEmpIds.map((approverEmpId) => ({ stepOrder: order++, approverEmpId, lineType: "AGREEMENT", required: true })),

@@ -189,12 +189,8 @@
   min-width: 0;
 }
 .approval-search-panel {
-  display: grid;
-  grid-template-columns:
-    minmax(260px, 2fr)
-    repeat(3, minmax(120px, 1fr))
-    repeat(2, minmax(140px, 0.95fr))
-    max-content;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: end;
   border: 1px solid var(--line);
@@ -210,22 +206,31 @@
 }
 .approval-search-panel label {
   display: grid;
+  flex: 1 1 140px;
   gap: 5px;
   min-width: 0;
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
+.approval-search-panel label:first-child {
+  flex-basis: 260px;
+  flex-grow: 2;
+}
 .approval-search-panel input,
 .approval-search-panel select {
   width: 100%;
+  min-width: 0;
   min-height: 36px;
 }
 .approval-search-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
   min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
   white-space: nowrap;
 }
 .approval-search-actions button {
@@ -243,6 +248,7 @@
 }
 @media (max-width: 1280px) {
   .approval-search-panel {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .approval-search-panel label:first-child,
@@ -251,6 +257,7 @@
   }
   .approval-search-actions {
     justify-content: flex-start;
+    margin-left: 0;
   }
 }
 @media (max-width: 640px) {

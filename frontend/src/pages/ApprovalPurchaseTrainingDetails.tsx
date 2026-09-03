@@ -1,3 +1,7 @@
+import { PurchaseDocumentOverview, PurchaseDocumentFields } from "./ApprovalPurchaseParts";
+import { ApprovalInfoModal } from "./ApprovalInfoModal";
+import { useApprovalLineLibrary } from "./useApprovalLineLibrary";
+import type { ApprovalLineSelection } from "../utils/approvalPeople";
 import { TrainingDocumentOverview, TrainingDocumentFields } from "./ApprovalTrainingParts";
 import {
   ArrowDown,
@@ -233,11 +237,7 @@ function fieldText(value: unknown) {
 }
 
 export function PurchaseRequestDetailView({
-  user,
-  employees,
-  approval,
-  onSaveDeliveryDate,
-  onSubmitPurchaseApprovalLine
+  user, employees, approval, onSaveDeliveryDate, onSubmitPurchaseApprovalLine
 }: {
   user: User;
   employees: Employee[];
@@ -253,114 +253,49 @@ export function PurchaseRequestDetailView({
     requestDate: draftData.fieldValues.requestDate || (approval.requestedAt ?? "").slice(0, 10),
     receiptDate: draftData.fieldValues.receiptDate || purchaseReceiptDate(approval.lines).slice(0, 10)
   };
-  const items = parsePurchaseItems(fields).filter((item) => Object.values(item).some((value) => value.trim()));
   const receiverLine = approval.lines.find((line) => line.lineType === "RECEIVER" && (line.assignedEmpId ?? line.approverEmpId) === user.empId);
   const purchaseReceiverStage = approval.status === "IN_PROGRESS" && approval.currentStage === "RECEIVER_PROGRESS";
   const canEditDeliveryDate = (approval.status === "APPROVED" || purchaseReceiverStage) && !!receiverLine;
-  const canSubmitPurchaseApproval = purchaseReceiverStage
-    && !!receiverLine
-    && (receiverLine.status === "RECEIVED" || receiverLine.status === "READ");
+  const canSubmitPurchaseApproval = purchaseReceiverStage && !!receiverLine && (receiverLine.status === "RECEIVED" || receiverLine.status === "READ");
   const [deliveryDate, setDeliveryDate] = useState(fields.deliveryDate ?? "");
   const [purchaseAgreementEmpIds, setPurchaseAgreementEmpIds] = useState<number[]>([]);
   const [purchaseApproverEmpIds, setPurchaseApproverEmpIds] = useState<number[]>([]);
-  const purchaseApprovalPreviewColumns = canSubmitPurchaseApproval
-    ? [
-        ...purchaseStampColumnsFromEmployees(employees, purchaseAgreementEmpIds, "agreement"),
-        ...purchaseStampColumnsFromEmployees(employees, purchaseApproverEmpIds, "approval")
-      ]
-    : [];
+  const [purchaseApprovalInfoOpen, setPurchaseApprovalInfoOpen] = useState(false);
 
   useEffect(() => {
     setDeliveryDate(fields.deliveryDate ?? "");
   }, [approval.approvalId, fields.deliveryDate]);
+  useEffect(() => {
+    setPurchaseAgreementEmpIds([]);
+    setPurchaseApproverEmpIds([]);
+    setPurchaseApprovalInfoOpen(false);
+  }, [approval.approvalId]);
 
-  return (
-    <article className="approval-detail purchase-request-detail">
-      <section className="approval-detail-section">
-        <h3>구매요구서</h3>
-        <dl className="approval-meta-grid">
-          <dt>문서번호</dt><dd>{approval.documentNo ?? "상신 후 자동 생성"}</dd>
-          <dt>문서상태</dt><dd>{statusLabel(approval.status)}</dd>
-          <dt>수신상태</dt><dd>{receiverProgress(approval.lines)}</dd>
-          <dt>기안자</dt><dd>{approval.requesterName}</dd>
-        </dl>
-      </section>
-      {canSubmitPurchaseApproval && (
-        <section className="approval-detail-section purchase-approval-submit-section">
-          <div className="panel-head">
-            <div>
-              <h3>구매팀 결재 상신</h3>
-              <p className="muted-text">구매팀 내부 결재라인을 지정해 상신하면 해당 결재 완료 후 문서가 최종 완료됩니다.</p>
-            </div>
-            <button type="button" onClick={() => onSubmitPurchaseApprovalLine?.(purchaseAgreementEmpIds, purchaseApproverEmpIds)}><Check size={16} /> 구매팀 결재 상신</button>
-          </div>
-          <div className="line-picker-grid">
-            <EmployeeMultiPicker
-              title="구매팀 합의자"
-              user={user}
-              employees={employees}
-              selectedIds={purchaseAgreementEmpIds}
-              disabledIds={[user.empId, ...purchaseApproverEmpIds]}
-              onChange={setPurchaseAgreementEmpIds}
-            />
-            <EmployeeMultiPicker
-              title="구매팀 결재자"
-              user={user}
-              employees={employees}
-              selectedIds={purchaseApproverEmpIds}
-              disabledIds={[user.empId, ...purchaseAgreementEmpIds]}
-              ordered
-              onChange={setPurchaseApproverEmpIds}
-            />
-          </div>
-        </section>
-      )}
-      <section className="purchase-paper read-only">
-        <PurchaseApprovalStampHeader approval={approval} receiverApprovalPreviewColumns={purchaseApprovalPreviewColumns} />
-        <div className="purchase-meta-grid">
-          <label><span>부서명</span><input readOnly value={fields.requestDeptName ?? ""} /></label>
-          <label><span>성명</span><input readOnly value={fields.requesterName ?? ""} /></label>
-          <label><span>청구일</span><input readOnly value={fields.requestDate ?? ""} /></label>
-          <label><span>요구일</span><input readOnly value={fields.requiredDate ?? ""} /></label>
-          <label><span>접수일</span><input readOnly value={fields.receiptDate || "-"} /></label>
-          <label><span>입고일</span><input type="date" readOnly={!canEditDeliveryDate} value={deliveryDate} onChange={(event) => setDeliveryDate(event.target.value)} /></label>
-        </div>
-        {canEditDeliveryDate && (
-          <div className="purchase-delivery-actions">
-            <button type="button" onClick={() => onSaveDeliveryDate?.(deliveryDate)}><Save size={16} /> 입고일 저장</button>
-          </div>
-        )}
-        <div className="purchase-item-table">
-          <div className="purchase-item-row purchase-item-header">
-            <span>품명</span><span>규격</span><span>수량</span><span>용도</span><span></span>
-          </div>
-          {(items.length ? items : [blankPurchaseItem()]).map((item, index) => (
-            <div className="purchase-item-row" key={index}>
-              <span>{item.itemName || "-"}</span>
-              <span>{item.spec || "-"}</span>
-              <span>{item.quantity || "-"}</span>
-              <span>{item.usage || "-"}</span>
-              <span></span>
-            </div>
-          ))}
-        </div>
-        <div className="purchase-bu-section">
-          <div className="purchase-items-head"><strong>BU 비용분할</strong><span className="bu-total ok">합계 {purchaseBuTotal(fields)}%</span></div>
-          <div className="purchase-bu-grid">
-            {PURCHASE_BU_CODES.map((code) => (
-              <label key={code}><span>{code}</span><input readOnly value={fields[`bu_${code}`] || "0"} /></label>
-            ))}
-          </div>
-        </div>
-      </section>
-      <ApprovalLineSection title="합의자" lines={approval.lines.filter((line) => line.lineType === "AGREEMENT")} />
-      <ApprovalLineSection title="결재자" lines={approval.lines.filter((line) => line.lineType === "APPROVAL")} />
-      <ApprovalLineSection title="수신자" lines={approval.lines.filter((line) => line.lineType === "RECEIVER")} />
-      <ApprovalLineSection title="참조자" lines={approval.lines.filter((line) => line.lineType === "REFERENCE")} />
-      <ApprovalLineSection title="열람자" lines={approval.lines.filter((line) => line.lineType === "READER")} />
-      <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
-    </article>
-  );
+  return <article className="approval-detail purchase-request-detail purchase-web-detail">
+    <PurchaseDocumentOverview values={fields} actions={canSubmitPurchaseApproval ? (
+      <div className="actions approval-editor-actions">
+        <button type="button" className="ghost" onClick={() => setPurchaseApprovalInfoOpen(true)}><Edit3 size={16} /> 결재 정보</button>
+        <button type="button" className="purchase-approval-submit" disabled={!purchaseApproverEmpIds.length}
+          title={!purchaseApproverEmpIds.length ? "결재 정보에서 결재자를 한 명 이상 지정해 주세요." : undefined}
+          onClick={() => onSubmitPurchaseApprovalLine?.(purchaseAgreementEmpIds, purchaseApproverEmpIds)}><Check size={16} /> 구매팀 결재 상신</button>
+      </div>
+    ) : undefined}>
+      <div className="purchase-document-status">
+        <span>문서번호<strong>{approval.documentNo ?? "상신 후 자동 생성"}</strong></span>
+        <span>문서상태<strong>{statusLabel(approval.status)}</strong></span>
+        <span>수신상태<strong>{receiverProgress(approval.lines)}</strong></span>
+      </div>
+    </PurchaseDocumentOverview>
+    <ReceiverApprovalInfoModal open={canSubmitPurchaseApproval && purchaseApprovalInfoOpen}
+      user={user} employees={employees} agreementEmpIds={purchaseAgreementEmpIds} approverEmpIds={purchaseApproverEmpIds}
+      onAgreementChange={setPurchaseAgreementEmpIds} onApproverChange={setPurchaseApproverEmpIds}
+      description="구매팀 내부 결재선입니다. 합의자와 결재자를 지정한 뒤 적용하세요."
+      onClose={() => setPurchaseApprovalInfoOpen(false)} />
+    <PurchaseDocumentFields values={{ ...fields, deliveryDate }} title={approval.title}
+      onDeliveryDateChange={canEditDeliveryDate ? setDeliveryDate : undefined}
+      onSaveDeliveryDate={canEditDeliveryDate ? () => onSaveDeliveryDate?.(deliveryDate) : undefined} />
+    <ApprovalOpinionList lines={approval.lines.filter((line) => line.lineType === "AGREEMENT" || line.lineType === "APPROVAL")} />
+  </article>;
 }
 
 export function TrainingRequestDetailView({
@@ -423,7 +358,7 @@ export function TrainingRequestDetailView({
           <div><span>수신상태</span><strong>{receiverProgress(approval.lines)}</strong></div>
         </div>
       </TrainingDocumentOverview>
-      <TrainingReceiverApprovalModal
+      <ReceiverApprovalInfoModal
         open={canSubmitTrainingApproval && trainingApprovalInfoOpen}
         user={user}
         employees={employees}
@@ -506,7 +441,7 @@ export function TrainingReportDetailView({
           <div><span>수신상태</span><strong>{receiverProgress(approval.lines)}</strong></div>
         </div>
       </TrainingDocumentOverview>
-      <TrainingReceiverApprovalModal
+      <ReceiverApprovalInfoModal
         open={canSubmitTrainingApproval && trainingApprovalInfoOpen}
         user={user}
         employees={employees}
@@ -529,7 +464,7 @@ export function TrainingReportDetailView({
   );
 }
 
-function TrainingReceiverApprovalModal({
+function ReceiverApprovalInfoModal({
   open,
   user,
   employees,
@@ -537,6 +472,7 @@ function TrainingReceiverApprovalModal({
   approverEmpIds,
   onAgreementChange,
   onApproverChange,
+  description = "주관부서 결재선입니다. 합의자와 결재자를 지정한 뒤 적용하세요.",
   onClose
 }: {
   open: boolean;
@@ -546,46 +482,38 @@ function TrainingReceiverApprovalModal({
   approverEmpIds: number[];
   onAgreementChange: (ids: number[]) => void;
   onApproverChange: (ids: number[]) => void;
+  description?: string;
   onClose: () => void;
 }) {
-  if (!open) return null;
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <div className="org-picker-modal approval-info-modal training-approval-info-modal" role="dialog" aria-modal="true" aria-label="주관부서 결재 정보">
-        <div className="modal-head">
-          <h3>주관부서 결재 정보</h3>
-          <button type="button" className="icon-button" onClick={onClose} title="닫기"><X size={18} /></button>
-        </div>
-        <div className="approval-line-library">
-          <p className="muted-text">주관부서 결재선을 지정한 뒤 적용하세요. 결재자를 한 명 이상 지정하면 원 문서에서 상신할 수 있습니다.</p>
-        </div>
-        <div className="line-picker-grid">
-          <EmployeeMultiPicker
-            title="합의자"
-            user={user}
-            employees={employees}
-            selectedIds={agreementEmpIds}
-            disabledIds={[user.empId, ...approverEmpIds]}
-            cardLayout
-            onChange={onAgreementChange}
-          />
-          <EmployeeMultiPicker
-            title="결재자"
-            user={user}
-            employees={employees}
-            selectedIds={approverEmpIds}
-            disabledIds={[user.empId, ...agreementEmpIds]}
-            ordered
-            cardLayout
-            onChange={onApproverChange}
-          />
-        </div>
-        <div className="actions">
-          <button type="button" onClick={onClose}><Check size={16} /> 적용</button>
-        </div>
-      </div>
-    </div>
-  );
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const selection: ApprovalLineSelection = {
+    agreementEmpIds, approverEmpIds, receiverEmpIds: [], referenceEmpIds: [], readerEmpIds: []
+  };
+  const applySelection = (next: ApprovalLineSelection) => {
+    onAgreementChange(next.agreementEmpIds);
+    onApproverChange(next.approverEmpIds);
+  };
+  const library = useApprovalLineLibrary({
+    selection, onApply: applySelection, setApprovalError: setError, setDefaultLineMessage: setMessage
+  });
+  useEffect(() => {
+    if (open) void library.loadSavedApprovalLines();
+  }, [open, library.loadSavedApprovalLines]);
+
+  return <ApprovalInfoModal
+    open={open}
+    user={user}
+    employees={employees}
+    selection={selection}
+    onChange={applySelection}
+    library={library}
+    decisionOnly
+    description={description}
+    error={error}
+    message={message}
+    onClose={onClose}
+  />;
 }
 
 function ApprovalLineSection({ title, lines }: { title: string; lines: ApprovalLine[] }) {

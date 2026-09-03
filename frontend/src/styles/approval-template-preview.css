@@ -1,0 +1,89 @@
+/* Reflow at the preview pane's width; keep the form's normal font sizes. */
+.template-select-modal-v2 .template-select-layout,
+.template-choice-panel,
+.template-select-modal-v2 .template-preview {
+  min-width: 0;
+  min-height: 0;
+}
+.approval-template-live-preview {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  container: approval-template-preview / inline-size;
+}
+.approval-template-live-preview .approval-form-readonly > *,
+.approval-template-live-preview .purchase-paper > *,
+.approval-template-live-preview input,
+.approval-template-live-preview select,
+.approval-template-live-preview textarea {
+  min-width: 0;
+}
+.approval-template-live-preview .approval-document-web {
+  max-width: none;
+}
+.approval-template-live-preview .purchase-item-table,
+.approval-template-live-preview .purchase-bu-grid {
+  overflow-x: auto;
+}
+@container approval-template-preview (max-width: 900px) {
+  .approval-template-live-preview .leave-balance-grid,
+  .approval-template-live-preview .work-form-hero,
+  .approval-template-live-preview .approval-document-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container approval-template-preview (max-width: 1235px) {
+  .approval-template-live-preview .work-form-row-grid.request {
+    grid-template-columns: 28px repeat(6, minmax(0, 1fr)) 30px;
+    grid-template-areas:
+      "index worker worker content content content content remove"
+      ". type type type type comp comp ."
+      ". start start start end end end .";
+  }
+  .approval-template-live-preview .work-form-row-grid.request .work-form-entry-number { grid-area: index; }
+  .approval-template-live-preview .work-form-row-grid.request .work-form-worker { grid-area: worker; }
+  .approval-template-live-preview .work-form-row-grid.request .work-form-content-field { grid-area: content; }
+  .approval-template-live-preview .work-form-row-grid.request .work-type-selector { grid-area: type; }
+  .approval-template-live-preview .work-form-row-grid.request .work-form-comp-time { grid-area: comp; }
+  .approval-template-live-preview .work-form-row-grid.request .work-form-time-start { grid-area: start; }
+  .approval-template-live-preview .work-form-row-grid.request .work-form-time-end { grid-area: end; }
+  .approval-template-live-preview .work-form-row-grid.request > .icon-button { grid-area: remove; }
+}
+@container approval-template-preview (max-width: 700px) {
+  .approval-template-live-preview .approval-document-meta,
+  .approval-template-live-preview .work-form-applicant {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .approval-template-live-preview .leave-details-grid,
+  .approval-template-live-preview .purchase-paper-stamp-head,
+  .approval-template-live-preview .purchase-paper-title-with-stamp,
+  .approval-template-live-preview .purchase-meta-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .approval-template-live-preview .leave-details-grid .wide { grid-column: auto; }
+  .approval-template-live-preview .leave-section-title,
+  .approval-template-live-preview .leave-comp-time-summary { flex-wrap: wrap; }
+}
+@container approval-template-preview (max-width: 520px) {
+  .approval-template-live-preview .approval-document-meta,
+  .approval-template-live-preview .work-form-applicant,
+  .approval-template-live-preview .leave-applicant-row,
+  .approval-template-live-preview .leave-metrics,
+  .approval-template-live-preview .approval-form-grid,
+  .approval-template-live-preview .template-field-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .approval-template-live-preview .approval-form-grid .wide,
+  .approval-template-live-preview .template-field-grid .wide { grid-column: auto; }
+  .approval-template-live-preview .approval-document-section-head { flex-direction: column; }
+  .approval-template-live-preview .work-form-row-grid.request {
+    grid-template-columns: 30px minmax(0, 1fr) 34px;
+    grid-template-areas:
+      "index worker remove"
+      "content content content"
+      "type type type"
+      "comp comp comp"
+      "start start start"
+      "end end end";
+  }
+}

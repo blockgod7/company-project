@@ -5,6 +5,7 @@
     "build": "tsc -b && vite build",
     "test:rich-text": "node --import tsx --test tests/rich-text.test.tsx tests/board-rich-text.test.tsx",
     "test:approval-preview": "node --import ./tests/approval-preview-assets.mjs --import tsx --test tests/approval-preview.test.tsx",
+    "test:search": "node --import ./tests/approval-preview-assets.mjs --import tsx --test tests/global-search.test.tsx",
     "test:account": "node --import ./tests/approval-preview-assets.mjs --import tsx --test tests/account-settings.test.tsx",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",

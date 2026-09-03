@@ -1,3 +1,4 @@
+import { ApprovalInfoModal } from "./ApprovalInfoModal";
 import {
   ArrowDown,
   ArrowUp,
@@ -265,10 +266,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
     setApprovalError,
     defaultLineMessage,
     setDefaultLineMessage,
-    savedApprovalLines,
-    setSavedApprovalLines,
-    selectedSavedLineId,
-    setSelectedSavedLineId,
+    approvalLineLibrary,
     approvalInfoOpen,
     setApprovalInfoOpen,
     templateAdminMessage,
@@ -308,15 +306,9 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
     loadHolidays,
     loadLeavePolicies,
     loadActiveTemplates,
-    loadSavedApprovalLines,
     loadAdminTemplates,
     loadTemplateDefaultLine,
     applyDefaultLine,
-    savePersonalDefaultLine,
-    saveNamedApprovalLine,
-    applySavedApprovalLine,
-    renameSavedApprovalLine,
-    deleteSavedApprovalLine,
     rememberSubmittedApprovalLine,
     selectAdminTemplate,
     newAdminTemplate,
@@ -406,8 +398,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
   const formContext = { user, employees, leaveUsage, compTimeSummary, holidays, leaveTypeOptions };
   const approvalEditorActions = (
     <div className="actions approval-editor-actions">
-      <button type="button" className="ghost" onClick={() => setApprovalInfoOpen(true)}><Edit3 size={16} /> {isLeaveRequestForm || isLeaveCancelForm ? "결재 정보 수정" : "결재 정보"}</button>
-      <button type="button" className="ghost" title="개인 기본 결재선 저장" onClick={() => void savePersonalDefaultLine()}><Save size={16} /> 기본 결재선 저장</button>
+      <button type="button" className="ghost" onClick={() => setApprovalInfoOpen(true)}><Edit3 size={16} /> 결재 정보</button>
       <button type="button" className="ghost" onClick={() => void save(false)}><Save size={16} /> 임시저장</button>
       <button type="button" className="ghost" onClick={() => setLeavePreviewOpen(true)}><Eye size={16} /> 미리보기</button>
       <button type="button" className="approval-submit-action" disabled={leaveOverbooked} title={leaveOverbooked ? "결재 중 휴가를 포함하면 연차를 초과합니다." : undefined} onClick={() => void save(true)}><Check size={16} /> 상신</button>
@@ -454,13 +445,11 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
           />
         </label>
         <label>
-          <span>상태</span>
+          <span>처리 결과</span>
           <select value={approvalSearch.status} onChange={(event) => void updateApprovalSearchFilter({ ...approvalSearch, status: event.target.value })}>
             <option value="">전체</option>
-            <option value="IN_PROGRESS">진행</option>
             <option value="APPROVED">승인완료</option>
             <option value="REJECTED">반려</option>
-            <option value="DRAFT">임시저장</option>
             <option value="WITHDRAWN">회수</option>
             <option value="CANCELED">취소</option>
           </select>
@@ -509,7 +498,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
           </div>
         </div>
       )}
-      {approvalError && <p className="error">{approvalError}</p>}
+      {approvalError && !approvalInfoOpen && <p className="error">{approvalError}</p>}
       {mode === "detail" && selected && (
         <div className={`approval-focus-bar approval-focus-${selected.status.toLowerCase()}`}>
           <div>
@@ -728,7 +717,7 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
       {(mode === "create" || mode === "edit") && (
         <DetailPage onBack={() => selected ? setMode("detail") : setMode("list")}>
           <div className={`editor approval-editor${isLeaveRequestForm || isLeaveCancelForm ? " approval-editor-leave" : ""}`}>
-            {!(isClassicDraftForm || isLeaveRequestForm || isLeaveCancelForm || isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm || isTrainingRequestForm || isTrainingReportForm || isEquipmentProposalForm) && (
+            {!(isClassicDraftForm || isPurchaseRequestForm || isLeaveRequestForm || isLeaveCancelForm || isWorkRequestForm || isEmergencyCallRequestForm || isWorkRequestChangeForm || isTrainingRequestForm || isTrainingReportForm || isEquipmentProposalForm) && (
               <div className="panel-head">
                 <div>
                   <h3>{mode === "edit" ? "전자결재 수정" : "전자결재 작성"}</h3>
@@ -737,37 +726,20 @@ export function ApprovalPage({ user, launch, target, portal }: { user: User; lau
                 {approvalEditorActions}
               </div>
             )}
-            {defaultLineMessage && <p className="template-note"><span>{defaultLineMessage}</span></p>}
-            {approvalInfoOpen && (
-              <div className="modal-backdrop" role="presentation">
-                <div className="org-picker-modal approval-info-modal" role="dialog" aria-modal="true" aria-label="결재 정보">
-                  <div className="modal-head">
-                    <h3>결재 정보</h3>
-                    <button type="button" className="icon-button" onClick={() => setApprovalInfoOpen(false)}><X size={18} /></button>
-                  </div>
-                  <div className="approval-line-library">
-                    <label>저장된 결재라인
-                      <select value={selectedSavedLineId} onChange={(event) => setSelectedSavedLineId(event.target.value)}>
-                        {savedApprovalLines.length
-                          ? savedApprovalLines.map((line) => <option key={line.defaultLineId ?? line.lineName} value={line.defaultLineId ?? ""}>{line.lineName}</option>)
-                          : <option value="">저장된 결재라인 없음</option>}
-                      </select>
-                    </label>
-                    <button type="button" className="ghost" onClick={applySavedApprovalLine} disabled={!savedApprovalLines.length}>불러오기</button>
-                    <button type="button" className="ghost" onClick={() => void renameSavedApprovalLine()} disabled={!savedApprovalLines.length}><Edit3 size={16} /> 이름 변경</button>
-                    <button type="button" className="danger" onClick={() => void deleteSavedApprovalLine()} disabled={!savedApprovalLines.length}><Trash2 size={16} /> 삭제</button>
-                    <button type="button" className="ghost" onClick={() => void saveNamedApprovalLine()}><Save size={16} /> 현재 결재라인 저장</button>
-                  </div>
-                  <div className="line-picker-grid">
-                    <EmployeeMultiPicker title="합의자" user={user} employees={employees} selectedIds={form.agreementEmpIds} disabledIds={[user.empId, ...form.approverEmpIds, ...form.receiverEmpIds]} cardLayout onChange={(agreementEmpIds) => setForm({ ...form, agreementEmpIds })} />
-                    <EmployeeMultiPicker title="결재자" user={user} employees={employees} selectedIds={form.approverEmpIds} disabledIds={[user.empId, ...form.agreementEmpIds, ...form.receiverEmpIds]} ordered cardLayout prependUser onChange={(approverEmpIds) => setForm({ ...form, approverEmpIds })} />
-                    <EmployeeMultiPicker title="수신자" user={user} employees={employees} selectedIds={form.receiverEmpIds} disabledIds={receiverConflictEmpIds} maxSelections={isLeaveTemplateCode(form.templateCode) || isLeaveCancelTemplateCode(form.templateCode) ? 1 : undefined} cardLayout onChange={(receiverEmpIds) => setForm({ ...form, receiverEmpIds })} />
-                    <EmployeeMultiPicker title="참조자" user={user} employees={employees} selectedIds={form.referenceEmpIds} disabledIds={form.receiverEmpIds} cardLayout onChange={(referenceEmpIds) => setForm({ ...form, referenceEmpIds })} />
-                  </div>
-                  <div className="actions"><button type="button" onClick={() => setApprovalInfoOpen(false)}>적용</button></div>
-                </div>
-              </div>
-            )}
+            {defaultLineMessage && !approvalInfoOpen && <p className="template-note"><span>{defaultLineMessage}</span></p>}
+            <ApprovalInfoModal
+              open={approvalInfoOpen}
+              user={user}
+              employees={employees}
+              selection={form}
+              onChange={(selection) => setForm((current) => ({ ...current, ...selection }))}
+              receiverDisabledIds={receiverConflictEmpIds}
+              maxReceivers={isLeaveTemplateCode(form.templateCode) || isLeaveCancelTemplateCode(form.templateCode) ? 1 : undefined}
+              library={approvalLineLibrary}
+              error={approvalError}
+              message={defaultLineMessage}
+              onClose={() => setApprovalInfoOpen(false)}
+            />
             <ApprovalFormBody
               {...formContext}
               form={form}

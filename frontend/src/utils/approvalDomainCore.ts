@@ -93,7 +93,9 @@ export type LeaveSelection = {
 };
 
 export const PURCHASE_RECEIVER_LOGIN_ID = "lim.purchase";
-export const TRAINING_RECEIVER_LOGIN_ID = "e7016";
+export const PURCHASE_REQUEST_RECEIVER_LOGIN_ID = "e4019";
+export const HR_RECEIVER_LOGIN_ID = "e7016";
+export const TRAINING_RECEIVER_LOGIN_ID = HR_RECEIVER_LOGIN_ID;
 export const PURCHASE_BU_CODES = ["BU1", "BU2", "BU3", "BU4", "BU5", "BU7", "BU9", "BU20", "EC", "BU60"] as const;
 
 export const DEFAULT_APPROVAL_TEMPLATES: ApprovalTemplateOption[] = [
@@ -328,6 +330,11 @@ export function isTrainingTemplateCode(templateCode: string | null | undefined) 
   return isTrainingRequestTemplateCode(templateCode) || isTrainingReportTemplateCode(templateCode);
 }
 
+export function isHrDefaultReceiverTemplateCode(templateCode: string | null | undefined) {
+  return isTrainingTemplateCode(templateCode) || isDraftTemplateCode(templateCode)
+    || isWorkRequestTemplateCode(templateCode) || isWorkRequestChangeTemplateCode(templateCode);
+}
+
 export function isReceiverRoutedTemplateCode(templateCode: string | null | undefined) {
   return isPurchaseTemplateCode(templateCode) || isTrainingTemplateCode(templateCode);
 }
@@ -467,12 +474,21 @@ export function purchaseDefaultFieldValues(user: User, employees: Employee[], cu
   };
 }
 
+// Purchase request default; PE self-requests use the same named recipient in the purchase department.
+export function purchaseRequestReceiverId(employees: Employee[]) {
+  return employees.find((employee) => employee.loginId === PURCHASE_REQUEST_RECEIVER_LOGIN_ID)?.empId ?? null;
+}
+
 export function purchaseReceiverId(employees: Employee[]) {
   return employees.find((employee) => employee.loginId === PURCHASE_RECEIVER_LOGIN_ID)?.empId ?? null;
 }
 
+export function hrReceiverId(employees: Employee[]) {
+  return employees.find((employee) => employee.loginId === HR_RECEIVER_LOGIN_ID)?.empId ?? null;
+}
+
 export function trainingReceiverId(employees: Employee[]) {
-  return employees.find((employee) => employee.loginId === TRAINING_RECEIVER_LOGIN_ID)?.empId ?? null;
+  return hrReceiverId(employees);
 }
 
 export function leaveReceiverId(employees: Employee[], configuredEmpId?: number | null) {

@@ -41,7 +41,7 @@ public class GlobalSearchService {
             .sorted(Comparator.comparingInt(GlobalSearchProvider::order))
             .forEach(provider -> {
                 try {
-                    GlobalSearchGroupResponse group = filterStatus(provider.search(normalized, safeLimit, currentEmp), normalizedStatus);
+                    GlobalSearchGroupResponse group = provider.search(normalized, safeLimit, currentEmp, normalizedStatus);
                     if (group.totalCount() > 0) groups.add(group);
                 } catch (RuntimeException exception) {
                     failedProviders.add(provider.code());
@@ -60,11 +60,4 @@ public class GlobalSearchService {
         return selected.isEmpty() ? DEFAULT_TYPES : Set.copyOf(selected);
     }
 
-    private GlobalSearchGroupResponse filterStatus(GlobalSearchGroupResponse group, String status) {
-        if (status == null || "ALL".equals(status)) return group;
-        List<GlobalSearchItemResponse> items = group.items().stream()
-            .filter(item -> item.badges().stream().anyMatch(badge -> status.equals(badge.toUpperCase(Locale.ROOT))))
-            .toList();
-        return new GlobalSearchGroupResponse(group.code(), group.label(), items.size(), items);
-    }
 }

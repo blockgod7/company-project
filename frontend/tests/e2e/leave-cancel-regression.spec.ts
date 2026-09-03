@@ -88,10 +88,11 @@ test.describe("휴가 취소계 회귀", () => {
 
     await openLeaveCancelForm(page);
 
-    await expect(page.locator(".leave-routing").getByText("허인성", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "결재 정보 수정", exact: true }).click();
+    await page.getByRole("button", { name: "결재 정보", exact: true }).click();
     const approvalInfo = page.getByRole("dialog", { name: "결재 정보" });
     const receiverHeader = approvalInfo.getByRole("heading", { name: "수신자", exact: true });
+    const receiverCard = receiverHeader.locator("../..");
+    await expect(receiverCard.getByText("허인성", { exact: true })).toBeVisible();
     await Promise.all([
       page.waitForResponse((response) => response.url().includes("/api/v1/emps?") && response.ok()),
       receiverHeader.locator("..").getByRole("button", { name: "선택", exact: true }).click()
@@ -100,8 +101,10 @@ test.describe("휴가 취소계 회귀", () => {
     await receiverDialog.getByRole("button", { name: "시스템 관리자 인사총무 · ADMIN", exact: true }).click();
     await receiverDialog.getByRole("button", { name: "적용", exact: true }).click();
     await approvalInfo.getByRole("button", { name: "적용", exact: true }).click();
-    await expect(page.locator(".leave-routing").getByText("허인성", { exact: true })).toHaveCount(0);
-    await expect(page.locator(".leave-routing").getByText("시스템 관리자", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "결재 정보", exact: true }).click();
+    await expect(receiverCard.getByText("허인성", { exact: true })).toHaveCount(0);
+    await expect(receiverCard.getByText("시스템 관리자", { exact: true })).toBeVisible();
+    await approvalInfo.getByRole("button", { name: "적용", exact: true }).click();
     await page.getByRole("button", { name: /기존 오전반차/ }).click();
     await page.getByRole("button", { name: /기존 오후반차/ }).click();
     await expect(page.getByText("선택 2건 · 취소 1일 · 일반 연차 복원 1일", { exact: true })).toBeVisible();

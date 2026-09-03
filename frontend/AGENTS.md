@@ -26,7 +26,10 @@
 - Education editors preserve server-owned workflow/source/revision fields. The three education templates are available to regular users without enabling other preview features. Dashboard education data comes only from `/trainings/me`; completed dates mean education ended, and report receipt means completion.
 - The employee personal calendar lives at `/portal/employee/calendar` and combines the current user's work schedules, approved education schedules, approved leave dates, and personal approval summaries using existing APIs.
 - Keep electronic-approval state/loading in `useApprovalPageController.tsx`, document actions in `createApprovalDocumentActions.tsx`, and form/detail renderers in the focused `Approval*Parts` modules; do not rebuild `ApprovalPage.tsx` as a single page monolith.
+- `ApprovalInfoModal.tsx` owns the shared approval-info dialog for every document and purchase/education receiver approval. Keep personal line save/load/rename/delete in `useApprovalLineLibrary.ts`. Personal lines exclude receivers on save and preserve the current document receivers on load, including legacy saved lines; only template-specific defaults may supply fallback receivers; document-specific rules are passed as options. Render the dialog outside document containers so template CSS cannot change its layout.
 - The employee approval tab `참조문서` reuses the `shared` box for in-progress reference/reader documents, without an action-required dashboard filter. Completed references appear in `결재 완료문서` (role SHARED); read status does not move a document. References are view-only from submission; receive/decision/PDF buttons remain driven by server permissions.
+- New DRAFT, WORK_REQUEST and WORK_REQUEST_CHANGE forms use the HR default receiver, as do education forms. PE-authored equipment/mold proposals default to the named purchase-request receiver; other departments retain production-engineering routing. Keep defaults aligned across creation, template changes and automatic line loading; preserve submitted documents.
+- Purchase composing, previews and detail fields share `ApprovalPurchaseParts.tsx` and `styles/approval-purchase.css`. Keep approval-line setup in the common dialog and signatures out of the on-screen purchase document; preserve PDF rendering and purchase workflow APIs.
 - `ApprovalFormBody.tsx` owns template-to-editor routing for compose, template selection and read-only previews. `utils/approvalForm.ts` supplies shared creation/preview defaults. Do not add separate mock/template-preview layouts; refresh the active template catalog when opening selection and preserve existing document/PDF snapshots.
 - Keep drawing-management dialogs in `DrawingManagementModals.tsx` and folder/upload validation helpers under `src/utils/drawingManagement.ts`.
 - Keep CSS entry files as import manifests and place rules in the focused files under `src/styles/` so purchase/training, leave, equipment, shell, and page styles remain independently maintainable.
@@ -39,6 +42,7 @@
 ## Verification
 - Frontend build: `npm.cmd run build`.
 - Login/home routing, personal contacts and password-change regressions: `npm.cmd run test:account` (JSDOM and mocked API; never modifies real employee credentials).
+- Global-search filter and request-order regressions: `npm.cmd run test:search` (JSDOM and mocked API; no live services).
 - Frontend dev server: `npm.cmd run dev`.
 - Frontend preview: `npm.cmd run preview`.
 - Rich-text component/serialization regressions: `npm.cmd run test:rich-text` (JSDOM, no live API or database).

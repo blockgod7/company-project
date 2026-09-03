@@ -202,7 +202,21 @@
   box-shadow: 0 24px 70px rgba(15, 23, 42, .26);
 }
 .approval-info-modal {
+  height: min(760px, calc(100vh - 44px));
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+.approval-info-controls {
+  min-width: 0;
+  max-height: 35vh;
+  overflow: auto;
+}
+.approval-info-controls > .error,
+.approval-info-controls > .template-note,
+.approval-info-description {
+  margin: 10px 18px;
+}
+.approval-info-modal .approval-line-library .danger {
+  color: var(--danger);
 }
 .approval-info-modal .approval-line-library {
   flex-wrap: wrap;

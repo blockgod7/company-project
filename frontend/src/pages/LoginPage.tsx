@@ -46,7 +46,9 @@ export function LoginPage({ onLogin, message }: LoginPageProps) {
     <div className="login-page">
       <form className="login-card" onSubmit={submit}>
         <div className="login-visual">
-          <img className="login-logo" src={schunkLogo} alt="SCHUNK Carbon Technology" />
+          <span className="login-logo">
+            <img src={schunkLogo} alt="SCHUNK Carbon Technology" />
+          </span>
           <h1>SCHUNK Groupware</h1>
           <p>업무, 공지, 게시판, 조직 정보를 한 화면에서 관리합니다.</p>
         </div>

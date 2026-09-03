@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import type { GlobalSearchItem, GlobalSearchResponse } from "../types";
 import type { Route } from "../utils/approvalDomain";
@@ -19,7 +19,14 @@ export function useGlobalSearch({ clearApprovalLaunch, navigateToRoute, navigate
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([...GLOBAL_SEARCH_TYPES]);
-  const [status, setStatus] = useState("ALL");
+  const [status, updateStatus] = useState("ALL");
+  const requestId = useRef(0);
+  const pendingRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    requestId.current += 1;
+    pendingRequest.current?.abort();
+  }, []);
 
   const total = useMemo(
     () => result?.groups.reduce((sum, group) => sum + group.totalCount, 0) ?? 0,
@@ -42,38 +49,74 @@ export function useGlobalSearch({ clearApprovalLaunch, navigateToRoute, navigate
     navigateToItem(item);
   }
 
-  async function submit(event?: FormEvent) {
-    event?.preventDefault();
-    const trimmedKeyword = keyword.trim();
+  function resetResults() {
+    requestId.current += 1;
+    pendingRequest.current?.abort();
+    pendingRequest.current = null;
+    setResult(null);
     setError("");
-    navigateToRoute("search");
+    setLoading(false);
+  }
+
+  async function search(types: string[], nextStatus: string) {
+    resetResults();
+    const trimmedKeyword = keyword.trim();
     if (trimmedKeyword.length < 2) {
-      setResult(null);
       setError("검색어는 2글자 이상 입력해 주세요.");
       return;
     }
+    if (!types.length) {
+      setError("검색할 자료 종류를 하나 이상 선택해 주세요.");
+      return;
+    }
+    const currentRequest = requestId.current;
+    const controller = new AbortController();
+    pendingRequest.current = controller;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ keyword: trimmedKeyword, limit: "10", status });
-      selectedTypes.forEach((type) => params.append("types", type));
-      setResult(await api<GlobalSearchResponse>(`/global-search?${params.toString()}`));
+      const params = new URLSearchParams({ keyword: trimmedKeyword, limit: "10", status: nextStatus });
+      types.forEach((type) => params.append("types", type));
+      const response = await api<GlobalSearchResponse>(`/global-search?${params.toString()}`, { signal: controller.signal });
+      if (currentRequest === requestId.current) setResult(response);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "통합검색 중 오류가 발생했습니다.");
+      if (currentRequest === requestId.current) {
+        setError(err instanceof Error ? err.message : "통합검색 중 오류가 발생했습니다.");
+      }
     } finally {
-      setLoading(false);
+      if (currentRequest === requestId.current) {
+        pendingRequest.current = null;
+        setLoading(false);
+      }
     }
+  }
+
+  async function submit(event?: FormEvent) {
+    event?.preventDefault();
+    navigateToRoute("search");
+    await search(selectedTypes, status);
   }
 
   function clear() {
     setKeyword("");
-    setResult(null);
-    setError("");
+    resetResults();
+  }
+
+  function applyFilters(types: string[], nextStatus: string) {
+    if (keyword.trim()) void search(types, nextStatus);
+    else resetResults();
   }
 
   function toggleType(type: string) {
-    setSelectedTypes((current) => current.includes(type)
-      ? current.length === 1 ? current : current.filter((item) => item !== type)
-      : [...current, type]);
+    const nextTypes = selectedTypes.includes(type)
+      ? selectedTypes.filter((item) => item !== type)
+      : [...selectedTypes, type];
+    setSelectedTypes(nextTypes);
+    applyFilters(nextTypes, status);
+  }
+
+  function setStatus(nextStatus: string) {
+    updateStatus(nextStatus);
+    applyFilters(selectedTypes, nextStatus);
   }
 
   return {

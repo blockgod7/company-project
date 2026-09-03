@@ -121,7 +121,7 @@ import {
   selectableLeaveTypeOptions,
   purchaseItemsJson,
   purchaseReceiptDate,
-  purchaseReceiverId,
+  purchaseRequestReceiverId,
   purchaseRequestContent,
   remainingAnnualDaysText,
   selectableApprovalTemplates,
@@ -256,10 +256,6 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
     setApprovalError,
     defaultLineMessage,
     setDefaultLineMessage,
-    savedApprovalLines,
-    setSavedApprovalLines,
-    selectedSavedLineId,
-    setSelectedSavedLineId,
     approvalInfoOpen,
     setApprovalInfoOpen,
     templateAdminMessage,
@@ -297,15 +293,9 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
     loadHolidays,
     loadLeavePolicies,
     loadActiveTemplates,
-    loadSavedApprovalLines,
     loadAdminTemplates,
     loadTemplateDefaultLine,
     applyDefaultLine,
-    savePersonalDefaultLine,
-    saveNamedApprovalLine,
-    applySavedApprovalLine,
-    renameSavedApprovalLine,
-    deleteSavedApprovalLine,
     rememberSubmittedApprovalLine,
     selectAdminTemplate,
     newAdminTemplate,
@@ -440,7 +430,7 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
     const isLeaveFlow = isLeaveRequest || isLeaveCancel;
     const isDelegationEligible = isLeaveRequest || isTrainingRequest || isTrainingReport;
     const equipmentReceiverEmpId = equipmentProposalReceiverId(user, employees);
-    const purchaseReceiverEmpId = purchaseReceiverId(employees);
+    const purchaseReceiverEmpId = purchaseRequestReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
     const receiverEmpIds = isLeaveFlow ? form.receiverEmpIds : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate ? form.receiverEmpIds : isEquipmentProposal && equipmentReceiverEmpId ? [equipmentReceiverEmpId] : form.receiverEmpIds;
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
@@ -768,7 +758,7 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
     const isTrainingTemplate = isTrainingTemplateCode(templateCode);
     const equipmentReceiverEmpId = equipmentProposalReceiverId(user, employees);
     const leaveReceiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
-    const purchaseReceiverEmpId = purchaseReceiverId(employees);
+    const purchaseReceiverEmpId = purchaseRequestReceiverId(employees);
     const trainingReceiverEmpId = trainingReceiverId(employees);
     const requesterDeptName = currentUserDeptName(user, employees, form.fieldValues.requestDeptName ?? "");
     setForm({
@@ -777,7 +767,7 @@ export function createApprovalDocumentActions(user: User, controller: ApprovalPa
       templateVersion: nextTemplate.version ?? null,
       title: isPurchaseRequest || isTrainingTemplate || isEquipmentProposal ? "" : shouldUseTemplateTitle ? nextTemplate.name : form.title,
       fieldValues: isEquipmentProposal ? { requestDeptName: requesterDeptName } : isPurchaseRequest ? purchaseDefaultFieldValues(user, employees) : isTrainingRequest ? trainingRequestDefaultFieldValues(user, employees) : isTrainingReport ? trainingReportDefaultFieldValues(user, employees) : isLeaveRequest || isLeaveCancel ? leaveUsageFieldValues(leaveUsage) : {},
-      receiverEmpIds: (isLeaveRequest || isLeaveCancel) && leaveReceiverEmpId ? [leaveReceiverEmpId] : isPurchaseRequest && purchaseReceiverEmpId ? [purchaseReceiverEmpId] : isTrainingTemplate && trainingReceiverEmpId ? [trainingReceiverEmpId] : isEquipmentProposal && equipmentReceiverEmpId ? [equipmentReceiverEmpId] : []
+      receiverEmpIds: createApprovalForm(nextTemplate, user, employees, leaveUsage, operationSettings?.leaveDefaultReceiverEmpId).receiverEmpIds
     });
     setDefaultLineMessage("");
     void applyDefaultLine(templateCode);

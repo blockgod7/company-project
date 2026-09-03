@@ -818,11 +818,6 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 
-.topbar-search-form:focus-within {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(11, 93, 167, .14);
-}
-
 @media (hover: hover) and (pointer: fine) {
   .side:hover { background: rgba(255,255,255,.08); color: #fff; }
   .side.active:hover { background: rgba(255,255,255,.16); }

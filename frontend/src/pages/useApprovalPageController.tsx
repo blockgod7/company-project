@@ -1,3 +1,5 @@
+import { hrReceiverId, isHrDefaultReceiverTemplateCode } from "../utils/approvalDomainCore";
+import { useApprovalLineLibrary } from "./useApprovalLineLibrary";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { api, authenticatedFetch, jsonBody } from "../api";
 import type { DraftAttachment } from "../utils/attachments";
@@ -29,7 +31,7 @@ import {
   leaveUsageFieldValues,
   equipmentProposalReceiverId,
   isProductionEngineeringRequester,
-  purchaseReceiverId,
+  purchaseRequestReceiverId,
   selectableLeaveTypeOptions,
   templateAdminFormFromOption,
   templateOptionFromApi,
@@ -102,6 +104,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState("");
   const listRequestId = useRef(0);
+  const defaultLineRequestId = useRef(0);
   const [retentionAudits, setRetentionAudits] = useState<AuditLog[]>([]);
   const [approvalBoxes, setApprovalBoxes] = useState<{ box: ApprovalBox; label: string }[]>(APPROVAL_BOXES);
   const [selected, setSelected] = useState<Approval | null>(null);
@@ -127,8 +130,12 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [approvalError, setApprovalError] = useState("");
   const [defaultLineMessage, setDefaultLineMessage] = useState("");
-  const [savedApprovalLines, setSavedApprovalLines] = useState<ApprovalDefaultLineApi[]>([]);
-  const [selectedSavedLineId, setSelectedSavedLineId] = useState("");
+  const approvalLineLibrary = useApprovalLineLibrary({
+    selection: form,
+    onApply: (selection) => setForm((current) => ({ ...current, ...selection })),
+    setApprovalError,
+    setDefaultLineMessage
+  });
   const [approvalInfoOpen, setApprovalInfoOpen] = useState(false);
   const [templateAdminMessage, setTemplateAdminMessage] = useState("");
   const [templateStatusUpdating, setTemplateStatusUpdating] = useState(false);
@@ -291,17 +298,6 @@ export function useApprovalPageController({ user, launch, target }: { user: User
     return merged;
   }
 
-  async function loadSavedApprovalLines() {
-    try {
-      const lines = await api<ApprovalDefaultLineApi[]>("/approval-default-lines/me");
-      setSavedApprovalLines(lines);
-      setSelectedSavedLineId((current) => current && lines.some((line) => String(line.defaultLineId) === current) ? current : (lines[0]?.defaultLineId ? String(lines[0].defaultLineId) : ""));
-    } catch {
-      setSavedApprovalLines([]);
-      setSelectedSavedLineId("");
-    }
-  }
-
   async function loadAdminTemplates(preferredCode?: string) {
     if (!isApprovalAdmin) return [];
     const items = await api<ApprovalTemplateApi[]>("/approval-templates/manage");
@@ -344,40 +340,42 @@ export function useApprovalPageController({ user, launch, target }: { user: User
   }
 
   async function applyDefaultLine(templateCode: string) {
+    const requestId = ++defaultLineRequestId.current;
     const isEquipmentProposal = isEquipmentProposalTemplateCode(templateCode);
     const isLeaveRequest = isLeaveTemplateCode(templateCode);
     const isLeaveCancel = isLeaveCancelTemplateCode(templateCode);
     const isLeaveFlow = isLeaveRequest || isLeaveCancel;
     const isPurchaseRequest = isPurchaseTemplateCode(templateCode);
     const isTrainingRequest = isTrainingRequestTemplateCode(templateCode);
-    const isTrainingTemplate = isTrainingTemplateCode(templateCode);
+    const isHrDefaultReceiverTemplate = isHrDefaultReceiverTemplateCode(templateCode);
     const equipmentReceiverEmpId = equipmentProposalReceiverId(user, employees);
     const equipmentReceiverMessage = isProductionEngineeringRequester(user, employees)
-      ? equipmentReceiverEmpId ? "생산기술 자체 요청은 통합 결재 후 구매부서로 전달됩니다." : "구매부서 수신자를 찾지 못했습니다. 구매부서 계정을 확인해 주세요."
+      ? equipmentReceiverEmpId ? "생산기술 자체 요청은 통합 결재 후 구매팀 김재근 대리에게 전달됩니다." : "구매팀 김재근 대리 계정을 찾지 못했습니다. 구매부서 계정을 확인해 주세요."
       : equipmentReceiverEmpId ? "수신자는 생산기술팀장으로 자동 지정됩니다." : "생산기술팀장을 찾지 못했습니다. 관리자에게 생산기술팀장 계정을 확인해 주세요.";
-    const purchaseReceiverEmpId = purchaseReceiverId(employees);
-    const trainingReceiverEmpId = trainingReceiverId(employees);
+    const purchaseReceiverEmpId = purchaseRequestReceiverId(employees);
+    const hrReceiverEmpId = hrReceiverId(employees);
     const leaveReceiverEmpId = leaveReceiverId(employees, operationSettings?.leaveDefaultReceiverEmpId);
     try {
       const defaultLine = await api<ApprovalDefaultLineApi>(`/approval-default-lines/effective?templateCode=${encodeURIComponent(templateCode)}`);
+      if (requestId !== defaultLineRequestId.current) return;
       if (!defaultLine.steps.length) {
         if (isLeaveFlow) {
-          setForm((current) => ({ ...current, receiverEmpIds: leaveReceiverEmpId ? [leaveReceiverEmpId] : [] }));
+          setForm((current) => current.templateCode !== templateCode ? current : ({ ...current, receiverEmpIds: leaveReceiverEmpId ? [leaveReceiverEmpId] : [] }));
           setDefaultLineMessage(leaveReceiverEmpId ? "" : "휴가 기본 수신자 설정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
           return;
         }
         if (isPurchaseRequest) {
-          setForm((current) => ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
-          setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+          setForm((current) => current.templateCode !== templateCode ? current : ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
+          setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 김재근 대리로 자동 지정됩니다." : "구매팀 김재근 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
           return;
         }
-        if (isTrainingTemplate) {
-          setForm((current) => ({ ...current, receiverEmpIds: trainingReceiverEmpId ? [trainingReceiverEmpId] : [] }));
-          setDefaultLineMessage(trainingReceiverEmpId ? "교육 문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+        if (isHrDefaultReceiverTemplate) {
+          setForm((current) => current.templateCode !== templateCode ? current : ({ ...current, receiverEmpIds: hrReceiverEmpId ? [hrReceiverEmpId] : [] }));
+          setDefaultLineMessage(hrReceiverEmpId ? "문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
           return;
         }
         if (isEquipmentProposal) {
-          setForm((current) => ({ ...current, receiverEmpIds: equipmentReceiverEmpId ? [equipmentReceiverEmpId] : [] }));
+          setForm((current) => current.templateCode !== templateCode ? current : ({ ...current, receiverEmpIds: equipmentReceiverEmpId ? [equipmentReceiverEmpId] : [] }));
           setDefaultLineMessage(equipmentReceiverMessage);
           return;
         }
@@ -385,11 +383,16 @@ export function useApprovalPageController({ user, launch, target }: { user: User
         return;
       }
       setForm((current) => {
+        if (current.templateCode !== templateCode) return current;
+        // Only a template-specific default may supply receivers; personal lines are reusable.
+        const documentReceiverIds = defaultLine.source === "TEMPLATE"
+          ? defaultLineIds(defaultLine.steps, "RECEIVER")
+          : current.receiverEmpIds;
         return {
           ...current,
           agreementEmpIds: defaultLineIds(defaultLine.steps, "AGREEMENT"),
           approverEmpIds: defaultLineIds(defaultLine.steps, "APPROVAL"),
-          receiverEmpIds: isLeaveFlow ? (leaveReceiverEmpId ? [leaveReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isPurchaseRequest ? (purchaseReceiverEmpId ? [purchaseReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER")) : isTrainingTemplate ? (trainingReceiverEmpId ? [trainingReceiverEmpId] : defaultLineIds(defaultLine.steps, "RECEIVER").slice(0, 1)) : isEquipmentProposal ? (equipmentReceiverEmpId ? [equipmentReceiverEmpId] : []) : defaultLineIds(defaultLine.steps, "RECEIVER"),
+          receiverEmpIds: isLeaveFlow ? (leaveReceiverEmpId ? [leaveReceiverEmpId] : documentReceiverIds.slice(0, 1)) : isPurchaseRequest ? (purchaseReceiverEmpId ? [purchaseReceiverEmpId] : documentReceiverIds) : isHrDefaultReceiverTemplate ? (hrReceiverEmpId ? [hrReceiverEmpId] : documentReceiverIds.slice(0, 1)) : isEquipmentProposal ? (equipmentReceiverEmpId ? [equipmentReceiverEmpId] : []) : documentReceiverIds,
           referenceEmpIds: defaultLineIds(defaultLine.steps, "REFERENCE"),
           readerEmpIds: defaultLineIds(defaultLine.steps, "READER")
         };
@@ -397,127 +400,35 @@ export function useApprovalPageController({ user, launch, target }: { user: User
       setDefaultLineMessage(isLeaveFlow
         ? leaveReceiverEmpId ? "" : "휴가 기본 수신자 설정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
         : isPurchaseRequest
-        ? purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
-        : isTrainingTemplate
-        ? trainingReceiverEmpId ? "교육 문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
+        ? purchaseReceiverEmpId ? "구매요구서 수신자는 김재근 대리로 자동 지정됩니다." : "구매팀 김재근 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
+        : isHrDefaultReceiverTemplate
+        ? hrReceiverEmpId ? "문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요."
         : isEquipmentProposal
         ? equipmentReceiverMessage
         : defaultLine.source === "TEMPLATE" ? "양식별 기본 결재선을 적용했습니다." : "개인 기본 결재선을 적용했습니다.");
     } catch {
+      if (requestId !== defaultLineRequestId.current) return;
       if (isLeaveFlow) {
-        setForm((current) => ({ ...current, receiverEmpIds: leaveReceiverEmpId ? [leaveReceiverEmpId] : [] }));
+        setForm((current) => current.templateCode !== templateCode ? current : ({ ...current, receiverEmpIds: leaveReceiverEmpId ? [leaveReceiverEmpId] : [] }));
         setDefaultLineMessage(leaveReceiverEmpId ? "" : "휴가 기본 수신자 설정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
         return;
       }
       if (isPurchaseRequest) {
-        setForm((current) => ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
-        setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 임나영 대리로 자동 지정됩니다." : "구매팀 임나영 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+        setForm((current) => current.templateCode !== templateCode ? current : ({ ...current, receiverEmpIds: purchaseReceiverEmpId ? [purchaseReceiverEmpId] : [] }));
+        setDefaultLineMessage(purchaseReceiverEmpId ? "구매요구서 수신자는 김재근 대리로 자동 지정됩니다." : "구매팀 김재근 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
         return;
       }
-      if (isTrainingTemplate) {
-        setForm((current) => ({ ...current, receiverEmpIds: trainingReceiverEmpId ? [trainingReceiverEmpId] : [] }));
-        setDefaultLineMessage(trainingReceiverEmpId ? "교육 문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
+      if (isHrDefaultReceiverTemplate) {
+        setForm((current) => current.templateCode !== templateCode ? current : ({ ...current, receiverEmpIds: hrReceiverEmpId ? [hrReceiverEmpId] : [] }));
+        setDefaultLineMessage(hrReceiverEmpId ? "문서의 기본 수신자는 인사총무 허인성 대리입니다." : "인사총무 허인성 대리 계정을 찾지 못했습니다. 수신자를 직접 지정해 주세요.");
         return;
       }
       if (isEquipmentProposal) {
-        setForm((current) => ({ ...current, receiverEmpIds: equipmentReceiverEmpId ? [equipmentReceiverEmpId] : [] }));
+        setForm((current) => current.templateCode !== templateCode ? current : ({ ...current, receiverEmpIds: equipmentReceiverEmpId ? [equipmentReceiverEmpId] : [] }));
         setDefaultLineMessage(equipmentReceiverMessage);
         return;
       }
       setDefaultLineMessage("");
-    }
-  }
-
-  async function savePersonalDefaultLine() {
-    setApprovalError("");
-    if (!form.approverEmpIds.length) {
-      setApprovalError("개인 기본 결재선에는 결재자를 1명 이상 포함해야 합니다.");
-      return;
-    }
-    try {
-      await api<ApprovalDefaultLineApi>("/approval-default-lines/me", {
-        method: "PUT",
-        body: jsonBody(defaultLinePayload(form))
-      });
-      setDefaultLineMessage("개인 기본 결재선을 저장했습니다.");
-      await loadSavedApprovalLines();
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "개인 기본 결재선 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function saveNamedApprovalLine() {
-    setApprovalError("");
-    if (!form.approverEmpIds.length) {
-      setApprovalError("저장할 결재라인에는 결재자를 1명 이상 포함해야 합니다.");
-      return;
-    }
-    const lineName = window.prompt("저장할 결재라인 이름", "팀장 최종 결재") ?? "";
-    if (!lineName.trim()) return;
-    try {
-      const saved = await api<ApprovalDefaultLineApi>("/approval-default-lines/me", {
-        method: "PUT",
-        body: jsonBody(defaultLinePayload(form, lineName.trim()))
-      });
-      await loadSavedApprovalLines();
-      if (saved.defaultLineId) setSelectedSavedLineId(String(saved.defaultLineId));
-      setDefaultLineMessage(`${lineName.trim()} 결재라인을 저장했습니다.`);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "결재라인 저장 중 오류가 발생했습니다.");
-    }
-  }
-
-  function applySavedApprovalLine() {
-    const savedLine = savedApprovalLines.find((line) => String(line.defaultLineId) === selectedSavedLineId);
-    if (!savedLine) {
-      setApprovalError("불러올 결재라인을 선택해 주세요.");
-      return;
-    }
-    setForm((current) => ({
-      ...current,
-      agreementEmpIds: defaultLineIds(savedLine.steps, "AGREEMENT"),
-      approverEmpIds: defaultLineIds(savedLine.steps, "APPROVAL"),
-      receiverEmpIds: defaultLineIds(savedLine.steps, "RECEIVER"),
-      referenceEmpIds: defaultLineIds(savedLine.steps, "REFERENCE"),
-      readerEmpIds: defaultLineIds(savedLine.steps, "READER")
-    }));
-    setDefaultLineMessage(`${savedLine.lineName ?? "저장된 결재라인"}을 적용했습니다.`);
-  }
-
-  async function renameSavedApprovalLine() {
-    const savedLine = savedApprovalLines.find((line) => String(line.defaultLineId) === selectedSavedLineId);
-    if (!savedLine?.defaultLineId) {
-      setApprovalError("이름을 변경할 결재라인을 선택해 주세요.");
-      return;
-    }
-    const lineName = window.prompt("결재라인 이름 변경", savedLine.lineName ?? "") ?? "";
-    if (!lineName.trim()) return;
-    try {
-      await api<ApprovalDefaultLineApi>(`/approval-default-lines/me/${savedLine.defaultLineId}`, {
-        method: "PATCH",
-        body: jsonBody({ lineName: lineName.trim() })
-      });
-      await loadSavedApprovalLines();
-      setSelectedSavedLineId(String(savedLine.defaultLineId));
-      setDefaultLineMessage(`${lineName.trim()}으로 이름을 변경했습니다.`);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "결재라인 이름 변경 중 오류가 발생했습니다.");
-    }
-  }
-
-  async function deleteSavedApprovalLine() {
-    const savedLine = savedApprovalLines.find((line) => String(line.defaultLineId) === selectedSavedLineId);
-    if (!savedLine?.defaultLineId) {
-      setApprovalError("삭제할 결재라인을 선택해 주세요.");
-      return;
-    }
-    if (!window.confirm(`${savedLine.lineName ?? "선택한 결재라인"}을 삭제할까요?`)) return;
-    try {
-      await api<void>(`/approval-default-lines/me/${savedLine.defaultLineId}`, { method: "DELETE" });
-      await loadSavedApprovalLines();
-      setDefaultLineMessage(`${savedLine.lineName ?? "결재라인"}을 삭제했습니다.`);
-    } catch (err) {
-      setApprovalError(err instanceof Error ? err.message : "결재라인 삭제 중 오류가 발생했습니다.");
     }
   }
 
@@ -868,7 +779,7 @@ export function useApprovalPageController({ user, launch, target }: { user: User
     void loadEmployees();
     void loadApprovalBoxes();
     void loadActiveTemplates().catch(() => undefined);
-    void loadSavedApprovalLines();
+    void approvalLineLibrary.loadSavedApprovalLines();
     void loadHolidays();
     void loadLeavePolicies();
     void loadCompTimeSummary();
@@ -971,13 +882,13 @@ export function useApprovalPageController({ user, launch, target }: { user: User
     form, setForm, leaveUsage, setLeaveUsage, compTimeSummary, setCompTimeSummary, holidays, setHolidays,
     leaveTypeOptions, setLeaveTypeOptions, leaveExclusions, setLeaveExclusions, leavePreviewOpen, setLeavePreviewOpen, templateAdminForm, setTemplateAdminForm,
     templateLineForm, setTemplateLineForm, pendingFiles, setPendingFiles, employees, setEmployees, approvalError, setApprovalError,
-    defaultLineMessage, setDefaultLineMessage, savedApprovalLines, setSavedApprovalLines, selectedSavedLineId, setSelectedSavedLineId, approvalInfoOpen, setApprovalInfoOpen,
+    defaultLineMessage, setDefaultLineMessage, approvalLineLibrary, approvalInfoOpen, setApprovalInfoOpen,
     templateAdminMessage, setTemplateAdminMessage, templateStatusUpdating, delegation, setDelegation, delegationForm, setDelegationForm, delegationMessage, setDelegationMessage,
     operationSettingsForm, setOperationSettingsForm, operationSettings, setOperationSettings, operationSettingsMessage, setOperationSettingsMessage, approvalActionComment, setApprovalActionComment,
     approvalSearch, setApprovalSearch, appliedApprovalSearchScope, isApprovalAdmin, isHolidayManager, isLeavePolicyManager, canViewPreview, visibleTemplates, load,
     loadDeletedApprovals, loadRetentionAudits, downloadRetentionAuditCsv, loadApprovalBoxes, loadEmployees, loadLeaveUsage, changeLeaveBalanceYear, loadCompTimeSummary,
-    loadHolidays, loadLeavePolicies, loadActiveTemplates, loadSavedApprovalLines, loadAdminTemplates, loadTemplateDefaultLine, applyDefaultLine, savePersonalDefaultLine,
-    saveNamedApprovalLine, applySavedApprovalLine, renameSavedApprovalLine, deleteSavedApprovalLine, rememberSubmittedApprovalLine, selectAdminTemplate, newAdminTemplate, saveTemplateVersion,
+    loadHolidays, loadLeavePolicies, loadActiveTemplates, loadAdminTemplates, loadTemplateDefaultLine, applyDefaultLine,
+    rememberSubmittedApprovalLine, selectAdminTemplate, newAdminTemplate, saveTemplateVersion,
     toggleTemplateActive, saveTemplateDefaultLine, loadDelegation, openDelegationSettings, saveDelegation, deleteDelegation, loadDetail, refreshEquipmentProposal,
     loadOperationSettings, openOperationSettings, openHolidayManagement, openDeletedApprovals, restoreApproval, saveOperationSettings, changeBox, openApprovalWorkView,
     applyApprovalSearch, applyApprovalSearchValues, changeApprovalCategory, resetApprovalSearch, updateApprovalSearchFilter, openTemplateAdmin

@@ -4,7 +4,7 @@ import {
   isLeaveCancelTemplateCode, isLeaveTemplateCode, isPurchaseTemplateCode,
   isTrainingReportTemplateCode, isTrainingRequestTemplateCode, isTrainingTemplateCode,
   leaveReceiverId, leaveUsageFieldValues, equipmentProposalReceiverId,
-  purchaseDefaultFieldValues, purchaseReceiverId, trainingReceiverId,
+  purchaseDefaultFieldValues, purchaseRequestReceiverId, hrReceiverId, isHrDefaultReceiverTemplateCode,
   trainingReportDefaultFieldValues, trainingRequestDefaultFieldValues,
   type ApprovalForm, type ApprovalTemplateOption
 } from "./approvalDomain";
@@ -16,8 +16,8 @@ export function createApprovalForm(template: ApprovalTemplateOption, user: User,
   const training = isTrainingTemplateCode(template.code);
   const equipment = isEquipmentProposalTemplateCode(template.code);
   const receiverId = leave ? leaveReceiverId(employees, leaveDefaultReceiverEmpId)
-    : purchase ? purchaseReceiverId(employees)
-    : training ? trainingReceiverId(employees)
+    : purchase ? purchaseRequestReceiverId(employees)
+    : isHrDefaultReceiverTemplateCode(template.code) ? hrReceiverId(employees)
     : equipment ? equipmentProposalReceiverId(user, employees) : null;
   return {
     ...defaultApprovalForm([template]),

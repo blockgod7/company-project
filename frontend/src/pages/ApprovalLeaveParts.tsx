@@ -72,7 +72,6 @@ import {
   defaultLinePayload,
   defaultOperationSettingsForm,
   employeeDisplay,
-  employeesByIds,
   ENABLE_TEMPLATE_FALLBACK,
   equipmentProposalCapacityLabel,
   equipmentProposalGeneratedTitle,
@@ -275,7 +274,6 @@ export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, co
       {overbooked && <p className="leave-overbooked">결재 중인 휴가 {leaveUsage?.reservedAnnualDays}일을 포함하면 총 휴가 일수를 초과합니다. 진행 중 문서를 회수하거나 휴가관리자에게 확인해 주세요.</p>}
       <section className="leave-web-card"><div className="leave-section-title"><div><CalendarDays size={20} /><div><h3>{cancelMode ? "취소 날짜" : "신청 날짜"}</h3><p>날짜를 선택한 뒤 해당 날짜 안에서 휴가 종류를 지정하세요.</p></div></div><strong>{leaveDateRangeText(values)}</strong></div><LeaveCalendarInline mode={mode} selections={selections} lockedSelections={(cancelMode ? leaveUsage?.selections : leaveUsage?.occupiedSelections) ?? []} pendingCancelSelections={leaveUsage?.pendingCancelSelections ?? []} holidays={holidays} leaveTypeOptions={availableLeaveTypeOptions} compTimeSummary={compTimeSummary} unpaidLeaveEligible={unpaidLeaveEligible} onChange={applySelections} /></section>
       <LeaveConditionalDetails selections={selections} values={values} workCategory={requester?.workCategory ?? "FIELD"} onChange={(next) => updateValues({ ...values, ...next })} />
-      <section className="leave-web-card leave-routing"><LeaveRouteRow title="결재" people={[{ employee: requester, role: "작성" }, ...employeesByIds(employees, form.approverEmpIds).map((employee, index, list) => ({ employee, role: index === list.length - 1 ? "승인" : "검토" }))]} /><LeaveRouteRow title="수신" people={employeesByIds(employees, form.receiverEmpIds).map((employee) => ({ employee, role: "수신" }))} /></section>
       <p className="muted-text">{cancelMode ? "최종 결재 완료된 휴가 날짜만 선택할 수 있고, 취소계 승인 후 연차가 복구됩니다." : "연차와 하계휴가는 1일, 오전·오후반차는 0.5일로 계산하며 주말과 등록 휴일은 선택할 수 없습니다."}</p>
       {!!leaveUsage?.exclusions?.length && (
         <div className="leave-exclusion-summary">
@@ -285,10 +283,6 @@ export function LeaveRequestEditor({ mode, user, employees, form, leaveUsage, co
       )}
     </div>
   );
-}
-
-function LeaveRouteRow({ title, people }: { title: string; people: { employee?: Employee; role: string }[] }) {
-  return <div className="leave-route-row"><strong className="leave-route-label">{title}</strong><div className="leave-person-list">{people.length ? people.map(({ employee, role }, index) => <div className="leave-person-card" key={`${role}-${employee?.empId ?? index}`}><span>{index + 1}</span><div><em>{role}</em><strong>{employee?.empName ?? "미지정"}</strong><small>{employee?.deptName ?? "부서 미지정"} · {employee?.positionName ?? employee?.jobTitle ?? "직급 미지정"}</small></div></div>) : <p className="muted-text">지정된 사람이 없습니다.</p>}</div><span className="leave-route-help">상단 ‘결재 정보’에서 수정</span></div>;
 }
 
 function LeaveConditionalDetails({ selections, values, workCategory, onChange }: { selections: LeaveSelection[]; values: Record<string, string>; workCategory: "MANAGEMENT" | "FIELD"; onChange: (values: Record<string, string>) => void }) {

@@ -1,4 +1,4 @@
-import { Maximize2, Minimize2, RotateCcw, X } from "lucide-react";
+import { Check, Eye, Folder, Maximize2, Minimize2, RotateCcw, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { Empty } from "../components/Empty";
 import { APPROVAL_TEMPLATE_CATEGORIES, categorizedTemplateGroups, type ApprovalBox, type ApprovalTemplateOption } from "../utils/approvalDomain";
@@ -35,6 +35,7 @@ export function TemplateSelectModalV2({ templates, selected: selection, fallback
     return initial?.id ?? APPROVAL_TEMPLATE_CATEGORIES[0].id;
   });
   const [keyword, setKeyword] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [maximized, setMaximized] = useState(false);
 
@@ -86,36 +87,47 @@ export function TemplateSelectModalV2({ templates, selected: selection, fallback
             <h3>양식함</h3>
             {fallbackActive && <p className="template-fallback-note">개발용 임시 목록</p>}
             {groups.map((category) => (
-              <button type="button" key={category.id} className={activeCategory?.id === category.id ? "active" : ""} onClick={() => selectCategory(category)}>
-                <span className="template-folder-icon" aria-hidden="true">▣</span>
+              <button type="button" key={category.id} className={activeCategory?.id === category.id ? "active" : ""} aria-pressed={activeCategory?.id === category.id} onClick={() => selectCategory(category)}>
+                <Folder className="template-folder-icon" size={18} aria-hidden="true" />
                 <strong>{category.label}</strong>
                 <span>{category.templates.length}</span>
               </button>
             ))}
           </div>
-          <div className="template-choice-panel">
-            <div className="template-choice-list">
-              <h3>양식리스트</h3>
-              {filteredTemplates.length ? filteredTemplates.map((template) => (
-                <button type="button" key={template.code} className={selected.code === template.code ? "active" : ""} onClick={() => onSelect(template)}>
-                  <strong>{template.name}</strong>
-                  <span>{template.code} v{template.version ?? 1}</span>
+          <div className={`template-choice-panel${previewOpen ? " has-preview" : ""}`}>
+            <div className="template-choice-main">
+              <div className="template-choice-heading">
+                <h3>양식 리스트 <span>{filteredTemplates.length}개</span></h3>
+                <button type="button" className="ghost" onClick={() => setPreviewOpen((current) => !current)} aria-expanded={previewOpen} aria-controls="template-selection-preview">
+                  <Eye size={16} />{previewOpen ? "미리보기 닫기" : "미리보기"}
                 </button>
-              )) : <Empty text="표시할 양식이 없습니다." />}
-              <div className="template-description-box">
-                <strong>양식설명</strong>
-                <span>{selected.description || "등록된 설명이 없습니다."}</span>
+              </div>
+              <div className="template-choice-list">
+                {filteredTemplates.length ? filteredTemplates.map((template) => (
+                  <button type="button" key={template.code} className={selected.code === template.code ? "active" : ""} aria-label={template.name} aria-describedby={`template-description-${template.code}`} aria-pressed={selected.code === template.code} onClick={() => onSelect(template)}>
+                    <span className="template-choice-copy">
+                      <strong>{template.name}</strong>
+                      <span className="template-choice-description" id={`template-description-${template.code}`}>{template.description || "등록된 설명이 없습니다."}</span>
+                    </span>
+                    <span className="template-choice-check" aria-hidden="true">{selected.code === template.code && <Check size={16} />}</span>
+                  </button>
+                )) : <Empty text="표시할 양식이 없습니다." />}
               </div>
             </div>
-            <div className="template-preview">
-              <h3>양식 미리보기</h3>
-              <p className="template-preview-note">{selected.name} · v{selected.version ?? 1} · 현재 작성 양식과 동일한 화면입니다.</p>
-              <ApprovalTemplatePreview template={selected} context={context} leaveDefaultReceiverEmpId={leaveDefaultReceiverEmpId} />
-            </div>
+            {previewOpen && (
+              <div className="template-preview" id="template-selection-preview" role="region" aria-label="양식 미리보기">
+                <h3>양식 미리보기</h3>
+                <p className="template-preview-note">{selected.name} · v{selected.version ?? 1} · 양식 구성을 확인하세요.</p>
+                <ApprovalTemplatePreview template={selected} context={context} leaveDefaultReceiverEmpId={leaveDefaultReceiverEmpId} />
+              </div>
+            )}
           </div>
         </div>
         <div className="modal-actions template-window-footer">
-          <span className="template-resize-hint">{maximized ? "이전 크기로 돌아가면 직접 크기를 조절할 수 있습니다." : "오른쪽 아래 모서리를 드래그해 창 크기를 조절하세요."}</span>
+          <div className="template-selection-summary">
+            <span>선택한 양식 <strong>{selected.name}</strong></span>
+            <span className="template-resize-hint">{maximized ? "이전 크기로 돌아가면 직접 크기를 조절할 수 있습니다." : "오른쪽 아래 모서리를 드래그해 창 크기를 조절하세요."}</span>
+          </div>
           <button type="button" className="ghost" onClick={onCancel}>취소</button>
           <button type="button" onClick={onConfirm} disabled={!selected}>확인</button>
         </div>

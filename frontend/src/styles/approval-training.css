@@ -87,7 +87,6 @@
 .training-signatures > .purchase-paper-stamp-head { min-width: 650px; }
 .training-signatures > .approval-detail-section,
 .training-signatures > .approval-opinions { margin-top: 14px; }
-.training-approval-info-modal .approval-line-library .muted-text { margin: 0; }
 .training-web-head > .approval-editor-actions .training-approval-submit { border-color: var(--blue); background: var(--blue); color: #fff; }
 .training-web-detail > .approval-detail-section { border-color: var(--training-line); border-radius: 12px; }
 

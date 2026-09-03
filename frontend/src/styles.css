@@ -1,5 +1,6 @@
 @import "./styles/approval.css";
 @import "./styles/approval-training.css";
+@import "./styles/approval-purchase.css";
 @import "./styles/approval-leave.css";
 @import "./styles/pdm.css";
 @import "./styles/app-foundation.css";
@@ -7,3 +8,4 @@
 @import "./styles/app-pages.css";
 @import "./styles/rich-text.css";
 @import "./styles/account-settings.css";
+@import "./styles/approval-template-preview.css";

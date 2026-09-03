@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,7 +48,7 @@ class GlobalSearchServiceTest {
     }
 
     @Test
-    void appliesStatusFilterAfterProviderAuthorization() {
+    void appliesStatusFilterWithinTheAuthorizedProvider() {
         GlobalSearchProvider approvalProvider = provider("approvals", 10);
         when(approvalProvider.search(anyString(), anyInt(), any())).thenReturn(group("approvals", "APPROVED"));
         GlobalSearchService service = new GlobalSearchService(List.of(approvalProvider), currentEmployee());
@@ -56,8 +58,22 @@ class GlobalSearchServiceTest {
         assertThat(response.groups()).isEmpty();
     }
 
+    @Test
+    void activeEmployeesKeepTheFullCountWhenTheProviderReturnsOnlyOnePage() {
+        GlobalSearchProvider employeeProvider = provider("employees", 20);
+        GlobalSearchGroupResponse page = group("employees", "ACTIVE");
+        when(employeeProvider.search(anyString(), anyInt(), any()))
+            .thenReturn(new GlobalSearchGroupResponse("employees", "조직/직원", 37, page.items()));
+        GlobalSearchService service = new GlobalSearchService(List.of(employeeProvider), currentEmployee());
+
+        GlobalSearchResponse response = service.search("김철", 5, List.of("employees"), "active");
+
+        assertThat(response.groups().getFirst().totalCount()).isEqualTo(37);
+    }
+
     private GlobalSearchProvider provider(String code, int order) {
         GlobalSearchProvider provider = mock(GlobalSearchProvider.class);
+        doCallRealMethod().when(provider).search(anyString(), anyInt(), any(), nullable(String.class));
         when(provider.code()).thenReturn(code);
         when(provider.order()).thenReturn(order);
         return provider;

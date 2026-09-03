@@ -70,7 +70,7 @@ export function GlobalSearchPage({
   }
 
   return (
-    <section className="search-page">
+    <section className="search-page" aria-busy={loading}>
       <div className="search-page-head">
         <span>전역 검색</span>
         <form className="search-page-form" onSubmit={onSubmit}>
@@ -86,7 +86,7 @@ export function GlobalSearchPage({
       </div>
 
       <div className="search-page-toolbar">
-        <strong>전체 결과 <b>{total}</b>건</strong>
+        <strong role="status" aria-live="polite">{loading ? "검색 중…" : <>전체 결과 <b>{total}</b>건</>}</strong>
         <select value={status} onChange={(event) => onStatusChange(event.target.value)} aria-label="상태 필터">
           <option value="ALL">모든 상태</option>
           <option value="IN_PROGRESS">진행 중</option>
@@ -99,11 +99,11 @@ export function GlobalSearchPage({
 
       <div className="search-type-filters" aria-label="자료 종류 필터">
         {SEARCH_TYPE_OPTIONS.map(([code, label]) => (
-          <button key={code} type="button" className={selectedTypes.includes(code) ? "active" : ""} onClick={() => onToggleType(code)}>
+          <button key={code} type="button" className={selectedTypes.includes(code) ? "active" : ""} aria-pressed={selectedTypes.includes(code)} onClick={() => onToggleType(code)}>
             {label}
           </button>
         ))}
-        <small>필터 변경 후 검색 버튼을 눌러 적용하세요.</small>
+        <small>필터를 변경하면 바로 적용됩니다.</small>
       </div>
 
       {error && <p className="global-search-error">{error}</p>}
@@ -111,7 +111,9 @@ export function GlobalSearchPage({
         <p className="global-search-warning">일부 검색 영역을 불러오지 못했습니다: {result.failedProviders.join(", ")}</p>
       )}
 
-      {result ? (
+      {loading ? (
+        <SearchEmpty text="선택한 조건으로 검색 중입니다." />
+      ) : result ? (
         result.groups.length ? (
           <div className="search-result-stack">
             {result.groups.map((group) => {

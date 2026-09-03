@@ -29,7 +29,7 @@
 - `file` owns upload/download metadata and file access behavior.
 - `pdm` owns drawing-management folders, documents, revisions, and related actions.
 - `equipment` owns equipment masters, abnormal reports, assignment, completion-approval links, and equipment history APIs.
-- `search` owns global search APIs.
+- `search` owns global search APIs. Providers with mixed statuses (menus and approvals) must apply the requested status before paging or limiting, while preserving their existing authorization checks.
 - `menu` owns effective portal menus and per-employee menu preferences; menu visibility must be decided server-side before responses are returned.
 - `emp`, `dept`, `role`, `code`, `notification`, and `log` own organization, role/code, notification, and audit-support APIs.
 - `ApprovalPdfCanvas` owns reusable PDFBox drawing primitives; `ApprovalPdfService` owns PDF lifecycle, `ApprovalPdfRenderer` selects document renderers, and the standard/equipment renderers plus `ApprovalPdfRenderSupport` own layout generation.
