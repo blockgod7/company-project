@@ -39,6 +39,8 @@
 - Equipment/mold composing and preview share `EquipmentProposalPeFields` for production-engineering self-requests; use `equipmentProposalReceiverId` across creation, template changes, default lines and submission. Frontend department matching is a display/default hint; the backend owns routing snapshots and returned `peSelfRequest` for detail views.
 - Keep `EMERGENCY_CALL_REQUEST` out of selectable template categories; new emergency work uses `WORK_REQUEST` with `EMERGENCY_CALL`. Preserve legacy template metadata and document rendering for existing approvals.
 
+- Personal calendar reads managed holidays over the visible grid from `/approval-holidays?from=&to=` and own approved trip periods from `/business-trips/me?from=&to=`. Do not derive trip dates from paginated monthly document lists. Regression: `node --import tsx --test tests/personal-calendar.test.tsx`.
+
 ## Verification
 - Frontend build: `npm.cmd run build`.
 - Login/home routing, personal contacts and password-change regressions: `npm.cmd run test:account` (JSDOM and mocked API; never modifies real employee credentials).

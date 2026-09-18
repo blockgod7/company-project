@@ -13,6 +13,8 @@ import {
 import { api } from "../api";
 import type {
   ApprovalDashboard,
+  ApprovalHoliday,
+  BusinessTripSchedule,
   ApprovalSummary,
   LeaveUsage,
   PageResponse,
@@ -20,7 +22,7 @@ import type {
   WorkSchedule
 } from "../types";
 
-type CalendarKind = "work" | "training" | "leave";
+type CalendarKind = "work" | "training" | "leave" | "trip";
 
 type PersonalCalendarEvent = {
   id: string;
@@ -40,7 +42,8 @@ type PersonalCalendarPageProps = {
 const kindLabels: Record<CalendarKind, string> = {
   work: "근무",
   training: "교육",
-  leave: "휴가"
+  leave: "휴가",
+  trip: "출장"
 };
 
 export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPageProps) {
@@ -49,11 +52,13 @@ export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPagePro
   const [selectedDate, setSelectedDate] = useState(() => localDate(today));
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>([]);
   const [trainingSchedules, setTrainingSchedules] = useState<TrainingSchedule[]>([]);
+  const [tripSchedules, setTripSchedules] = useState<BusinessTripSchedule[]>([]);
+  const [holidays, setHolidays] = useState<ApprovalHoliday[]>([]);
   const [leaveUsage, setLeaveUsage] = useState<LeaveUsage | null>(null);
   const [requestedApprovals, setRequestedApprovals] = useState<ApprovalSummary[]>([]);
   const [actionApprovals, setActionApprovals] = useState<ApprovalSummary[]>([]);
   const [approvalDashboard, setApprovalDashboard] = useState<ApprovalDashboard | null>(null);
-  const [visibleKinds, setVisibleKinds] = useState<Record<CalendarKind, boolean>>({ work: true, training: true, leave: true });
+  const [visibleKinds, setVisibleKinds] = useState<Record<CalendarKind, boolean>>({ work: true, training: true, leave: true, trip: true });
   const [detailOpen, setDetailOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,25 +73,31 @@ export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPagePro
     setLoading(true);
     setError("");
     const encodedRange = `dateFrom=${range.from}&dateTo=${range.to}`;
+    const visibleCells = calendarCells(month);
+    const holidayRange = `from=${localDate(visibleCells[0])}&to=${localDate(visibleCells[visibleCells.length - 1])}`;
     const requests = [
       api<WorkSchedule[]>(`/work-schedules/me?from=${range.from}&to=${range.to}`),
       api<TrainingSchedule[]>(`/trainings/me?from=${range.from}&to=${range.to}`),
       api<LeaveUsage>(`/approvals/leave-usage/me?year=${month.getFullYear()}`),
       api<PageResponse<ApprovalSummary>>(`/approvals?box=requested&page=0&size=100&${encodedRange}`),
       api<PageResponse<ApprovalSummary>>("/approvals?box=pending&page=0&size=20&dashboardFilter=actionRequired"),
-      api<ApprovalDashboard>("/approvals/dashboard")
+      api<ApprovalDashboard>("/approvals/dashboard"),
+      api<ApprovalHoliday[]>(`/approval-holidays?${holidayRange}`),
+      api<BusinessTripSchedule[]>(`/business-trips/me?from=${range.from}&to=${range.to}`)
     ] as const;
 
     void Promise.allSettled(requests).then((results) => {
       if (!active) return;
       const failures: string[] = [];
-      const [work, training, leave, requested, actionRequired, dashboard] = results;
+      const [work, training, leave, requested, actionRequired, dashboard, holiday, trip] = results;
       if (work.status === "fulfilled") setWorkSchedules(work.value); else { setWorkSchedules([]); failures.push("근무"); }
       if (training.status === "fulfilled") setTrainingSchedules(training.value); else { setTrainingSchedules([]); failures.push("교육"); }
       if (leave.status === "fulfilled") setLeaveUsage(leave.value); else { setLeaveUsage(null); failures.push("휴가"); }
       if (requested.status === "fulfilled") setRequestedApprovals(requested.value.content); else { setRequestedApprovals([]); failures.push("기안문서"); }
       if (actionRequired.status === "fulfilled") setActionApprovals(actionRequired.value.content); else { setActionApprovals([]); failures.push("처리할 결재"); }
       if (dashboard.status === "fulfilled") setApprovalDashboard(dashboard.value); else { setApprovalDashboard(null); failures.push("결재 요약"); }
+      if (holiday.status === "fulfilled") setHolidays(holiday.value.filter((item) => item.active)); else { setHolidays([]); failures.push("공휴일"); }
+      if (trip.status === "fulfilled") setTripSchedules(trip.value); else { setTripSchedules([]); failures.push("출장"); }
       setError(failures.length ? `${[...new Set(failures)].join("·")} 정보를 불러오지 못했습니다.` : "");
       setLoading(false);
     });
@@ -160,15 +171,26 @@ export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPagePro
         status: "승인 휴가",
         approvalId: item.approvalId
       }));
-    return [...workEvents, ...trainingEvents, ...leaveEvents];
-  }, [workSchedules, trainingSchedules, leaveUsage, range.from, range.to]);
+    const tripEvents = tripSchedules.map((item) => ({
+      id: `trip-${item.approvalId}`,
+      kind: "trip" as const,
+      startDate: item.startDate,
+      endDate: item.endDate,
+      title: item.title,
+      detail: `${item.destination} · ${item.startDate} ~ ${item.endDate}`,
+      status: "승인 출장",
+      approvalId: item.approvalId
+    }));
+    return [...workEvents, ...trainingEvents, ...leaveEvents, ...tripEvents];
+  }, [workSchedules, trainingSchedules, leaveUsage, tripSchedules, range.from, range.to]);
 
   const visibleEvents = events.filter((item) => visibleKinds[item.kind]);
   const selectedEvents = visibleEvents.filter((item) => item.startDate <= selectedDate && item.endDate >= selectedDate);
   const cells = calendarCells(month);
   const inProgressCount = requestedApprovals.filter((item) => item.status === "PENDING" || item.status === "IN_PROGRESS").length;
   const approvedCount = requestedApprovals.filter((item) => item.status === "APPROVED").length;
-  const scheduleCount = workSchedules.length + trainingSchedules.length + (leaveUsage?.selections.filter((item) => item.date >= range.from && item.date <= range.to).length ?? 0);
+  const scheduleCount = events.length;
+  const selectedHolidays = holidays.filter((item) => item.holidayDate === selectedDate);
 
   function moveMonth(offset: number) {
     const next = new Date(month.getFullYear(), month.getMonth() + offset, 1);
@@ -189,7 +211,7 @@ export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPagePro
   }
 
   function showAllKinds() {
-    setVisibleKinds({ work: true, training: true, leave: true });
+    setVisibleKinds({ work: true, training: true, leave: true, trip: true });
   }
 
   function openDate(cell: Date, trigger: HTMLElement) {
@@ -219,7 +241,7 @@ export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPagePro
         <div>
           <span>MY WORKSPACE</span>
           <h1>개인 캘린더</h1>
-          <p>근무·교육·휴가 일정과 내가 처리하거나 상신한 결재를 한 화면에서 확인합니다.</p>
+          <p>공휴일과 근무·교육·휴가·출장 일정, 내가 처리하거나 상신한 결재를 한 화면에서 확인합니다.</p>
         </div>
         <button type="button" className="ghost" onClick={moveToday}><CalendarCheck2 size={17} /> 오늘 보기</button>
       </header>
@@ -261,15 +283,16 @@ export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPagePro
               {cells.map((cell) => {
                 const date = localDate(cell);
                 const dayEvents = visibleEvents.filter((item) => item.startDate <= date && item.endDate >= date);
+                const dayHolidays = holidays.filter((item) => item.holidayDate === date);
                 const isToday = date === localDate(today);
                 const selected = date === selectedDate;
                 return (
                   <div
                     key={date}
-                    className={`personal-calendar-day${cell.getMonth() === month.getMonth() ? "" : " outside"}${isToday ? " today" : ""}${selected ? " selected" : ""}`}
+                    className={`personal-calendar-day${cell.getMonth() === month.getMonth() ? "" : " outside"}${isToday ? " today" : ""}${selected ? " selected" : ""}${dayHolidays.length ? " holiday" : ""}`}
                     role="button"
                     tabIndex={0}
-                    aria-label={`${date}, 일정 ${dayEvents.length}건, 상세보기`}
+                    aria-label={`${date}, ${dayHolidays.map((item) => `${item.holidayName}, `).join("")}일정 ${dayEvents.length}건, 상세보기`}
                     onClick={(event) => openDate(cell, event.currentTarget)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -279,6 +302,7 @@ export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPagePro
                     }}
                   >
                     <span className="personal-calendar-day-number">{cell.getDate()}</span>
+                    {dayHolidays.map((item) => <span key={`${item.holidayId}-${item.holidayDate}`} className="personal-calendar-holiday">{item.holidayName}</span>)}
                     <div className="personal-calendar-day-events">
                       {dayEvents.slice(0, 2).map((item) => (
                         <button
@@ -331,7 +355,8 @@ export function PersonalCalendarPage({ onOpenApproval }: PersonalCalendarPagePro
               <div>
                 <span>DATE DETAIL</span>
                 <h2 id="personal-calendar-dialog-title">{formatKoreanDate(selectedDate)}</h2>
-                <p>선택한 날짜의 근무·교육·휴가 일정을 확인합니다.</p>
+                <p>선택한 날짜의 근무·교육·휴가·출장 일정을 확인합니다.</p>
+                {selectedHolidays.map((item) => <p key={`${item.holidayId}-${item.holidayDate}`} className="personal-calendar-holiday">{item.holidayName}</p>)}
               </div>
               <button ref={dialogCloseRef} type="button" aria-label="상세보기 닫기" onClick={() => setDetailOpen(false)}><X size={20} /></button>
             </header>

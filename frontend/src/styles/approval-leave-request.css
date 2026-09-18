@@ -95,7 +95,9 @@
 .leave-person-card strong { color: #0f172a; font-size: 14px; }
 .leave-person-card small { color: #64748b; font-size: 11px; }
 .leave-route-help { align-self: center; color: #64748b; font-size: 11px; }
-.leave-detail-head { align-items: center; }
+.leave-detail-head { align-items: center; padding: 20px; }
+.leave-detail-head > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.leave-detail-head > .leave-detail-status { flex-shrink: 0; }
 .leave-detail-status { display: grid; justify-items: end; gap: 4px; }
 .leave-detail-status span { padding: 7px 11px; border-radius: 999px; color: #0f766e; background: #ccfbf1; font-size: 12px; font-weight: 900; }
 .leave-detail-status small { color: #64748b; font-size: 11px; }

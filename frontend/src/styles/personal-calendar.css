@@ -434,3 +434,17 @@
   .personal-calendar-dialog { animation: none; }
   .spinning { animation: none; }
 }
+
+.personal-calendar-filters .trip i,
+.personal-calendar-kind.trip::before { background: #b45309; }
+.personal-calendar-event.trip { color: #92400e; background: #fef3c7; }
+.personal-calendar-day.holiday:not(.today) .personal-calendar-day-number { color: #b91c1c; }
+.personal-calendar-holiday,
+.personal-calendar-dialog header p.personal-calendar-holiday {
+  display: block;
+  margin: 0 0 4px;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}

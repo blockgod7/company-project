@@ -272,6 +272,13 @@ export type AttachFile = {
   createdAt: string;
 };
 
+export type BusinessTripSchedule = {
+  approvalId: number;
+  title: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+};
 export type ApprovalLine = {
   lineId: number;
   lineType: "AGREEMENT" | "APPROVAL" | "RECEIVER" | "REFERENCE" | "READER";

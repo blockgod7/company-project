@@ -37,6 +37,8 @@
 - `PdmPermissionPolicy` owns PDM access and delegated department-manager scope checks; `PdmService` owns drawing/revision/download workflows while `PdmFolderService` owns folder-path persistence and ordering.
 - Keep backend DTO and frontend type changes coordinated when API shapes change.
 
+- `BusinessTripScheduleService` serves authenticated own trips through `/business-trips/me?from=&to=` using inclusive saved trip-date overlap. Include undeleted APPROVED documents and IN_PROGRESS documents whose decisions before the first receiver are all approved/skipped; later allowance decisions do not delay calendar visibility. Reads must not mark documents read.
+
 ## Verification
 - From `backend/`, set the repository root first: `$root = Split-Path -Parent (Get-Location)`.
 - Backend tests: `& "$root\.tools\apache-maven-3.9.9\bin\mvn.cmd" test "-Dmaven.repo.local=$root\.m2repo"`.
